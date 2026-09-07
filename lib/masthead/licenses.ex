@@ -16,8 +16,18 @@ defmodule Masthead.Licenses do
   alias Masthead.Sites.Site
 
   @plans %{
-    "monthly" => %{interval: "month", var: "LICENSE_PRICE_MONTHLY", default: 500, label: "month"},
-    "yearly" => %{interval: "year", var: "LICENSE_PRICE_YEARLY", default: 5000, label: "year"}
+    "monthly" => %{
+      interval: "month",
+      var: "LICENSE_PRICE_MONTHLY_CENTS",
+      default: 500,
+      label: "month"
+    },
+    "yearly" => %{
+      interval: "year",
+      var: "LICENSE_PRICE_YEARLY_CENTS",
+      default: 5000,
+      label: "year"
+    }
   }
 
   @product_name "Masthead site license"

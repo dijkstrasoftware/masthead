@@ -20,8 +20,8 @@ defmodule Masthead.LicensesTest do
       })
 
     on_exit(fn ->
-      System.delete_env("LICENSE_PRICE_MONTHLY")
-      System.delete_env("LICENSE_PRICE_YEARLY")
+      System.delete_env("LICENSE_PRICE_MONTHLY_CENTS")
+      System.delete_env("LICENSE_PRICE_YEARLY_CENTS")
       System.delete_env("LICENSE_CURRENCY")
     end)
 
@@ -158,7 +158,7 @@ defmodule Masthead.LicensesTest do
     end
 
     test "come from the environment when set" do
-      System.put_env("LICENSE_PRICE_MONTHLY", "900")
+      System.put_env("LICENSE_PRICE_MONTHLY_CENTS", "900")
       System.put_env("LICENSE_CURRENCY", "usd")
 
       assert Licenses.amount("monthly") == 900
@@ -167,7 +167,7 @@ defmodule Masthead.LicensesTest do
     end
 
     test "fall back to the default when unparseable" do
-      System.put_env("LICENSE_PRICE_MONTHLY", "free please")
+      System.put_env("LICENSE_PRICE_MONTHLY_CENTS", "free please")
 
       assert Licenses.amount("monthly") == 500
     end
