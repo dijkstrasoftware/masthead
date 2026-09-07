@@ -47,10 +47,6 @@ defmodule MastheadWeb.AdminLive.Account do
     {:noreply, socket |> assign(editing_name?: false) |> assign_name_form()}
   end
 
-  def handle_event("validate_name", %{"user" => params}, socket) do
-    {:noreply, assign_name_form(socket, params, :validate)}
-  end
-
   def handle_event("save_name", %{"user" => params}, socket) do
     case Accounts.update_profile(socket.assigns.current_user, params) do
       {:ok, user} ->
@@ -126,9 +122,10 @@ defmodule MastheadWeb.AdminLive.Account do
     {:noreply, assign(socket, upload_error: "That picture couldn't be saved. Try another one.")}
   end
 
-  defp assign_name_form(socket, params \\ %{}, action \\ nil) do
-    changeset = Accounts.change_user_profile(socket.assigns.current_user, params)
-    assign(socket, name_form: to_form(changeset, action: action))
+  # No `phx-change` counterpart on purpose: the name is checked when it's
+  # submitted, not while it's half-typed.
+  defp assign_name_form(socket) do
+    assign(socket, name_form: to_form(Accounts.change_user_profile(socket.assigns.current_user)))
   end
 
   defp first_error(%Ecto.Changeset{errors: [{field, {msg, _}} | _]}), do: "#{field} #{msg}"
@@ -184,7 +181,6 @@ defmodule MastheadWeb.AdminLive.Account do
                   <.form
                     :if={@editing_name?}
                     for={@name_form}
-                    phx-change="validate_name"
                     phx-submit="save_name"
                     class="profile-name-form"
                   >

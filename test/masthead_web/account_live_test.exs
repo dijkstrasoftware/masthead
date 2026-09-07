@@ -66,6 +66,20 @@ defmodule MastheadWeb.AccountLiveTest do
       assert Repo.reload(user).display_name == "Jean-Luc"
     end
 
+    test "survives being cleared", %{conn: conn, user: user} do
+      {:ok, lv, _html} = live(conn, ~p"/account")
+
+      lv |> element(~s(button[phx-click="edit_name"])) |> render_click()
+
+      html =
+        lv
+        |> form(".profile-name-form", %{"user" => %{"display_name" => "  "}})
+        |> render_submit()
+
+      assert html =~ "can&#39;t be blank"
+      assert Repo.reload(user).display_name == user.display_name
+    end
+
     test "refuses a name another account already uses", %{conn: conn, user: user} do
       other = new_user()
       {:ok, lv, _html} = live(conn, ~p"/account")

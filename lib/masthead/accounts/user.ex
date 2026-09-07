@@ -82,7 +82,7 @@ defmodule Masthead.Accounts.User do
   def profile_changeset(user, attrs) do
     user
     |> cast(attrs, [:display_name, :avatar_path])
-    |> update_change(:display_name, &String.trim/1)
+    |> update_change(:display_name, &String.trim(&1 || ""))
     |> validate_required([:display_name])
     |> validate_length(:display_name, min: 2, max: @display_name_max)
     |> unsafe_validate_unique(:display_name, Masthead.Repo)
