@@ -5,6 +5,7 @@ defmodule MastheadWeb.AdminLive.Components do
 
   import MastheadWeb.MarketingComponents
 
+  alias Masthead.Accounts
   alias Masthead.Accounts.User
   alias Masthead.Actions
   alias Phoenix.LiveView.JS
@@ -169,14 +170,14 @@ defmodule MastheadWeb.AdminLive.Components do
         </nav>
 
         <div :if={@current_user} class="sidebar-user">
-          <div class="user-avatar">{user_initial(@current_user)}</div>
+          <.user_avatar user={@current_user} />
           <.link
             navigate={~p"/account"}
             class="user-email"
             title="Account settings"
             phx-click={close_nav()}
           >
-            {@current_user.email}
+            {@current_user.display_name}
           </.link>
           <.link href={~p"/logout"} method="delete" class="logout-link" title="Log out">
             <.icon_logout />
@@ -864,8 +865,30 @@ defmodule MastheadWeb.AdminLive.Components do
     """
   end
 
-  defp user_initial(%{email: email}) when is_binary(email) do
-    email |> String.first() |> String.upcase()
+  attr :user, :map, required: true
+  attr :class, :string, default: "user-avatar"
+  attr :rest, :global
+  slot :inner_block
+
+  @doc """
+  A user's picture when they've uploaded one, otherwise the first letter of
+  their display name. Takes any map carrying `display_name`/`avatar_path` —
+  a `%User{}` or a Presence meta.
+  """
+  def user_avatar(assigns) do
+    assigns = assign(assigns, :url, Accounts.avatar_url(assigns.user))
+
+    ~H"""
+    <span class={@class} {@rest}>
+      <img :if={@url} src={@url} alt="" class="avatar-image" />
+      <span :if={is_nil(@url)} class="avatar-initial">{user_initial(@user)}</span>
+      {render_slot(@inner_block)}
+    </span>
+    """
+  end
+
+  defp user_initial(%{display_name: name}) when is_binary(name) do
+    name |> String.first() |> String.upcase()
   end
 
   defp user_initial(_), do: "?"
@@ -873,15 +896,14 @@ defmodule MastheadWeb.AdminLive.Components do
   attr :users, :list, required: true
 
   # Overlapping avatars of who else is viewing, shown right after the page
-  # title. Each avatar reveals the member's email in a popover on hover. Fed by
+  # title. Each avatar names the member in a popover on hover. Fed by
   # `@present_users` (Presence), which the `:load_site` hook keeps current.
   defp presence_cluster(assigns) do
     ~H"""
     <div class="presence-cluster" aria-label="Also viewing" phx-no-format>
-      <span :for={u <- @users} class="presence-avatar" tabindex="0">
-        {user_initial(u)}
-        <span class="presence-popover" role="tooltip">{u.email}</span>
-      </span>
+      <.user_avatar :for={u <- @users} user={u} class="presence-avatar" tabindex="0">
+        <span class="presence-popover" role="tooltip">{u.display_name}</span>
+      </.user_avatar>
     </div>
     """
   end

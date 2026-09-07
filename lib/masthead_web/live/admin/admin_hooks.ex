@@ -38,7 +38,8 @@ defmodule MastheadWeb.AdminLive.Hooks do
       Realtime.subscribe(Realtime.presence_topic(site.id))
 
       Presence.track(self(), Realtime.presence_topic(site.id), to_string(user.id), %{
-        email: user.email
+        display_name: user.display_name,
+        avatar_path: user.avatar_path
       })
     end
 
@@ -98,6 +99,8 @@ defmodule MastheadWeb.AdminLive.Hooks do
     Realtime.presence_topic(site_id)
     |> Presence.list()
     |> Enum.reject(fn {id, _meta} -> id == self_id end)
-    |> Enum.map(fn {id, %{metas: [meta | _]}} -> %{id: id, email: meta.email} end)
+    |> Enum.map(fn {id, %{metas: [meta | _]}} ->
+      %{id: id, display_name: meta.display_name, avatar_path: meta.avatar_path}
+    end)
   end
 end

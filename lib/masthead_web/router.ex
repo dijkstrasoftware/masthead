@@ -99,6 +99,7 @@ defmodule MastheadWeb.Router do
     get "/verify", VerifyController, :show
 
     get "/account", AccountController, :show
+    post "/account/profile", AccountController, :update_profile
     post "/account/password", AccountController, :update_password
     post "/account/disable", AccountController, :disable
 

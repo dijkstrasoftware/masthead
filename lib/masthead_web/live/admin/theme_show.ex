@@ -421,13 +421,11 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
   defp active?(%{site: %{theme_id: id}, theme: %{id: id}}), do: true
   defp active?(_assigns), do: false
 
-  # Built-ins have no owner — they're maintained by the platform. For an
-  # uploaded theme the handle stands in for a display name; users have no
-  # profile, and a full address doesn't belong on a public listing.
+  # Built-ins have no owner — they're maintained by the platform.
   defp author(%{owner: %{} = owner}) do
     %{
-      handle: owner.email |> String.split("@") |> hd(),
-      initial: owner.email |> String.first() |> String.upcase(),
+      user: owner,
+      handle: owner.display_name,
       joined: Calendar.strftime(owner.inserted_at, "%B %Y"),
       published: Themes.published_count(owner.id)
     }
@@ -680,9 +678,8 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
 
           <section class="author-card">
             <div class="author-identity">
-              <span class="author-avatar" aria-hidden="true">
-                {if @author, do: @author.initial, else: "M"}
-              </span>
+              <.user_avatar :if={@author} user={@author.user} class="author-avatar" />
+              <span :if={is_nil(@author)} class="author-avatar" aria-hidden="true">M</span>
               <div class="author-lines">
                 <span class="author-name">{if @author, do: @author.handle, else: "Masthead"}</span>
                 <span :if={@author} class="author-meta">Member since {@author.joined}</span>

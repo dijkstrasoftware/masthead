@@ -5,11 +5,26 @@ defmodule MastheadWeb.AccountController do
 
   alias Masthead.Accounts
 
-  def show(conn, _params) do
-    render(conn, :show,
-      user: conn.assigns.current_user,
-      password_changeset: Accounts.change_user_password(conn.assigns.current_user)
-    )
+  def show(conn, _params), do: render_account(conn)
+
+  def update_profile(conn, params) do
+    user = conn.assigns.current_user
+    attrs = Map.take(params["user"] || %{}, ["display_name"])
+
+    case Accounts.update_profile(user, attrs, params["avatar"]) do
+      {:ok, _user} ->
+        conn
+        |> put_flash(:info, "Profile updated.")
+        |> redirect(to: ~p"/account")
+
+      {:error, :unsupported_image} ->
+        conn
+        |> put_flash(:error, "That file isn't an image we can use (png, jpg, gif or webp).")
+        |> render_account(status: :unprocessable_entity)
+
+      {:error, changeset} ->
+        render_account(conn, status: :unprocessable_entity, profile_changeset: changeset)
+    end
   end
 
   def update_password(conn, %{"current_password" => current, "user" => user_params}) do
@@ -24,16 +39,10 @@ defmodule MastheadWeb.AccountController do
       {:error, :invalid_current_password} ->
         conn
         |> put_flash(:error, "Current password is incorrect.")
-        |> put_status(:unprocessable_entity)
-        |> render(:show,
-          user: user,
-          password_changeset: Accounts.change_user_password(user)
-        )
+        |> render_account(status: :unprocessable_entity)
 
       {:error, changeset} ->
-        conn
-        |> put_status(:unprocessable_entity)
-        |> render(:show, user: user, password_changeset: changeset)
+        render_account(conn, status: :unprocessable_entity, password_changeset: changeset)
     end
   end
 
@@ -47,5 +56,24 @@ defmodule MastheadWeb.AccountController do
     |> clear_session()
     |> put_flash(:info, "Your account and all its sites have been disabled.")
     |> redirect(to: ~p"/login")
+  end
+
+  defp render_account(conn, overrides \\ []) do
+    user = conn.assigns.current_user
+    {status, overrides} = Keyword.pop(overrides, :status)
+
+    conn
+    |> put_status(status || :ok)
+    |> render(
+      :show,
+      Keyword.merge(
+        [
+          user: user,
+          profile_changeset: Accounts.change_user_profile(user, %{}),
+          password_changeset: Accounts.change_user_password(user)
+        ],
+        overrides
+      )
+    )
   end
 end

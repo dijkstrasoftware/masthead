@@ -183,8 +183,8 @@ defmodule MastheadWeb.RealtimeLiveTest do
 
       html = render(lv_a)
       assert html =~ "presence-cluster"
-      # b's email is revealed in the avatar's hover popover
-      assert html =~ b.email
+      # b is named in the avatar's hover popover
+      assert html =~ b.display_name
     end
   end
 end

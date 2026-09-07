@@ -5,6 +5,7 @@ defmodule MastheadWeb.AccountHTML do
   alias MastheadWeb.AdminLive.Components
 
   attr :user, :map, required: true
+  attr :profile_changeset, :map, required: true
   attr :password_changeset, :map, required: true
 
   def show(assigns) do
@@ -32,6 +33,50 @@ defmodule MastheadWeb.AccountHTML do
               <form :if={not User.confirmed?(@user)} action={~p"/confirm"} method="post">
                 <input type="hidden" name="_csrf_token" value={Phoenix.Controller.get_csrf_token()} />
                 <button type="submit" class="btn">Resend confirmation email</button>
+              </form>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <header class="settings-section-head">
+              <h2>Profile</h2>
+              <p>How you appear on the marketplace and to others viewing a site with you.</p>
+            </header>
+
+            <div class="settings-fields account-fields">
+              <form
+                action={~p"/account/profile"}
+                method="post"
+                enctype="multipart/form-data"
+                class="account-form"
+              >
+                <input type="hidden" name="_csrf_token" value={Phoenix.Controller.get_csrf_token()} />
+                <.error_list changeset={@profile_changeset} />
+
+                <div class="account-profile-preview">
+                  <Components.user_avatar user={@user} class="user-avatar account-avatar" />
+                  <label>
+                    Profile picture
+                    <input
+                      type="file"
+                      name="avatar"
+                      accept="image/png,image/jpeg,image/gif,image/webp"
+                    />
+                  </label>
+                </div>
+
+                <label>
+                  Display name
+                  <input
+                    type="text"
+                    name="user[display_name]"
+                    value={@user.display_name}
+                    required
+                    minlength="2"
+                    maxlength="40"
+                  />
+                </label>
+                <button type="submit" class="btn btn-primary">Save profile</button>
               </form>
             </div>
           </section>
