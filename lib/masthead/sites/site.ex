@@ -47,15 +47,32 @@ defmodule Masthead.Sites.Site do
   def create_changeset(site, attrs) do
     site
     |> cast(attrs, [:slug, :name, :title, :description, :theme_id])
+    |> validate_slug()
+    |> validate_required([:name])
+    |> validate_length(:name, max: 100)
+    |> validate_length(:title, max: 200)
+    |> validate_length(:description, max: 1000)
+  end
+
+  @doc """
+  Changing the subdomain of an existing site. The site moves to the new
+  address immediately and the old one stops resolving; already-uploaded
+  files keep the path they were stored under, so they survive the move.
+  """
+  def slug_changeset(site, attrs) do
+    site
+    |> cast(attrs, [:slug])
+    |> validate_slug()
+  end
+
+  defp validate_slug(changeset) do
+    changeset
     |> normalize_slug()
-    |> validate_required([:slug, :name])
+    |> validate_required([:slug])
     |> validate_format(:slug, ~r/^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$/,
       message: "must be 1-32 chars, lowercase letters/digits/hyphens, no leading/trailing hyphen"
     )
     |> validate_exclusion(:slug, @reserved_slugs)
-    |> validate_length(:name, max: 100)
-    |> validate_length(:title, max: 200)
-    |> validate_length(:description, max: 1000)
     |> unique_constraint(:slug)
   end
 

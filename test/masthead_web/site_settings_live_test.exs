@@ -29,7 +29,47 @@ defmodule MastheadWeb.SiteSettingsLiveTest do
       |> Plug.Test.init_test_session(%{})
       |> Plug.Conn.put_session(:user_id, user.id)
 
-    %{conn: conn, site: site}
+    %{conn: conn, site: site, user: user}
+  end
+
+  describe "changing the site address" do
+    test "the modal reports a free slug, a taken one, and a reserved one", %{
+      conn: conn,
+      site: site,
+      user: user
+    } do
+      {:ok, _} =
+        Sites.create_site(%{"slug" => "taken-slug", "name" => "Other", "owner_id" => user.id})
+
+      {:ok, lv, _} = live(conn, ~p"/#{site.slug}/settings")
+      lv |> element(~s(button[phx-click="open_slug_modal"])) |> render_click()
+
+      assert change_slug(lv, "a-free-slug") =~ "available"
+
+      taken = change_slug(lv, "taken-slug")
+      assert taken =~ "is already taken"
+      refute taken =~ "available"
+
+      assert change_slug(lv, "admin") =~ "is reserved"
+    end
+
+    test "saving moves the site to the new address", %{conn: conn, site: site} do
+      {:ok, lv, _} = live(conn, ~p"/#{site.slug}/settings")
+      lv |> element(~s(button[phx-click="open_slug_modal"])) |> render_click()
+
+      lv
+      |> form(~s(form[phx-submit="save_slug"]), %{"site" => %{"slug" => "moved-here"}})
+      |> render_submit()
+
+      assert_redirect(lv, ~p"/moved-here/settings")
+      assert Sites.get_site!(site.id).slug == "moved-here"
+    end
+  end
+
+  defp change_slug(lv, slug) do
+    lv
+    |> form(~s(form[phx-submit="save_slug"]), %{"site" => %{"slug" => slug}})
+    |> render_change()
   end
 
   test "the settings page no longer carries the theme controls", %{conn: conn, site: site} do
