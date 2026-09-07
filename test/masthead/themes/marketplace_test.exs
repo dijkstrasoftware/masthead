@@ -91,6 +91,25 @@ defmodule Masthead.Themes.MarketplaceTest do
       assert [%{name: "Verified"}] = Themes.list_marketplace(user.id, :verified)
       assert [%{name: "Community"}] = Themes.list_marketplace(user.id, :community)
     end
+
+    test "an author id narrows to that author's published themes", %{
+      user: user,
+      author: author
+    } do
+      other = register("other")
+      _theirs = published(author, "Theirs")
+      _elsewhere = published(other, "Elsewhere")
+      _private = upload(author, "Private")
+
+      assert [%{name: "Theirs"}] = Themes.list_marketplace(user.id, :all, nil, author.id)
+    end
+
+    test "your own shelf is visible when you ask for it by author", %{user: user} do
+      _own = published(user, "Mine Published")
+
+      assert Themes.list_marketplace(user.id) == []
+      assert [%{name: "Mine Published"}] = Themes.list_marketplace(user.id, :all, nil, user.id)
+    end
   end
 
   describe "install / uninstall (per site)" do

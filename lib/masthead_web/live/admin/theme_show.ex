@@ -681,7 +681,14 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
               <.user_avatar :if={@author} user={@author.user} class="author-avatar" />
               <span :if={is_nil(@author)} class="author-avatar" aria-hidden="true">M</span>
               <div class="author-lines">
-                <span class="author-name">{if @author, do: @author.handle, else: "Masthead"}</span>
+                <.link
+                  :if={@author}
+                  navigate={~p"/marketplace?#{[author: @author.handle]}"}
+                  class="author-name"
+                >
+                  {@author.handle}
+                </.link>
+                <span :if={is_nil(@author)} class="author-name">Masthead</span>
                 <span :if={@author} class="author-meta">Member since {@author.joined}</span>
                 <span :if={@author} class="author-meta">{theme_count(@author.published)}</span>
                 <span :if={is_nil(@author)} class="author-meta">Built-in theme</span>
