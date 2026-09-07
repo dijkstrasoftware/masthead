@@ -32,6 +32,41 @@ defmodule MastheadWeb.SiteSettingsLiveTest do
     %{conn: conn, site: site, user: user}
   end
 
+  describe "taking the site offline" do
+    test "the owner can take the site down and bring it back", %{conn: conn, site: site} do
+      {:ok, lv, _} = live(conn, ~p"/#{site.slug}/settings")
+
+      html = lv |> element(~s(button[phx-click="take_offline"])) |> render_click()
+
+      assert html =~ "Bring online"
+      refute Sites.get_site_by_slug(site.slug)
+      assert Sites.taken_offline?(Sites.get_site!(site.id))
+
+      html = lv |> element(~s(button[phx-click="bring_online"])) |> render_click()
+
+      assert html =~ "Take offline"
+      assert Sites.get_site_by_slug(site.slug)
+    end
+
+    test "an offline site's card says so instead of its plan", %{conn: conn, site: site} do
+      {:ok, _} = Sites.take_offline(site)
+
+      {:ok, _lv, html} = live(conn, ~p"/sites")
+
+      assert html =~ "Offline"
+      refute html =~ ~s(card-pill pill-draft)
+    end
+
+    test "an admin pause is not the owner's to undo", %{conn: conn, site: site} do
+      {:ok, _} = Sites.disable_site(site)
+
+      {:ok, lv, html} = live(conn, ~p"/#{site.slug}/settings")
+
+      assert html =~ "taken offline by an admin"
+      assert lv |> element(~s(button[phx-click="bring_online"])) |> has_element?() == false
+    end
+  end
+
   describe "changing the site address" do
     test "the modal reports a free slug, a taken one, and a reserved one", %{
       conn: conn,

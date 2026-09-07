@@ -355,6 +355,12 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; background
   background: rgba(22, 101, 52, 0.22);
 }
 
+.sidebar-pill-offline {
+  color: #fca5a5;
+  border-color: #7f1d1d;
+  background: rgba(127, 29, 29, 0.28);
+}
+
 .sidebar-version {
   margin: 0.25rem 0 0;
   font-size: 0.72rem;

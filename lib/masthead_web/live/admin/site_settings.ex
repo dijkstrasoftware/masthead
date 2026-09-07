@@ -98,6 +98,24 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
     end
   end
 
+  def handle_event("take_offline", _params, socket) do
+    {:ok, site} = Sites.take_offline(socket.assigns.site)
+
+    {:noreply,
+     socket
+     |> assign(site: site)
+     |> put_flash(:info, "#{site.name} is offline. Visitors now get a not-found page.")}
+  end
+
+  def handle_event("bring_online", _params, socket) do
+    {:ok, site} = Sites.enable_site(socket.assigns.site)
+
+    {:noreply,
+     socket
+     |> assign(site: site)
+     |> put_flash(:info, "#{site.name} is back online.")}
+  end
+
   def handle_event("delete_site", _params, socket) do
     # The site is owner-scoped by the :load_site hook, so the current user is
     # authorized. Soft-delete keeps the row recoverable (by an admin); the
@@ -489,6 +507,43 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
             </header>
 
             <div class="settings-fields">
+              <div class="danger-row">
+                <div>
+                  <strong>
+                    {if Sites.taken_offline?(@site), do: "Bring back online", else: "Take offline"}
+                  </strong>
+                  <p class="muted">
+                    <span :if={Sites.taken_offline?(@site)}>
+                      This site is offline — visitors get a not-found page. Your content is
+                      untouched and comes straight back.
+                    </span>
+                    <span :if={not Sites.taken_offline?(@site) and is_nil(@site.disabled_at)}>
+                      Stops <code>{@site.slug}.{@host}</code> from resolving without deleting
+                      anything. You can bring it back whenever you like.
+                    </span>
+                    <span :if={not Sites.taken_offline?(@site) and not is_nil(@site.disabled_at)}>
+                      This site was taken offline by an admin — contact support to bring it back.
+                    </span>
+                  </p>
+                </div>
+                <button
+                  :if={Sites.taken_offline?(@site)}
+                  type="button"
+                  phx-click="bring_online"
+                  class="btn"
+                >
+                  Bring online
+                </button>
+                <button
+                  :if={is_nil(@site.disabled_at)}
+                  type="button"
+                  phx-click="take_offline"
+                  class="btn btn-danger"
+                  data-confirm={"Take #{@site.name} offline? Visitors will get a not-found page until you bring it back."}
+                >
+                  Take offline
+                </button>
+              </div>
               <div class="danger-row">
                 <div>
                   <strong>Change site address</strong>
