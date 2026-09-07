@@ -115,10 +115,6 @@ defmodule Masthead.Sites do
     Repo.one!(from s in Site, where: s.slug == ^slug and is_nil(s.deleted_at))
   end
 
-  defp set_site_timestamp(%Site{} = site, field, value) do
-    site |> Ecto.Changeset.change(%{field => value}) |> Repo.update()
-  end
-
   @doc """
   Pauses a site manually from the console (stops resolving). Tagged
   `disabled_reason: "admin"` so the member-availability cascade never
@@ -137,9 +133,15 @@ defmodule Masthead.Sites do
     |> Repo.update()
   end
 
-  @doc "Soft-deletes a site (hidden from owner + public; retained for recovery)."
+  @doc """
+  Soft-deletes a site (hidden from owner + public; retained for recovery).
+
+  The slug is suffixed on the way out so it stops occupying the name — a
+  deleted site would otherwise block anyone, its own owner included, from
+  reusing that address. `restore_site/1` takes the original back.
+  """
   def soft_delete_site(%Site{} = site) do
-    case set_site_timestamp(site, :deleted_at, truncated_now()) do
+    case archive_site(site) do
       {:ok, _} = result ->
         Realtime.site_gone(site.id)
         result
@@ -149,8 +151,41 @@ defmodule Masthead.Sites do
     end
   end
 
-  @doc "Restores a soft-deleted site."
-  def restore_site(%Site{} = site), do: set_site_timestamp(site, :deleted_at, nil)
+  @doc """
+  Restores a soft-deleted site, reclaiming the slug it had before deletion
+  when nobody has taken it in the meantime (otherwise it keeps the suffixed
+  one, which is at least free).
+  """
+  def restore_site(%Site{} = site) do
+    site
+    |> Ecto.Changeset.change(deleted_at: nil, slug: restored_slug(site))
+    |> Ecto.Changeset.unique_constraint(:slug)
+    |> Repo.update()
+  end
+
+  defp archive_site(site) do
+    site
+    |> Ecto.Changeset.change(deleted_at: truncated_now(), slug: archived_slug(site.slug))
+    |> Ecto.Changeset.unique_constraint(:slug)
+    |> Repo.update()
+  end
+
+  # "example" -> "example-deleted-9f3ac1b2": readable in the console, and the
+  # original is still in there for a restore to peel back off.
+  defp archived_slug(slug), do: "#{slug}-deleted-#{random_suffix()}"
+
+  defp random_suffix, do: 4 |> :crypto.strong_rand_bytes() |> Base.encode16(case: :lower)
+
+  defp restored_slug(%Site{slug: slug} = site) do
+    case String.replace(slug, ~r/-deleted-[0-9a-f]{8}$/, "") do
+      ^slug -> slug
+      original -> free_slug(original, slug, site.id)
+    end
+  end
+
+  defp free_slug(original, fallback, site_id) do
+    if slug_taken?(original, site_id), do: fallback, else: original
+  end
 
   defp truncated_now, do: DateTime.utc_now() |> DateTime.truncate(:second)
 
