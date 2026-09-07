@@ -25,7 +25,10 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
        tag_form: nil,
        tag_slug_touched: false,
        plans: Licenses.plans(),
-       upgrade_modal?: false
+       upgrade_modal?: false,
+       host: site_host(),
+       slug_modal?: false,
+       slug_form: nil
      )
      |> assign_form(changeset)}
   end
@@ -107,6 +110,33 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
      |> push_navigate(to: ~p"/sites")}
   end
 
+  # ---- Address (slug) ----
+
+  def handle_event("open_slug_modal", _params, socket) do
+    {:noreply, assign(socket, slug_modal?: true, slug_form: slug_form(socket.assigns.site))}
+  end
+
+  def handle_event("close_slug_modal", _params, socket) do
+    {:noreply, assign(socket, slug_modal?: false, slug_form: nil)}
+  end
+
+  def handle_event("validate_slug", %{"site" => params}, socket) do
+    {:noreply, assign(socket, slug_form: slug_form(socket.assigns.site, params, :validate))}
+  end
+
+  def handle_event("save_slug", %{"site" => params}, socket) do
+    case Sites.update_slug(socket.assigns.site, params) do
+      {:ok, site} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Your site now lives at #{site.slug}.#{socket.assigns.host}.")
+         |> push_navigate(to: ~p"/#{site.slug}/settings")}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, slug_form: to_form(changeset, as: :site, action: :validate))}
+    end
+  end
+
   # ---- Tags ----
 
   def handle_event("new_tag", _params, socket) do
@@ -185,6 +215,27 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
       # slug (it's referenced by themes) unless the user edits it directly.
       tag_slug_touched: not is_nil(tag.id)
     )
+  end
+
+  defp slug_form(site, params \\ %{}, action \\ nil) do
+    site
+    |> Sites.change_slug(params)
+    |> to_form(as: :site, action: action)
+  end
+
+  # The public host sites hang off ("lvh.me:4000" in dev), for the address
+  # preview in the modal.
+  defp site_host do
+    cfg = Application.get_env(:masthead, :site_url, [])
+    host = Keyword.get(cfg, :host, "lvh.me")
+    port = Keyword.get(cfg, :port)
+
+    if port in [nil, 80, 443], do: host, else: "#{host}:#{port}"
+  end
+
+  # A new, valid, unclaimed slug — the changeset carries the taken-check.
+  defp slug_available?(form) do
+    form.source.changes != %{} and form.source.errors == []
   end
 
   defp settings_url(site), do: url(~p"/#{site.slug}/settings")
@@ -434,24 +485,39 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
           <div class="settings-section danger-zone">
             <header class="settings-section-head">
               <h2>Danger zone</h2>
-              <p>Permanently remove this site from your account.</p>
+              <p>Moving or removing this site — both take its current address offline.</p>
             </header>
-            <div class="danger-row">
-              <div>
-                <strong>Delete this site</strong>
-                <p class="muted">
-                  Takes <code>{@site.slug}</code> offline and removes it from your sites.
-                  The data is retained for recovery — contact support if you delete it by mistake.
-                </p>
+
+            <div class="settings-fields">
+              <div class="danger-row">
+                <div>
+                  <strong>Change site address</strong>
+                  <p class="muted">
+                    Visitors reach this site at <code>{@site.slug}.{@host}</code>.
+                    Changing it breaks every link and bookmark pointing at the old address.
+                  </p>
+                </div>
+                <button type="button" phx-click="open_slug_modal" class="btn btn-danger">
+                  Change address
+                </button>
               </div>
-              <button
-                type="button"
-                phx-click="delete_site"
-                class="btn btn-danger"
-                data-confirm={"Delete #{@site.name}? It will go offline immediately and disappear from your sites."}
-              >
-                Delete site
-              </button>
+              <div class="danger-row">
+                <div>
+                  <strong>Delete this site</strong>
+                  <p class="muted">
+                    Takes <code>{@site.slug}</code> offline and removes it from your sites.
+                    The data is retained for recovery — contact support if you delete it by mistake.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  phx-click="delete_site"
+                  class="btn btn-danger"
+                  data-confirm={"Delete #{@site.name}? It will go offline immediately and disappear from your sites."}
+                >
+                  Delete site
+                </button>
+              </div>
             </div>
           </div>
 
@@ -522,6 +588,64 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
             <div class="dialog-footer">
               <button type="button" phx-click="close_tag_modal" class="btn">Cancel</button>
               <button type="submit" class="btn btn-primary">Save tag</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div
+        :if={@slug_modal?}
+        class="dialog-backdrop"
+        phx-window-keydown="close_slug_modal"
+        phx-key="Escape"
+      >
+        <button
+          type="button"
+          phx-click="close_slug_modal"
+          class="dialog-close-overlay"
+          aria-label="Close"
+          tabindex="-1"
+        >
+        </button>
+        <div class="dialog">
+          <header class="dialog-header">
+            <h2>Change site address</h2>
+            <button
+              type="button"
+              phx-click="close_slug_modal"
+              class="dialog-close"
+              aria-label="Close"
+            >
+              &times;
+            </button>
+          </header>
+
+          <form phx-submit="save_slug" phx-change="validate_slug" class="dialog-form">
+            <label>
+              Subdomain
+              <input
+                type="text"
+                name="site[slug]"
+                value={@slug_form[:slug].value}
+                autocomplete="off"
+                phx-debounce="300"
+                required
+                autofocus
+              />
+              <small>
+                Public URL: <code>{(@slug_form[:slug].value || "your-slug") <> "." <> @host}</code>
+                <span :if={slug_available?(@slug_form)} class="pill pill-ok">available</span>
+              </small>
+            </label>
+            <ul :if={@slug_form.errors != []} class="errors">
+              <li :for={{_field, {msg, _}} <- @slug_form.errors}>{msg}</li>
+            </ul>
+            <p class="muted">
+              The old address stops working right away. Links and bookmarks pointing at it will break.
+            </p>
+            <div class="dialog-footer">
+              <button type="button" phx-click="close_slug_modal" class="btn">Cancel</button>
+              <button type="submit" class="btn btn-primary">Change address</button>
             </div>
           </form>
         </div>

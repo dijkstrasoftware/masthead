@@ -482,6 +482,46 @@ defmodule Masthead.Sites do
     Site.settings_changeset(site, attrs)
   end
 
+  @doc """
+  Changeset for moving a site to another subdomain, with the taken-check
+  folded in so the form can report it while the owner types.
+  """
+  def change_slug(%Site{} = site, attrs \\ %{}) do
+    site
+    |> Site.slug_changeset(attrs)
+    |> reject_taken_slug(site)
+  end
+
+  @doc """
+  Moves the site to a new subdomain. The old address stops resolving at
+  once, so callers should send the owner to the new one.
+  """
+  def update_slug(%Site{} = site, attrs) do
+    with {:ok, site} <- site |> change_slug(attrs) |> Repo.update() do
+      Realtime.settings_changed(site.id)
+      {:ok, site}
+    end
+  end
+
+  # Only turns a taken slug into feedback while typing — the unique index is
+  # still what makes it safe against a concurrent claim.
+  defp reject_taken_slug(changeset, site) do
+    case Ecto.Changeset.get_change(changeset, :slug) do
+      nil -> changeset
+      slug -> reject_if_taken(changeset, slug, site.id)
+    end
+  end
+
+  defp reject_if_taken(changeset, slug, site_id) do
+    if slug_taken?(slug, site_id),
+      do: Ecto.Changeset.add_error(changeset, :slug, "is already taken"),
+      else: changeset
+  end
+
+  defp slug_taken?(slug, site_id) do
+    Repo.exists?(from s in Site, where: s.slug == ^slug and s.id != ^site_id)
+  end
+
   defp apply_filter(query, filter) do
     now = DateTime.utc_now()
 
