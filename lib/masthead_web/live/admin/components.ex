@@ -77,8 +77,8 @@ defmodule MastheadWeb.AdminLive.Components do
           <p class="sidebar-version">v{Application.spec(:masthead, :vsn)}</p>
           <p :if={@site} class="sidebar-site">
             <span class="sidebar-site-name">{@site.name}</span>
-            <span class={["sidebar-pill", Masthead.Licenses.paid?(@site) && "sidebar-pill-paid"]}>
-              {Masthead.Licenses.label(@site)}
+            <span class={["sidebar-pill", sidebar_pill_class(@site)]}>
+              {site_chip_label(@site)}
             </span>
           </p>
         </div>
@@ -885,6 +885,23 @@ defmodule MastheadWeb.AdminLive.Components do
     </div>
     """
   end
+
+  @doc """
+  What a site's chip says: its license, unless the site is offline — an
+  owner who took their site down cares about that before the plan.
+  """
+  def site_chip_label(%{disabled_at: nil} = site), do: Masthead.Licenses.label(site)
+  def site_chip_label(_site), do: "Offline"
+
+  @doc "Pill class matching `site_chip_label/1`."
+  def site_chip_class(%{disabled_at: nil} = site), do: Masthead.Licenses.pill_class(site)
+  def site_chip_class(_site), do: "pill-danger"
+
+  defp sidebar_pill_class(%{disabled_at: nil} = site) do
+    Masthead.Licenses.paid?(site) && "sidebar-pill-paid"
+  end
+
+  defp sidebar_pill_class(_site), do: "sidebar-pill-offline"
 
   @doc false
   # Builds the public URL for a site based on `:masthead, :site_url`:

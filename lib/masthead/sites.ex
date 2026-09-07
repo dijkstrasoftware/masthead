@@ -120,13 +120,24 @@ defmodule Masthead.Sites do
   `disabled_reason: "admin"` so the member-availability cascade never
   re-enables it. Reversible via `enable_site/1`.
   """
-  def disable_site(%Site{} = site) do
+  def disable_site(%Site{} = site, reason \\ "admin") do
     site
-    |> Ecto.Changeset.change(disabled_at: truncated_now(), disabled_reason: "admin")
+    |> Ecto.Changeset.change(disabled_at: truncated_now(), disabled_reason: reason)
     |> Repo.update()
   end
 
-  @doc "Un-pauses a site (admin)."
+  @doc """
+  The owner taking their own site down. Tagged `disabled_reason: "owner"`
+  so nothing else brings it back — not the member-availability cascade, and
+  not an admin un-pause looking at its own work.
+  """
+  def take_offline(%Site{} = site), do: disable_site(site, "owner")
+
+  @doc "True when the site is offline because its owner took it down."
+  def taken_offline?(%Site{disabled_reason: "owner", disabled_at: at}), do: not is_nil(at)
+  def taken_offline?(%Site{}), do: false
+
+  @doc "Un-pauses a site (admin, or the owner undoing their own take-down)."
   def enable_site(%Site{} = site) do
     site
     |> Ecto.Changeset.change(disabled_at: nil, disabled_reason: nil)
