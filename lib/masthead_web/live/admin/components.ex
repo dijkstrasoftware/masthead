@@ -513,7 +513,7 @@ defmodule MastheadWeb.AdminLive.Components do
             {label}
           </button>
         </div>
-        <form phx-change="search_list" class="admin-search">
+        <form phx-change="search_list" phx-submit="search_list" class="admin-search">
           <input type="hidden" name="scope" value={@scope} />
           <input
             type="search"

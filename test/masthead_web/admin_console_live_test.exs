@@ -112,27 +112,31 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     assert_patch(lv, ~p"/admin/users/all")
   end
 
-  test "clicking a column header sorts the list and flips on a second click",
-       %{conn: conn, admin: admin, member: member} do
+  test "clicking a column header sorts the list and flips on a second click", %{conn: conn} do
+    for email <- ["aaa@example.com", "zzz@example.com"] do
+      {:ok, _} = Accounts.register_user(%{"email" => email, "password" => "password1234"})
+    end
+
     {:ok, lv, _} = live(conn, ~p"/admin")
 
-    html =
-      lv
-      |> element(~s(button[phx-value-scope="users"][phx-value-field="email"]))
-      |> render_click()
+    html = click_sort(lv, "email")
+    assert index_of(html, "aaa@example.com") < index_of(html, "zzz@example.com")
 
-    assert index_of(html, admin.email) < index_of(html, member.email)
-
-    html =
-      lv
-      |> element(~s(button[phx-value-scope="users"][phx-value-field="email"]))
-      |> render_click()
-
-    assert index_of(html, member.email) < index_of(html, admin.email)
+    html = click_sort(lv, "email")
+    assert index_of(html, "zzz@example.com") < index_of(html, "aaa@example.com")
   end
 
+  defp click_sort(lv, field) do
+    lv
+    |> element(~s(button[phx-value-scope="users"][phx-value-field="#{field}"]))
+    |> render_click()
+  end
+
+  # The signed-in admin's own email also sits in the page shell, so only the
+  # table body says anything about the sort.
   defp index_of(html, needle) do
-    [{start, _}] = Regex.run(~r/#{Regex.escape(needle)}/, html, return: :index)
+    [rows] = Regex.run(~r/<tbody.*<\/tbody>/s, html)
+    {start, _} = :binary.match(rows, needle)
     start
   end
 

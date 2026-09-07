@@ -508,7 +508,7 @@ defmodule MastheadWeb.AdminLive.Marketplace do
                 <option value="private" selected={@visibility == :private}>Private</option>
               </select>
             </form>
-            <form phx-change="search" class="admin-search">
+            <form phx-change="search" phx-submit="search" class="admin-search">
               <input
                 type="search"
                 name="query"
