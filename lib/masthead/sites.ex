@@ -98,6 +98,14 @@ defmodule Masthead.Sites do
     |> Repo.all()
   end
 
+  @doc "Total sites matching the same filter + search, ignoring the row cap."
+  def count_all_sites(filter \\ :all, search_query \\ nil) do
+    from(s in Site)
+    |> apply_filter(filter)
+    |> apply_search(search_query)
+    |> Repo.aggregate(:count)
+  end
+
   @doc "Load any site by slug for an admin entering it. Excludes soft-deleted."
   def get_site_for_admin_by_slug!(slug) when is_binary(slug) do
     Repo.one!(from s in Site, where: s.slug == ^slug and is_nil(s.deleted_at))

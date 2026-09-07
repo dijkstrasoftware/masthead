@@ -1471,7 +1471,15 @@ button.danger:hover { filter: brightness(0.92); }
   gap: 1rem;
   flex-wrap: wrap;
 }
-.admin-toolbar-hint { margin: 0; font-size: 0.8rem; color: var(--muted); }
+.admin-toolbar-hint {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
 .admin-filters { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .admin-search { margin: 0; flex: 0 1 18rem; }
 .admin-search input[type="search"] {

@@ -86,6 +86,15 @@ defmodule Masthead.Uploads do
     |> Repo.all()
   end
 
+  @doc "Total uploads matching the same search + filter, ignoring the cap."
+  def count_uploads(site_id, opts \\ []) do
+    Upload
+    |> where([u], u.site_id == ^site_id)
+    |> search_uploads(Keyword.get(opts, :search))
+    |> filter_type(Keyword.get(opts, :filter, :all))
+    |> Repo.aggregate(:count)
+  end
+
   defp search_uploads(query, search) when is_binary(search) and search != "" do
     from u in query, where: ilike(u.filename, ^"%#{search}%")
   end

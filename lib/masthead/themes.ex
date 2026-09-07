@@ -446,6 +446,14 @@ defmodule Masthead.Themes do
     |> Repo.all()
   end
 
+  @doc "Total themes matching the same filter + search, ignoring the row cap."
+  def count_all_themes(filter \\ :all, search_query \\ nil) do
+    from(t in Theme)
+    |> apply_filter(filter)
+    |> apply_search(search_query)
+    |> Repo.aggregate(:count)
+  end
+
   defp apply_filter(query, filter) do
     case filter do
       :built_in -> from t in query, where: t.source == "built_in"

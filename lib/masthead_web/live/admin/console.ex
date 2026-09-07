@@ -99,8 +99,11 @@ defmodule MastheadWeb.AdminLive.Console do
   defp load_data(%{assigns: a} = socket) do
     assign(socket,
       users: Accounts.list_all_users(a.users_filter, a.users_search, list_limit()),
+      users_total: Accounts.count_all_users(a.users_filter, a.users_search),
       sites: Sites.list_all_sites(a.sites_filter, a.sites_search, list_limit()),
-      themes: Themes.list_all_themes(a.themes_filter, a.themes_search, list_limit())
+      sites_total: Sites.count_all_sites(a.sites_filter, a.sites_search),
+      themes: Themes.list_all_themes(a.themes_filter, a.themes_search, list_limit()),
+      themes_total: Themes.count_all_themes(a.themes_filter, a.themes_search)
     )
   end
 
@@ -272,6 +275,7 @@ defmodule MastheadWeb.AdminLive.Console do
           placeholder="Search by email…"
           limit={list_limit()}
           truncated?={length(@users) == list_limit()}
+          total={@users_total}
         />
         <table class="table">
           <thead>
@@ -340,6 +344,7 @@ defmodule MastheadWeb.AdminLive.Console do
           placeholder="Search by name…"
           limit={list_limit()}
           truncated?={length(@sites) == list_limit()}
+          total={@sites_total}
         />
         <table class="table table-menus">
           <thead>
@@ -466,6 +471,7 @@ defmodule MastheadWeb.AdminLive.Console do
           placeholder="Search by name…"
           limit={list_limit()}
           truncated?={length(@themes) == list_limit()}
+          total={@themes_total}
         />
         <table class="table">
           <thead>
