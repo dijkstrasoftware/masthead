@@ -185,21 +185,28 @@ defmodule Masthead.Accounts do
   @avatar_namespace "avatars"
   @avatar_extensions ~w(.png .jpg .jpeg .gif .webp)
 
+  @doc "Renames the user — the name shown on the marketplace and in the live tracker."
+  def update_profile(%User{} = user, attrs) do
+    user
+    |> User.profile_changeset(attrs)
+    |> Repo.update()
+  end
+
+  def change_user_profile(%User{} = user, attrs \\ %{}) do
+    User.profile_changeset(user, attrs)
+  end
+
   @doc """
-  Updates the public profile — the display name shown on the marketplace and
-  in the live tracker, plus an optional new avatar (a `%Plug.Upload{}`). The
-  replaced avatar file is removed once the row is saved.
+  Stores an uploaded avatar (a path on disk, as handed back by
+  `consume_uploaded_entries`) and points the user at it. The file it replaces
+  is removed once the row is saved.
   """
-  def update_profile(%User{} = user, attrs, avatar) do
-    case store_avatar(user, avatar) do
-      {:ok, nil} ->
-        save_profile(user, attrs)
-
-      {:ok, path} ->
-        user |> save_profile(Map.put(attrs, "avatar_path", path)) |> drop_avatar(user)
-
-      {:error, _} = error ->
-        error
+  def update_avatar(%User{} = user, %{filename: filename, path: path}) do
+    with {:ok, rel} <- store_avatar(user, filename, path) do
+      user
+      |> User.profile_changeset(%{"avatar_path" => rel})
+      |> Repo.update()
+      |> drop_avatar(user)
     end
   end
 
@@ -207,19 +214,7 @@ defmodule Masthead.Accounts do
   def avatar_url(%{avatar_path: path}) when is_binary(path), do: Storage.url(path)
   def avatar_url(_user), do: nil
 
-  def change_user_profile(%User{} = user, attrs) do
-    User.profile_changeset(user, attrs)
-  end
-
-  defp save_profile(user, attrs) do
-    user
-    |> User.profile_changeset(attrs)
-    |> Repo.update()
-  end
-
-  defp store_avatar(_user, %Plug.Upload{filename: ""}), do: {:ok, nil}
-
-  defp store_avatar(user, %Plug.Upload{filename: filename, path: path}) do
+  defp store_avatar(user, filename, path) do
     case String.downcase(Path.extname(filename)) do
       ext when ext in @avatar_extensions ->
         Storage.stream_into(@avatar_namespace, avatar_key(user, ext), path)
@@ -228,8 +223,6 @@ defmodule Masthead.Accounts do
         {:error, :unsupported_image}
     end
   end
-
-  defp store_avatar(_user, _not_an_upload), do: {:ok, nil}
 
   defp avatar_key(user, ext), do: "#{user.id}-#{System.system_time(:millisecond)}#{ext}"
 
