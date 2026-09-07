@@ -1,6 +1,7 @@
 defmodule Masthead.Accounts do
   import Ecto.Query
 
+  alias Masthead.Query
   alias Masthead.Repo
   alias Masthead.Accounts.User
   alias Masthead.Accounts.UserToken
@@ -434,10 +435,13 @@ defmodule Masthead.Accounts do
   search. Capped at `count` rows — narrow with the filter + search rather
   than paging.
   """
-  def list_all_users(filter \\ :all, search_query \\ nil, count \\ 20) do
+  @sortable_users [:email, :confirmed_at, :disabled_at, :admin, :inserted_at, :last_login_at]
+
+  def list_all_users(filter \\ :all, search_query \\ nil, count \\ 20, sort \\ nil) do
     from(u in User, order_by: [desc: u.inserted_at])
     |> apply_filter(filter)
     |> apply_search(search_query)
+    |> Query.sort(sort, @sortable_users)
     |> limit(^count)
     |> Repo.all()
   end

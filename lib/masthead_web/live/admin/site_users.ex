@@ -18,6 +18,7 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
        modal_open?: false,
        upgrade_modal?: false,
        plans: Licenses.plans(),
+       sort: nil,
        email: ""
      )}
   end
@@ -44,6 +45,11 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
 
   def handle_event("search_list", %{"query" => query}, socket) do
     {:noreply, push_patch(socket, to: users_path(socket, view_param(socket.assigns.view), query))}
+  end
+
+  def handle_event("sort_list", %{"field" => field}, socket) do
+    {:noreply,
+     socket |> assign(:sort, toggle_sort(socket.assigns.sort, field)) |> reload_people()}
   end
 
   def handle_event("open_upgrade", _params, socket) do
@@ -151,9 +157,17 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
       member_count: length(members),
       invitations: invitations,
       invitation_count: length(invitations),
-      rows: rows_for(socket.assigns.view, members, invitations, socket.assigns.search)
+      rows:
+        socket.assigns.view
+        |> rows_for(members, invitations, socket.assigns.search)
+        |> sort_rows(socket.assigns.sort)
     )
   end
+
+  # Both lists are loaded whole (a site has a handful of people), so the
+  # clicked column sorts in memory rather than in a query.
+  defp sort_rows(rows, {field, direction}), do: Enum.sort_by(rows, &Map.get(&1, field), direction)
+  defp sort_rows(rows, _sort), do: rows
 
   defp rows_for(:invitations, _members, invitations, search),
     do: filter_by_email(invitations, search)
@@ -239,9 +253,9 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
       <table :if={@view == :members and @rows != []} class="table table-cards">
         <thead>
           <tr>
-            <th>Email</th>
-            <th>Status</th>
-            <th>Joined</th>
+            <.sort_th scope={:users} field={:email} sort={@sort}>Email</.sort_th>
+            <.sort_th scope={:users} field={:confirmed_at} sort={@sort}>Status</.sort_th>
+            <.sort_th scope={:users} field={:joined_at} sort={@sort}>Joined</.sort_th>
             <th class="actions-cell"></th>
           </tr>
         </thead>
@@ -282,9 +296,9 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
       <table :if={@view == :invitations and @rows != []} class="table table-cards">
         <thead>
           <tr>
-            <th>Email</th>
+            <.sort_th scope={:users} field={:email} sort={@sort}>Email</.sort_th>
             <th>Status</th>
-            <th>Invited</th>
+            <.sort_th scope={:users} field={:inserted_at} sort={@sort}>Invited</.sort_th>
             <th class="actions-cell"></th>
           </tr>
         </thead>

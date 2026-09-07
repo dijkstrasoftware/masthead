@@ -2,6 +2,7 @@ defmodule Masthead.Sites do
   import Ecto.Query
   alias Masthead.Licenses
   alias Masthead.Realtime
+  alias Masthead.Query
   alias Masthead.Repo
   alias Masthead.Accounts
   alias Masthead.Accounts.User
@@ -90,10 +91,13 @@ defmodule Masthead.Sites do
   preloaded. Capped at `count` rows — the overview is meant to be narrowed
   with the filter + search, not paged through.
   """
-  def list_all_sites(filter \\ :all, search_query \\ nil, count \\ 20) do
-    from(s in Site, order_by: [desc: s.id], preload: [:members])
+  @sortable_sites [:name, :slug, :inserted_at, :disabled_at]
+
+  def list_all_sites(filter \\ :all, search_query \\ nil, count \\ 20, sort \\ nil) do
+    from(s in Site, order_by: [desc: s.id])
     |> apply_filter(filter)
     |> apply_search(search_query)
+    |> Query.sort(sort, @sortable_sites)
     |> limit(^count)
     |> Repo.all()
   end

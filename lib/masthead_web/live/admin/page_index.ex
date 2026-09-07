@@ -13,6 +13,7 @@ defmodule MastheadWeb.AdminLive.PageIndex do
      assign(socket,
        status_filter: :all,
        search: "",
+       sort: nil,
        page_title: "Pages — #{socket.assigns.site.name}"
      )}
   end
@@ -39,6 +40,10 @@ defmodule MastheadWeb.AdminLive.PageIndex do
      push_patch(socket, to: pages_path(socket, filter_param(socket.assigns.status_filter), query))}
   end
 
+  def handle_event("sort_list", %{"field" => field}, socket) do
+    {:noreply, socket |> assign(:sort, toggle_sort(socket.assigns.sort, field)) |> load()}
+  end
+
   def handle_event("delete", %{"id" => id}, socket) do
     page = Content.get_page!(socket.assigns.site.id, id)
     {:ok, _} = Content.delete_page(page)
@@ -49,14 +54,21 @@ defmodule MastheadWeb.AdminLive.PageIndex do
      |> load()}
   end
 
-  defp load(socket) do
-    pages =
-      Content.list_pages(socket.assigns.site.id,
-        filter: socket.assigns.status_filter,
-        search: socket.assigns.search
-      )
+  # The table shows at most this many rows; narrow with the filter or search
+  # rather than paging, and the toolbar says how many matched in total.
+  defp list_limit, do: 20
 
-    assign(socket, pages: pages)
+  defp load(socket) do
+    opts = [filter: socket.assigns.status_filter, search: socket.assigns.search]
+
+    assign(socket,
+      pages:
+        Content.list_pages(
+          socket.assigns.site.id,
+          [sort: socket.assigns.sort, limit: list_limit()] ++ opts
+        ),
+      pages_total: Content.count_pages(socket.assigns.site.id, opts)
+    )
   end
 
   # Keep the filter and search in the URL so they survive a reload and stay
@@ -125,17 +137,18 @@ defmodule MastheadWeb.AdminLive.PageIndex do
         options={Content.status_filter_options()}
         search={@search}
         placeholder="Search pages…"
-        limit={length(@pages)}
-        truncated?={false}
+        limit={list_limit()}
+        truncated?={length(@pages) == list_limit()}
+        total={@pages_total}
       />
 
       <table :if={@pages != []} class="table table-cards">
         <thead>
           <tr>
-            <th>Title</th>
-            <th>Format</th>
-            <th>Status</th>
-            <th>Updated</th>
+            <.sort_th scope={:pages} field={:title} sort={@sort}>Title</.sort_th>
+            <.sort_th scope={:pages} field={:format} sort={@sort}>Format</.sort_th>
+            <.sort_th scope={:pages} field={:published} sort={@sort}>Status</.sort_th>
+            <.sort_th scope={:pages} field={:updated_at} sort={@sort}>Updated</.sort_th>
             <th class="actions-cell"></th>
           </tr>
         </thead>

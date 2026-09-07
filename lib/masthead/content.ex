@@ -8,6 +8,7 @@ defmodule Masthead.Content do
   """
   import Ecto.Query
   alias Masthead.Realtime
+  alias Masthead.Query
   alias Masthead.Repo
   alias Masthead.Content.{Post, Page, Tag}
 
@@ -47,6 +48,8 @@ defmodule Masthead.Content do
     * `:search` — a string matched (ILIKE) against the post title.
     * `:limit` — cap the number of rows returned.
   """
+  @sortable_posts [:title, :slug, :format, :published, :inserted_at, :updated_at]
+
   def list_posts(site_id, opts \\ []) do
     from(p in Post,
       where: p.site_id == ^site_id,
@@ -55,8 +58,17 @@ defmodule Masthead.Content do
     )
     |> apply_post_filter(Keyword.get(opts, :filter, :all))
     |> apply_post_search(Keyword.get(opts, :search))
+    |> Query.sort(Keyword.get(opts, :sort), @sortable_posts)
     |> cap(Keyword.get(opts, :limit))
     |> Repo.all()
+  end
+
+  @doc "Total posts matching the same filter + search, ignoring the row cap."
+  def count_posts(site_id, opts \\ []) do
+    from(p in Post, where: p.site_id == ^site_id)
+    |> apply_post_filter(Keyword.get(opts, :filter, :all))
+    |> apply_post_search(Keyword.get(opts, :search))
+    |> Repo.aggregate(:count)
   end
 
   defp cap(query, limit) when is_integer(limit), do: limit(query, ^limit)
@@ -265,12 +277,23 @@ defmodule Masthead.Content do
     * `:search` — a string matched (ILIKE) against the page title.
     * `:limit` — cap the number of rows returned.
   """
+  @sortable_pages [:title, :slug, :format, :published, :inserted_at, :updated_at]
+
   def list_pages(site_id, opts \\ []) do
     from(p in Page, where: p.site_id == ^site_id, order_by: p.title)
     |> apply_page_filter(Keyword.get(opts, :filter, :all))
     |> apply_page_search(Keyword.get(opts, :search))
+    |> Query.sort(Keyword.get(opts, :sort), @sortable_pages)
     |> cap(Keyword.get(opts, :limit))
     |> Repo.all()
+  end
+
+  @doc "Total pages matching the same filter + search, ignoring the row cap."
+  def count_pages(site_id, opts \\ []) do
+    from(p in Page, where: p.site_id == ^site_id)
+    |> apply_page_filter(Keyword.get(opts, :filter, :all))
+    |> apply_page_search(Keyword.get(opts, :search))
+    |> Repo.aggregate(:count)
   end
 
   defp apply_page_filter(query, :published), do: from(p in query, where: p.published == true)

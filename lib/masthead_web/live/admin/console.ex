@@ -22,10 +22,13 @@ defmodule MastheadWeb.AdminLive.Console do
        open_menu: nil,
        users_filter: @default_filters.users,
        users_search: "",
+       users_sort: nil,
        sites_filter: @default_filters.sites,
        sites_search: "",
+       sites_sort: nil,
        themes_filter: @default_filters.themes,
-       themes_search: ""
+       themes_search: "",
+       themes_sort: nil
      )}
   end
 
@@ -98,11 +101,12 @@ defmodule MastheadWeb.AdminLive.Console do
 
   defp load_data(%{assigns: a} = socket) do
     assign(socket,
-      users: Accounts.list_all_users(a.users_filter, a.users_search, list_limit()),
+      users: Accounts.list_all_users(a.users_filter, a.users_search, list_limit(), a.users_sort),
       users_total: Accounts.count_all_users(a.users_filter, a.users_search),
-      sites: Sites.list_all_sites(a.sites_filter, a.sites_search, list_limit()),
+      sites: Sites.list_all_sites(a.sites_filter, a.sites_search, list_limit(), a.sites_sort),
       sites_total: Sites.count_all_sites(a.sites_filter, a.sites_search),
-      themes: Themes.list_all_themes(a.themes_filter, a.themes_search, list_limit()),
+      themes:
+        Themes.list_all_themes(a.themes_filter, a.themes_search, list_limit(), a.themes_sort),
       themes_total: Themes.count_all_themes(a.themes_filter, a.themes_search)
     )
   end
@@ -113,21 +117,32 @@ defmodule MastheadWeb.AdminLive.Console do
     {:noreply, push_patch(socket, to: admin_path(tab, socket.assigns[:"#{tab}_filter"]))}
   end
 
+  def handle_event("sort_list", %{"scope" => scope, "field" => field}, socket) do
+    sort = toggle_sort(socket.assigns[:"#{scope}_sort"], field)
+    {:noreply, socket |> assign(:"#{scope}_sort", sort) |> load_data()}
+  end
+
   # ---- users ----
 
   def handle_event("verify_user", %{"id" => id}, socket) do
     {:ok, _} = id |> Accounts.get_user!() |> Accounts.verify_user()
-    {:noreply, socket |> put_flash(:info, "User verified.") |> load_data()}
+
+    {:noreply,
+     socket |> assign(open_menu: nil) |> put_flash(:info, "User verified.") |> load_data()}
   end
 
   def handle_event("disable_user", %{"id" => id}, socket) do
     {:ok, _} = id |> Accounts.get_user!() |> Accounts.disable_user()
-    {:noreply, socket |> put_flash(:info, "User disabled.") |> load_data()}
+
+    {:noreply,
+     socket |> assign(open_menu: nil) |> put_flash(:info, "User disabled.") |> load_data()}
   end
 
   def handle_event("enable_user", %{"id" => id}, socket) do
     {:ok, _} = id |> Accounts.get_user!() |> Accounts.enable_user()
-    {:noreply, socket |> put_flash(:info, "User re-enabled.") |> load_data()}
+
+    {:noreply,
+     socket |> assign(open_menu: nil) |> put_flash(:info, "User re-enabled.") |> load_data()}
   end
 
   # ---- sites ----
@@ -212,12 +227,19 @@ defmodule MastheadWeb.AdminLive.Console do
 
   def handle_event("verify_theme", %{"id" => id}, socket) do
     {:ok, _} = id |> Themes.get_theme!() |> Themes.verify_theme()
-    {:noreply, socket |> put_flash(:info, "Theme verified.") |> load_data()}
+
+    {:noreply,
+     socket |> assign(open_menu: nil) |> put_flash(:info, "Theme verified.") |> load_data()}
   end
 
   def handle_event("unverify_theme", %{"id" => id}, socket) do
     {:ok, _} = id |> Themes.get_theme!() |> Themes.unverify_theme()
-    {:noreply, socket |> put_flash(:info, "Theme verification cleared.") |> load_data()}
+
+    {:noreply,
+     socket
+     |> assign(open_menu: nil)
+     |> put_flash(:info, "Theme verification cleared.")
+     |> load_data()}
   end
 
   # ---- filtering & search (users / sites / themes) ----
@@ -277,14 +299,14 @@ defmodule MastheadWeb.AdminLive.Console do
           truncated?={length(@users) == list_limit()}
           total={@users_total}
         />
-        <table class="table">
+        <table class="table table-menus">
           <thead>
             <tr>
-              <th>Email</th>
-              <th>Status</th>
-              <th>Role</th>
-              <th>Joined</th>
-              <th>Last login</th>
+              <.sort_th scope={:users} field={:email} sort={@users_sort}>Email</.sort_th>
+              <.sort_th scope={:users} field={:confirmed_at} sort={@users_sort}>Status</.sort_th>
+              <.sort_th scope={:users} field={:admin} sort={@users_sort}>Role</.sort_th>
+              <.sort_th scope={:users} field={:inserted_at} sort={@users_sort}>Joined</.sort_th>
+              <.sort_th scope={:users} field={:last_login_at} sort={@users_sort}>Last login</.sort_th>
               <th></th>
             </tr>
           </thead>
@@ -304,31 +326,37 @@ defmodule MastheadWeb.AdminLive.Console do
                 <span :if={is_nil(u.last_login_at)}>—</span>
               </td>
               <td class="admin-row-actions">
-                <button
-                  :if={not Accounts.User.confirmed?(u)}
-                  class="btn btn-sm"
-                  phx-click="verify_user"
-                  phx-value-id={u.id}
-                >
-                  Verify
-                </button>
-                <button
-                  :if={not Accounts.User.disabled?(u)}
-                  class="btn btn-sm"
-                  phx-click="disable_user"
-                  phx-value-id={u.id}
-                  data-confirm={"Disable #{u.email}? Their sites stop resolving."}
-                >
-                  Disable
-                </button>
-                <button
-                  :if={Accounts.User.disabled?(u)}
-                  class="btn btn-sm"
-                  phx-click="enable_user"
-                  phx-value-id={u.id}
-                >
-                  Enable
-                </button>
+                <.row_menu id={u.id} open?={@open_menu == u.id} label={"Actions for #{u.email}"}>
+                  <button
+                    :if={not Accounts.User.confirmed?(u)}
+                    type="button"
+                    role="menuitem"
+                    phx-click="verify_user"
+                    phx-value-id={u.id}
+                  >
+                    Verify
+                  </button>
+                  <button
+                    :if={not Accounts.User.disabled?(u)}
+                    type="button"
+                    role="menuitem"
+                    class="is-danger"
+                    phx-click="disable_user"
+                    phx-value-id={u.id}
+                    data-confirm={"Disable #{u.email}? Their sites stop resolving."}
+                  >
+                    Disable
+                  </button>
+                  <button
+                    :if={Accounts.User.disabled?(u)}
+                    type="button"
+                    role="menuitem"
+                    phx-click="enable_user"
+                    phx-value-id={u.id}
+                  >
+                    Enable
+                  </button>
+                </.row_menu>
               </td>
             </tr>
           </tbody>
@@ -349,10 +377,9 @@ defmodule MastheadWeb.AdminLive.Console do
         <table class="table table-menus">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Slug</th>
-              <th>Members</th>
-              <th>Created</th>
+              <.sort_th scope={:sites} field={:name} sort={@sites_sort}>Name</.sort_th>
+              <.sort_th scope={:sites} field={:slug} sort={@sites_sort}>Slug</.sort_th>
+              <.sort_th scope={:sites} field={:inserted_at} sort={@sites_sort}>Created</.sort_th>
               <th>Status</th>
               <th>License</th>
               <th></th>
@@ -362,7 +389,6 @@ defmodule MastheadWeb.AdminLive.Console do
             <tr :for={s <- @sites}>
               <td>{s.name}</td>
               <td class="muted">{s.slug}</td>
-              <td class="muted">{Enum.map_join(s.members, ", ", & &1.email)}</td>
               <td class="muted"><.relative_time at={s.inserted_at} /></td>
               <td>
                 <span :if={not is_nil(s.deleted_at)} class="pill pill-danger">deleted</span>
@@ -380,82 +406,68 @@ defmodule MastheadWeb.AdminLive.Console do
                 <span class={["pill", Licenses.pill_class(s)]}>{Licenses.label(s)}</span>
               </td>
               <td class="admin-row-actions">
-                <div class="row-menu" phx-click-away={@open_menu == s.id && "close_menu"}>
+                <.row_menu id={s.id} open?={@open_menu == s.id} label={"Actions for #{s.name}"}>
+                  <.link :if={is_nil(s.deleted_at)} navigate={~p"/#{s.slug}"} role="menuitem">
+                    Enter site
+                  </.link>
                   <button
                     type="button"
-                    class="row-menu-trigger"
-                    phx-click="toggle_menu"
-                    phx-value-id={s.id}
-                    aria-haspopup="menu"
-                    aria-expanded={to_string(@open_menu == s.id)}
-                    aria-label={"Actions for #{s.name}"}
+                    role="menuitem"
+                    phx-click="open_action_modal"
+                    phx-value-site_id={s.id}
                   >
-                    <.dots_icon />
+                    Add action...
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    phx-click="open_gift_modal"
+                    phx-value-site_id={s.id}
+                  >
+                    Gift Pro…
                   </button>
 
-                  <div :if={@open_menu == s.id} class="row-menu-panel" role="menu">
-                    <.link :if={is_nil(s.deleted_at)} navigate={~p"/#{s.slug}"} role="menuitem">
-                      Enter site
-                    </.link>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      phx-click="open_action_modal"
-                      phx-value-site_id={s.id}
-                    >
-                      Add action
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      phx-click="open_gift_modal"
-                      phx-value-site_id={s.id}
-                    >
-                      Gift Pro…
-                    </button>
+                  <hr />
 
-                    <hr />
-
-                    <button
-                      :if={is_nil(s.disabled_at) and is_nil(s.deleted_at)}
-                      type="button"
-                      role="menuitem"
-                      phx-click="disable_site"
-                      phx-value-id={s.id}
-                    >
-                      Disable
-                    </button>
-                    <button
-                      :if={not is_nil(s.disabled_at) and is_nil(s.deleted_at)}
-                      type="button"
-                      role="menuitem"
-                      phx-click="enable_site"
-                      phx-value-id={s.id}
-                    >
-                      Enable
-                    </button>
-                    <button
-                      :if={is_nil(s.deleted_at)}
-                      type="button"
-                      role="menuitem"
-                      class="is-danger"
-                      phx-click="delete_site"
-                      phx-value-id={s.id}
-                      data-confirm={"Delete #{s.name}? It's recoverable from here."}
-                    >
-                      Delete
-                    </button>
-                    <button
-                      :if={not is_nil(s.deleted_at)}
-                      type="button"
-                      role="menuitem"
-                      phx-click="restore_site"
-                      phx-value-id={s.id}
-                    >
-                      Restore
-                    </button>
-                  </div>
-                </div>
+                  <button
+                    :if={is_nil(s.disabled_at) and is_nil(s.deleted_at)}
+                    type="button"
+                    role="menuitem"
+                    phx-click="disable_site"
+                    phx-value-id={s.id}
+                  >
+                    Disable
+                  </button>
+                  <button
+                    :if={not is_nil(s.disabled_at) and is_nil(s.deleted_at)}
+                    type="button"
+                    role="menuitem"
+                    phx-click="enable_site"
+                    phx-value-id={s.id}
+                  >
+                    Enable
+                  </button>
+                  <button
+                    :if={is_nil(s.deleted_at)}
+                    type="button"
+                    role="menuitem"
+                    class="is-danger"
+                    phx-click="delete_site"
+                    phx-value-id={s.id}
+                    data-confirm={"Delete #{s.name}? It's recoverable from here."}
+                  >
+                    Delete
+                  </button>
+                  <button
+                    :if={not is_nil(s.deleted_at)}
+                    type="button"
+                    role="menuitem"
+                    phx-click="restore_site"
+                    phx-value-id={s.id}
+                  >
+                    Restore
+                  </button>
+                </.row_menu>
               </td>
             </tr>
           </tbody>
@@ -473,13 +485,13 @@ defmodule MastheadWeb.AdminLive.Console do
           truncated?={length(@themes) == list_limit()}
           total={@themes_total}
         />
-        <table class="table">
+        <table class="table table-menus">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Slug</th>
-              <th>Version</th>
-              <th>Source</th>
+              <.sort_th scope={:themes} field={:name} sort={@themes_sort}>Name</.sort_th>
+              <.sort_th scope={:themes} field={:slug} sort={@themes_sort}>Slug</.sort_th>
+              <.sort_th scope={:themes} field={:version} sort={@themes_sort}>Version</.sort_th>
+              <.sort_th scope={:themes} field={:source} sort={@themes_sort}>Source</.sort_th>
               <th>Status</th>
               <th>Owner</th>
               <th></th>
@@ -499,40 +511,42 @@ defmodule MastheadWeb.AdminLive.Console do
               </td>
               <td class="muted">{(t.owner && t.owner.email) || "—"}</td>
               <td class="admin-row-actions">
-                <button
-                  :if={t.source == "uploaded" and not t.verified}
-                  type="button"
-                  class="btn btn-sm"
-                  phx-click="verify_theme"
-                  phx-value-id={t.id}
-                >
-                  Verify
-                </button>
-                <button
-                  :if={t.source == "uploaded" and t.verified}
-                  type="button"
-                  class="btn btn-sm"
-                  phx-click="unverify_theme"
-                  phx-value-id={t.id}
-                >
-                  Unverify
-                </button>
-                <a
-                  :if={t.source == "uploaded"}
-                  href={~p"/admin/themes/#{t.id}/download"}
-                  class="btn btn-sm"
-                >
-                  Download
-                </a>
-                <button
-                  :if={t.source != "uploaded"}
-                  type="button"
-                  class="btn btn-sm"
-                  disabled
-                  title="Built-in themes live in the repo and can't be downloaded."
-                >
-                  Download
-                </button>
+                <.row_menu id={t.id} open?={@open_menu == t.id} label={"Actions for #{t.name}"}>
+                  <button
+                    :if={t.source == "uploaded" and not t.verified}
+                    type="button"
+                    role="menuitem"
+                    phx-click="verify_theme"
+                    phx-value-id={t.id}
+                  >
+                    Verify
+                  </button>
+                  <button
+                    :if={t.source == "uploaded" and t.verified}
+                    type="button"
+                    role="menuitem"
+                    phx-click="unverify_theme"
+                    phx-value-id={t.id}
+                  >
+                    Unverify
+                  </button>
+                  <a
+                    :if={t.source == "uploaded"}
+                    href={~p"/admin/themes/#{t.id}/download"}
+                    role="menuitem"
+                  >
+                    Download
+                  </a>
+                  <button
+                    :if={t.source != "uploaded"}
+                    type="button"
+                    role="menuitem"
+                    disabled
+                    title="Built-in themes live in the repo and can't be downloaded."
+                  >
+                    Download
+                  </button>
+                </.row_menu>
               </td>
             </tr>
           </tbody>
@@ -644,6 +658,33 @@ defmodule MastheadWeb.AdminLive.Console do
 
   defp gift_date(%{license_expires_at: nil}), do: "—"
   defp gift_date(%{license_expires_at: at}), do: Calendar.strftime(at, "%-d %B %Y")
+
+  attr :id, :any, required: true
+  attr :open?, :boolean, required: true
+  attr :label, :string, required: true
+  slot :inner_block, required: true
+
+  defp row_menu(assigns) do
+    ~H"""
+    <div class="row-menu" phx-click-away={@open? && "close_menu"}>
+      <button
+        type="button"
+        class="row-menu-trigger"
+        phx-click="toggle_menu"
+        phx-value-id={@id}
+        aria-haspopup="menu"
+        aria-expanded={to_string(@open?)}
+        aria-label={@label}
+      >
+        <.dots_icon />
+      </button>
+
+      <div :if={@open?} class="row-menu-panel" role="menu">
+        {render_slot(@inner_block)}
+      </div>
+    </div>
+    """
+  end
 
   defp dots_icon(assigns) do
     ~H"""

@@ -51,7 +51,7 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     # Sites tab.
     html = lv |> element(~s(button[phx-value-tab="sites"])) |> render_click()
     assert html =~ site.name
-    assert html =~ member.email
+    assert html =~ site.slug
 
     # Themes tab defaults to the Public filter; built-ins live under Built-in.
     lv |> element(~s(button[phx-value-tab="themes"])) |> render_click()
@@ -112,9 +112,35 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     assert_patch(lv, ~p"/admin/users/all")
   end
 
+  test "clicking a column header sorts the list and flips on a second click",
+       %{conn: conn, admin: admin, member: member} do
+    {:ok, lv, _} = live(conn, ~p"/admin")
+
+    html =
+      lv
+      |> element(~s(button[phx-value-scope="users"][phx-value-field="email"]))
+      |> render_click()
+
+    assert index_of(html, admin.email) < index_of(html, member.email)
+
+    html =
+      lv
+      |> element(~s(button[phx-value-scope="users"][phx-value-field="email"]))
+      |> render_click()
+
+    assert index_of(html, member.email) < index_of(html, admin.email)
+  end
+
+  defp index_of(html, needle) do
+    [{start, _}] = Regex.run(~r/#{Regex.escape(needle)}/, html, return: :index)
+    start
+  end
+
   test "admin can verify an unverified user", %{conn: conn, member: member} do
     refute Accounts.User.confirmed?(member)
     {:ok, lv, _} = live(conn, ~p"/admin")
+
+    open_row_menu(lv, member)
 
     lv
     |> element(~s(button[phx-click="verify_user"][phx-value-id="#{member.id}"]))
@@ -245,9 +271,9 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     result
   end
 
-  defp open_row_menu(lv, site) do
+  defp open_row_menu(lv, row) do
     lv
-    |> element(~s(button[phx-click="toggle_menu"][phx-value-id="#{site.id}"]))
+    |> element(~s(button[phx-click="toggle_menu"][phx-value-id="#{row.id}"]))
     |> render_click()
   end
 
