@@ -107,7 +107,14 @@ defmodule MastheadWeb.AdminLive.UploadIndex do
         limit: list_limit()
       )
 
-    assign(socket, uploads_list: uploads)
+    assign(socket,
+      uploads_list: uploads,
+      uploads_total:
+        Uploads.count_uploads(socket.assigns.site.id,
+          search: socket.assigns.search,
+          filter: socket.assigns.type_filter
+        )
+    )
   end
 
   # Keep the filter and search in the URL so they survive a reload and stay
@@ -181,6 +188,7 @@ defmodule MastheadWeb.AdminLive.UploadIndex do
         placeholder="Search uploads…"
         limit={list_limit()}
         truncated?={length(@uploads_list) == list_limit()}
+        total={@uploads_total}
       />
 
       <div

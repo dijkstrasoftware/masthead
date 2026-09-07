@@ -442,6 +442,14 @@ defmodule Masthead.Accounts do
     |> Repo.all()
   end
 
+  @doc "Total users matching the same filter + search, ignoring the row cap."
+  def count_all_users(filter \\ :all, search_query \\ nil) do
+    from(u in User)
+    |> apply_filter(filter)
+    |> apply_search(search_query)
+    |> Repo.aggregate(:count)
+  end
+
   defp apply_filter(query, filter) do
     case filter do
       :verified -> from u in query, where: not is_nil(u.confirmed_at)

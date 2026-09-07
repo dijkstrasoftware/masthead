@@ -495,6 +495,7 @@ defmodule MastheadWeb.AdminLive.Components do
   attr :placeholder, :string, default: "Search…"
   attr :limit, :integer, required: true, doc: "the row cap applied to the list"
   attr :truncated?, :boolean, default: false, doc: "true when the list hit the cap"
+  attr :total, :integer, default: nil, doc: "total rows matching the filter + search"
 
   def list_toolbar(assigns) do
     ~H"""
@@ -525,9 +526,10 @@ defmodule MastheadWeb.AdminLive.Components do
           />
         </form>
       </div>
-      <p :if={@truncated?} class="admin-toolbar-hint">
-        Showing the first {@limit}. Refine with search or a filter to find more.
-      </p>
+      <div :if={@truncated?} class="admin-toolbar-hint">
+        <span>Showing the first {@limit}. Refine with search or a filter to find more.</span>
+        <span :if={@total}>{@total} total</span>
+      </div>
     </div>
     """
   end
