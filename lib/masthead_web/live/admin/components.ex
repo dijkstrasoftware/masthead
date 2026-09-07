@@ -75,7 +75,12 @@ defmodule MastheadWeb.AdminLive.Components do
             <.icon_close />
           </button>
           <p class="sidebar-version">v{Application.spec(:masthead, :vsn)}</p>
-          <p :if={@site} class="sidebar-site">{@site.name}</p>
+          <p :if={@site} class="sidebar-site">
+            <span class="sidebar-site-name">{@site.name}</span>
+            <span class={["sidebar-pill", Masthead.Licenses.paid?(@site) && "sidebar-pill-paid"]}>
+              {Masthead.Licenses.label(@site)}
+            </span>
+          </p>
         </div>
 
         <nav class="sidebar-nav">
@@ -1113,6 +1118,78 @@ defmodule MastheadWeb.AdminLive.Components do
         d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z"
       />
     </svg>
+    """
+  end
+
+  @doc """
+  Paywall dialog offered wherever a licensed-only action is attempted, so a
+  free site is never sent off the page it is working on to pay.
+
+  The host LiveView needs an `upgrade_modal?` assign, a `plans` assign from
+  `Masthead.Licenses.plans/0`, and `open_upgrade` / `close_upgrade` /
+  `checkout` events.
+  """
+  attr :show, :boolean, required: true
+  attr :plans, :list, required: true
+  attr :feature, :string, required: true
+
+  def upgrade_modal(assigns) do
+    assigns = assign(assigns, :saving, Masthead.Licenses.yearly_saving())
+
+    ~H"""
+    <div :if={@show} class="dialog-backdrop" phx-window-keydown="close_upgrade" phx-key="Escape">
+      <button
+        type="button"
+        phx-click="close_upgrade"
+        class="dialog-close-overlay"
+        aria-label="Close"
+        tabindex="-1"
+      >
+      </button>
+      <div class="dialog">
+        <header class="dialog-header">
+          <h2>Upgrade to use this functionality</h2>
+          <button type="button" phx-click="close_upgrade" class="dialog-close" aria-label="Close">
+            &times;
+          </button>
+        </header>
+
+        <div class="upgrade-body">
+          <p class="upgrade-lede">{@feature} needs a paid license for this site.</p>
+
+          <div class="plan-grid">
+            <button
+              :for={{name, plan} <- @plans}
+              type="button"
+              phx-click="checkout"
+              phx-value-plan={name}
+              class={["plan-card", name == "yearly" && "plan-card-best"]}
+            >
+              <span class="plan-head">
+                <span class="plan-name">{String.capitalize(name)}</span>
+                <span :if={name == "yearly" && @saving} class="pill pill-ok">
+                  Save {Masthead.Licenses.format(@saving)}
+                </span>
+              </span>
+              <span class="plan-price">
+                {Masthead.Licenses.format(plan.amount)}<span class="plan-per">/{plan.label}</span>
+              </span>
+              <span class="plan-note">Billed every {plan.label}. Cancel any time.</span>
+            </button>
+          </div>
+
+          <p class="upgrade-foot">
+            <.link href="https://masthead.site/pricing" target="_blank" rel="noopener">
+              See what's included
+            </.link>
+          </p>
+
+          <footer class="dialog-footer">
+            <button type="button" phx-click="close_upgrade" class="btn">Not now</button>
+          </footer>
+        </div>
+      </div>
+    </div>
     """
   end
 

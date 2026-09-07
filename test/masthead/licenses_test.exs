@@ -37,7 +37,6 @@ defmodule Masthead.LicensesTest do
   describe "paid?/1" do
     test "a fresh site is free", %{site: site} do
       refute Licenses.paid?(site)
-      assert Licenses.chip(site) == "Free"
       assert Licenses.label(site) == "Free"
     end
 
@@ -45,7 +44,7 @@ defmodule Masthead.LicensesTest do
       site = with_license(site, license_status: "active", license_expires_at: at(30))
 
       assert Licenses.paid?(site)
-      assert Licenses.chip(site) == "Licensed"
+      assert Licenses.label(site) == "Paid"
     end
 
     test "active with a past expiry is free again", %{site: site} do
@@ -103,7 +102,7 @@ defmodule Masthead.LicensesTest do
       assert Licenses.paid?(site)
       assert site.license_plan == "monthly"
       assert site.payment_customer_id == "cus_1"
-      assert Licenses.label(site) == "Licensed — monthly"
+      assert Licenses.label(site) == "Paid"
     end
 
     test "a renewal pushes the expiry out", %{site: site} do

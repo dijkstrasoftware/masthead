@@ -183,7 +183,7 @@ defmodule MastheadWeb.SiteSettingsLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/#{site.slug}/settings")
 
       assert html =~ "License"
-      assert html =~ "Custom domains and extra collaborators need a paid license."
+      assert html =~ "See what&#39;s included"
       assert html =~ "Upgrade — €5/month"
       assert html =~ "Upgrade — €50/year"
       refute html =~ "Manage billing"
@@ -205,12 +205,13 @@ defmodule MastheadWeb.SiteSettingsLiveTest do
     } do
       {:ok, _site} = Masthead.Licenses.grant(site, "yearly")
 
-      {:ok, _lv, html} = live(conn, ~p"/#{site.slug}/settings")
+      {:ok, lv, html} = live(conn, ~p"/#{site.slug}/settings")
 
-      assert html =~ "Licensed — yearly"
+      assert html =~ "Paid"
       assert html =~ "Renews"
       assert html =~ "Manage billing"
       refute html =~ "Upgrade —"
+      assert has_element?(lv, ".license-state .pill", "yearly")
     end
 
     test "a provider failure is reported instead of redirecting", %{conn: conn, site: site} do
@@ -227,11 +228,44 @@ defmodule MastheadWeb.SiteSettingsLiveTest do
 
     test "a webhook landing elsewhere flips the section live", %{conn: conn, site: site} do
       {:ok, lv, html} = live(conn, ~p"/#{site.slug}/settings")
-      assert html =~ "<strong>Free</strong>"
+      assert html =~ "See what&#39;s included"
+      refute has_element?(lv, ".license-state .pill")
 
       {:ok, _site} = Masthead.Licenses.grant(site, "monthly")
 
-      assert render(lv) =~ "Licensed — monthly"
+      assert render(lv) =~ "Renews"
+      assert has_element?(lv, ".license-state .pill", "monthly")
+    end
+
+    test "custom domain on a free site opens the upgrade modal", %{conn: conn, site: site} do
+      {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/settings")
+
+      refute has_element?(lv, ".dialog", "Upgrade to use this functionality")
+      refute has_element?(lv, ~s(a[href="/#{site.slug}/domain"].btn-primary))
+
+      html = lv |> element(~s(button[phx-click="open_upgrade"])) |> render_click()
+
+      assert html =~ "Upgrade to use this functionality"
+      assert html =~ "A custom domain needs a paid license"
+    end
+
+    test "the upgrade modal starts a checkout", %{conn: conn, site: site} do
+      Application.put_env(:masthead, :payments_stub, %{checkout_url: "https://checkout.test/x"})
+      {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/settings")
+      lv |> element(~s(button[phx-click="open_upgrade"])) |> render_click()
+
+      assert {:error, {:redirect, %{to: "https://checkout.test/x"}}} =
+               lv
+               |> element(~s(.dialog button[phx-value-plan="yearly"]))
+               |> render_click()
+    end
+
+    test "a licensed site gets the custom domain link back", %{conn: conn, site: site} do
+      {:ok, _site} = Masthead.Licenses.grant(site, "yearly")
+      {:ok, lv, html} = live(conn, ~p"/#{site.slug}/settings")
+
+      refute html =~ "Upgrade this site to set up a custom domain."
+      assert has_element?(lv, ~s(a[href="/#{site.slug}/domain"]), "Set up a custom domain")
     end
   end
 end

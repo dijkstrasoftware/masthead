@@ -73,23 +73,23 @@ defmodule Masthead.Licenses do
         else: :erlang.float_to_binary(cents / 100, decimals: 2)
   end
 
-  @doc "Short status word for the overview chip."
-  def chip(%Site{} = site), do: if(paid?(site), do: "Licensed", else: "Free")
+  @doc """
+  Cents saved over a year by paying yearly instead of monthly, or nil when
+  the yearly plan is not actually cheaper.
+  """
+  def yearly_saving do
+    saving = 12 * amount("monthly") - amount("yearly")
+    if saving > 0, do: saving
+  end
+
+  @doc "Short status word for the overview chip and the settings section."
+  def label(%Site{} = site), do: if(paid?(site), do: "Paid", else: "Free")
 
   def pill_class(%Site{} = site) do
     cond do
       canceled?(site) -> "pill-warn"
       paid?(site) -> "pill-ok"
       true -> "pill-draft"
-    end
-  end
-
-  @doc "Human label for the settings section, e.g. `\"Licensed — yearly\"`."
-  def label(%Site{} = site) do
-    case {paid?(site), site.license_plan} do
-      {false, _plan} -> "Free"
-      {true, plan} when plan in ~w(monthly yearly) -> "Licensed — #{plan}"
-      {true, _plan} -> "Licensed"
     end
   end
 

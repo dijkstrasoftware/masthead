@@ -117,7 +117,7 @@ defmodule MastheadWeb.AdminLive.SiteIndex do
 
       <ul :if={@sites != []} class="card-list">
         <li :for={s <- @sites}>
-          <span class={"pill card-pill " <> Licenses.pill_class(s)}>{Licenses.chip(s)}</span>
+          <span class={"pill card-pill " <> Licenses.pill_class(s)}>{Licenses.label(s)}</span>
           <.link navigate={~p"/#{s.slug}"}>
             <strong>{s.name}</strong>
             <span class="muted">{s.slug}.{@host}</span>

@@ -16,6 +16,8 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
        page_title: "Users — #{site.name}",
        action_count: Actions.count_pending(site),
        modal_open?: false,
+       upgrade_modal?: false,
+       plans: Licenses.plans(),
        email: ""
      )}
   end
@@ -42,6 +44,23 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
 
   def handle_event("search_list", %{"query" => query}, socket) do
     {:noreply, push_patch(socket, to: users_path(socket, view_param(socket.assigns.view), query))}
+  end
+
+  def handle_event("open_upgrade", _params, socket) do
+    {:noreply, assign(socket, upgrade_modal?: true)}
+  end
+
+  def handle_event("close_upgrade", _params, socket) do
+    {:noreply, assign(socket, upgrade_modal?: false)}
+  end
+
+  def handle_event("checkout", %{"plan" => plan}, socket) do
+    site = socket.assigns.site
+
+    case Licenses.checkout_url(site, plan, url(~p"/#{site.slug}/users")) do
+      {:ok, checkout} -> {:noreply, redirect(socket, external: checkout)}
+      {:error, reason} -> {:noreply, put_flash(socket, :error, reason)}
+    end
   end
 
   def handle_event("open_modal", _params, socket) do
@@ -196,18 +215,9 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
       present_users={@present_users}
     >
       <:actions>
-        <.link
-          :if={not Licenses.paid?(@site)}
-          navigate={~p"/#{@site.slug}/settings"}
-          class="btn btn-primary btn-add"
-        >
-          Upgrade to invite people
-        </.link>
-
         <button
-          :if={Licenses.paid?(@site)}
           type="button"
-          phx-click="open_modal"
+          phx-click={if Licenses.paid?(@site), do: "open_modal", else: "open_upgrade"}
           class="btn btn-primary btn-add"
           data-shortcut="new"
         >
@@ -318,27 +328,14 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
           class="empty-illustration"
         />
         <h2>No pending invitations</h2>
-        <p :if={Licenses.paid?(@site)}>
-          Invite someone by email and any pending invitations will show up here.
-        </p>
-        <p :if={not Licenses.paid?(@site)}>
-          Inviting collaborators needs a paid license for this site.
-        </p>
+        <p>Invite someone by email and any pending invitations will show up here.</p>
         <button
-          :if={Licenses.paid?(@site)}
           type="button"
-          phx-click="open_modal"
+          phx-click={if Licenses.paid?(@site), do: "open_modal", else: "open_upgrade"}
           class="btn btn-primary"
         >
           + New user
         </button>
-        <.link
-          :if={not Licenses.paid?(@site)}
-          navigate={~p"/#{@site.slug}/settings"}
-          class="btn btn-primary"
-        >
-          View license options
-        </.link>
       </div>
 
       <div
@@ -386,6 +383,12 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
           </form>
         </div>
       </div>
+
+      <.upgrade_modal
+        show={@upgrade_modal?}
+        plans={@plans}
+        feature="Inviting collaborators"
+      />
     </.shell>
     """
   end

@@ -24,7 +24,8 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
        editing_tag: nil,
        tag_form: nil,
        tag_slug_touched: false,
-       plans: Licenses.plans()
+       plans: Licenses.plans(),
+       upgrade_modal?: false
      )
      |> assign_form(changeset)}
   end
@@ -54,6 +55,14 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
       |> Map.put(:action, :validate)
 
     {:noreply, assign_form(socket, changeset)}
+  end
+
+  def handle_event("open_upgrade", _params, socket) do
+    {:noreply, assign(socket, upgrade_modal?: true)}
+  end
+
+  def handle_event("close_upgrade", _params, socket) do
+    {:noreply, assign(socket, upgrade_modal?: false)}
   end
 
   def handle_event("checkout", %{"plan" => plan}, socket) do
@@ -184,11 +193,9 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
   defp leave_for(socket, {:error, reason}), do: {:noreply, put_flash(socket, :error, reason)}
 
   defp license_detail(site) do
-    cond do
-      Licenses.canceled?(site) -> "Ends #{on_date(site.license_expires_at)}"
-      Licenses.paid?(site) -> "Renews #{on_date(site.license_expires_at)}"
-      true -> "Custom domains and extra collaborators need a paid license."
-    end
+    if Licenses.canceled?(site),
+      do: "Ends #{on_date(site.license_expires_at)}",
+      else: "Renews #{on_date(site.license_expires_at)}"
   end
 
   defp on_date(at), do: Calendar.strftime(at, "%-d %B %Y")
@@ -334,9 +341,22 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
 
               <div :if={is_nil(@site.custom_domain)} class="domain-summary">
                 <span class="muted">No custom domain configured.</span>
-                <.link navigate={~p"/#{@site.slug}/domain"} class="btn btn-primary">
+                <.link
+                  :if={Licenses.paid?(@site)}
+                  navigate={~p"/#{@site.slug}/domain"}
+                  class="btn btn-primary"
+                >
                   Set up a custom domain
                 </.link>
+
+                <button
+                  :if={not Licenses.paid?(@site)}
+                  type="button"
+                  phx-click="open_upgrade"
+                  class="btn btn-primary"
+                >
+                  Set up a custom domain
+                </button>
               </div>
             </div>
           </div>
@@ -366,9 +386,25 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
             <div class="settings-fields">
               <div class="domain-summary">
                 <span class="license-state">
-                  <strong>{Licenses.label(@site)}</strong>
-                  <span :if={Licenses.canceled?(@site)} class="pill pill-warn">Ending</span>
-                  <span class="muted">{license_detail(@site)}</span>
+                  <span class="license-state-head">
+                    <strong>{Licenses.label(@site)}</strong>
+                    <span
+                      :if={Licenses.paid?(@site) and not is_nil(@site.license_plan)}
+                      class="pill pill-ok"
+                    >
+                      {@site.license_plan}
+                    </span>
+                  </span>
+                  <span :if={Licenses.paid?(@site)} class="muted">{license_detail(@site)}</span>
+
+                  <.link
+                    :if={not Licenses.paid?(@site)}
+                    href="https://masthead.site/pricing"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    See what's included
+                  </.link>
                 </span>
 
                 <button
@@ -490,6 +526,12 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
           </form>
         </div>
       </div>
+
+      <.upgrade_modal
+        show={@upgrade_modal?}
+        plans={@plans}
+        feature="A custom domain"
+      />
     </.shell>
     """
   end
