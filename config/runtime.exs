@@ -39,6 +39,10 @@ if github_id = System.get_env("GITHUB_CLIENT_ID") do
     client_secret: System.get_env("GITHUB_CLIENT_SECRET")
 end
 
+if config_env() != :test and System.get_env("STRIPE_SECRET_KEY") do
+  config :masthead, :payments, Masthead.Payments.Stripe
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
