@@ -51,7 +51,7 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     # Sites tab.
     html = lv |> element(~s(button[phx-value-tab="sites"])) |> render_click()
     assert html =~ site.name
-    assert html =~ member.email
+    assert html =~ site.slug
 
     # Themes tab defaults to the Public filter; built-ins live under Built-in.
     lv |> element(~s(button[phx-value-tab="themes"])) |> render_click()
@@ -112,9 +112,39 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     assert_patch(lv, ~p"/admin/users/all")
   end
 
+  test "clicking a column header sorts the list and flips on a second click", %{conn: conn} do
+    for email <- ["aaa@example.com", "zzz@example.com"] do
+      {:ok, _} = Accounts.register_user(%{"email" => email, "password" => "password1234"})
+    end
+
+    {:ok, lv, _} = live(conn, ~p"/admin")
+
+    html = click_sort(lv, "email")
+    assert index_of(html, "aaa@example.com") < index_of(html, "zzz@example.com")
+
+    html = click_sort(lv, "email")
+    assert index_of(html, "zzz@example.com") < index_of(html, "aaa@example.com")
+  end
+
+  defp click_sort(lv, field) do
+    lv
+    |> element(~s(button[phx-value-scope="users"][phx-value-field="#{field}"]))
+    |> render_click()
+  end
+
+  # The signed-in admin's own email also sits in the page shell, so only the
+  # table body says anything about the sort.
+  defp index_of(html, needle) do
+    [rows] = Regex.run(~r/<tbody.*<\/tbody>/s, html)
+    {start, _} = :binary.match(rows, needle)
+    start
+  end
+
   test "admin can verify an unverified user", %{conn: conn, member: member} do
     refute Accounts.User.confirmed?(member)
     {:ok, lv, _} = live(conn, ~p"/admin")
+
+    open_row_menu(lv, member)
 
     lv
     |> element(~s(button[phx-click="verify_user"][phx-value-id="#{member.id}"]))
@@ -245,9 +275,9 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     result
   end
 
-  defp open_row_menu(lv, site) do
+  defp open_row_menu(lv, row) do
     lv
-    |> element(~s(button[phx-click="toggle_menu"][phx-value-id="#{site.id}"]))
+    |> element(~s(button[phx-click="toggle_menu"][phx-value-id="#{row.id}"]))
     |> render_click()
   end
 

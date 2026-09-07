@@ -1151,6 +1151,27 @@ button.danger:hover { filter: brightness(0.92); }
   letter-spacing: 0.07em;
   color: var(--muted);
 }
+/* Clickable column header: the whole label is a button, with the arrow
+   spelling out the current sort (neutral until the column is the active
+   one). */
+.table th.th-sort { padding: 0; }
+.table th.th-sort button {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+.table th.th-sort button:hover { color: var(--fg); }
+.table th.th-sort.is-sorted button { color: var(--fg); }
+.th-sort-arrow { margin-left: 0.35rem; opacity: 0.5; }
+.table th.th-sort.is-sorted .th-sort-arrow { opacity: 1; }
+
 .table tr:last-child td { border-bottom: 0; }
 .table tbody tr { transition: background 0.12s ease; }
 .table tbody tr:hover td { background: var(--accent-soft); }
@@ -1383,12 +1404,14 @@ button.danger:hover { filter: brightness(0.92); }
 @media (min-width: 1024px) {
   .admin-table-wrap { overflow: visible; }
 }
+/* Right-aligned actions cell. Keep it a table-cell: `display: flex` here
+   takes the cell out of the row's layout and its bottom border stops
+   lining up with the rest of the row. */
 .admin-row-actions {
-  display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+  padding-left: 0.5rem;
 }
 /* Row kebab menu — collapses per-row admin actions behind one trigger. */
 .row-menu { position: relative; display: inline-flex; }

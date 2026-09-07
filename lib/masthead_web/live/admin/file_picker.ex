@@ -209,6 +209,7 @@ defmodule MastheadWeb.AdminLive.FilePicker do
             <form
               :if={@files != [] or @search != ""}
               phx-change="search"
+              phx-submit="search"
               phx-target={@myself}
               class="picker-search"
             >

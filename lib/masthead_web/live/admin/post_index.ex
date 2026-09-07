@@ -10,7 +10,7 @@ defmodule MastheadWeb.AdminLive.PostIndex do
     site = socket.assigns.site
     if connected?(socket), do: Realtime.subscribe(Realtime.content_topic(site.id))
     tags = Content.list_tags(site.id)
-    {:ok, assign(socket, tags: tags, page_title: "Posts — #{site.name}")}
+    {:ok, assign(socket, tags: tags, sort: nil, page_title: "Posts — #{site.name}")}
   end
 
   @impl true
@@ -38,6 +38,10 @@ defmodule MastheadWeb.AdminLive.PostIndex do
      push_patch(socket, to: posts_path(socket, filter_param(socket.assigns.tag_filter), query))}
   end
 
+  def handle_event("sort_list", %{"field" => field}, socket) do
+    {:noreply, socket |> assign(:sort, toggle_sort(socket.assigns.sort, field)) |> reload_posts()}
+  end
+
   def handle_event("delete", %{"id" => id}, socket) do
     post = Content.get_post!(socket.assigns.site.id, id)
     {:ok, _} = Content.delete_post(post)
@@ -48,14 +52,21 @@ defmodule MastheadWeb.AdminLive.PostIndex do
      |> reload_posts()}
   end
 
-  defp reload_posts(socket) do
-    posts =
-      Content.list_posts(socket.assigns.site.id,
-        filter: socket.assigns.tag_filter,
-        search: socket.assigns.search
-      )
+  # The table shows at most this many rows; narrow with the filter or search
+  # rather than paging, and the toolbar says how many matched in total.
+  defp list_limit, do: 20
 
-    assign(socket, :posts, posts)
+  defp reload_posts(socket) do
+    opts = [filter: socket.assigns.tag_filter, search: socket.assigns.search]
+
+    assign(socket,
+      posts:
+        Content.list_posts(
+          socket.assigns.site.id,
+          [sort: socket.assigns.sort, limit: list_limit()] ++ opts
+        ),
+      posts_total: Content.count_posts(socket.assigns.site.id, opts)
+    )
   end
 
   # Status filters are atoms; anything else is a tag slug.
@@ -135,18 +146,19 @@ defmodule MastheadWeb.AdminLive.PostIndex do
         options={filter_options(@tags)}
         search={@search}
         placeholder="Search posts…"
-        limit={length(@posts)}
-        truncated?={false}
+        limit={list_limit()}
+        truncated?={length(@posts) == list_limit()}
+        total={@posts_total}
       />
 
       <table :if={@posts != []} class="table table-cards">
         <thead>
           <tr>
-            <th>Title</th>
+            <.sort_th scope={:posts} field={:title} sort={@sort}>Title</.sort_th>
             <th>Tags</th>
-            <th>Format</th>
-            <th>Status</th>
-            <th>Updated</th>
+            <.sort_th scope={:posts} field={:format} sort={@sort}>Format</.sort_th>
+            <.sort_th scope={:posts} field={:published} sort={@sort}>Status</.sort_th>
+            <.sort_th scope={:posts} field={:updated_at} sort={@sort}>Updated</.sort_th>
             <th class="actions-cell"></th>
           </tr>
         </thead>

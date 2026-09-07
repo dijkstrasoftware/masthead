@@ -11,6 +11,7 @@ defmodule Masthead.Themes do
   """
 
   import Ecto.Query
+  alias Masthead.Query
   alias Masthead.Repo
   alias Masthead.Storage
   alias Masthead.Themes.Theme
@@ -438,10 +439,13 @@ defmodule Masthead.Themes do
   search. Capped at `count` rows — narrow with the filter + search rather
   than paging.
   """
-  def list_all_themes(filter \\ :all, search_query \\ nil, count \\ 20) do
+  @sortable_themes [:name, :slug, :version, :source, :public]
+
+  def list_all_themes(filter \\ :all, search_query \\ nil, count \\ 20, sort \\ nil) do
     from(t in Theme, order_by: ^theme_order(), preload: [:owner])
     |> apply_filter(filter)
     |> apply_search(search_query)
+    |> Query.sort(sort, @sortable_themes)
     |> limit(^count)
     |> Repo.all()
   end

@@ -513,7 +513,7 @@ defmodule MastheadWeb.AdminLive.Components do
             {label}
           </button>
         </div>
-        <form phx-change="search_list" class="admin-search">
+        <form phx-change="search_list" phx-submit="search_list" class="admin-search">
           <input type="hidden" name="scope" value={@scope} />
           <input
             type="search"
@@ -533,6 +533,45 @@ defmodule MastheadWeb.AdminLive.Components do
     </div>
     """
   end
+
+  @doc """
+  A clickable table header. Clicking sends `"sort_list"` with `scope` +
+  `field`; the caller flips the direction with `toggle_sort/2` and passes
+  the new `{field, direction}` tuple back as `sort`.
+  """
+  attr :scope, :atom, required: true
+  attr :field, :atom, required: true
+  attr :sort, :any, default: nil, doc: ~s(the active `{field, direction}` tuple, or nil)
+  slot :inner_block, required: true
+
+  def sort_th(assigns) do
+    ~H"""
+    <th class={["th-sort", active_sort?(@sort, @field) && "is-sorted"]}>
+      <button type="button" phx-click="sort_list" phx-value-scope={@scope} phx-value-field={@field}>
+        {render_slot(@inner_block)}
+        <span class="th-sort-arrow" aria-hidden="true">{sort_arrow(@sort, @field)}</span>
+      </button>
+    </th>
+    """
+  end
+
+  defp active_sort?({field, _direction}, field), do: true
+  defp active_sort?(_sort, _field), do: false
+
+  defp sort_arrow({field, :asc}, field), do: "↑"
+  defp sort_arrow({field, :desc}, field), do: "↓"
+  defp sort_arrow(_sort, _field), do: "↕"
+
+  @doc """
+  Next sort state for a clicked header: the active column flips direction,
+  a new column starts ascending. Takes the field name as it arrives from
+  the browser.
+  """
+  def toggle_sort(sort, field) when is_binary(field),
+    do: toggle_sort(sort, String.to_existing_atom(field))
+
+  def toggle_sort({field, :asc}, field), do: {field, :desc}
+  def toggle_sort(_sort, field), do: {field, :asc}
 
   @doc """
   Renders the Markdown / HTML format picker as a pair of cards.
