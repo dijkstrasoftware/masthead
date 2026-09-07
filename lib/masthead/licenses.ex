@@ -161,6 +161,29 @@ defmodule Masthead.Licenses do
   defp status_for(%{cancels_at_period_end: true}), do: "canceling"
   defp status_for(%{type: :active}), do: "active"
 
+  @doc """
+  Extends a site's license by `months` without a provider subscription.
+
+  Adds onto the existing expiry when the site is already paid, so gifting a
+  paying customer tops them up rather than cutting them short. Calendar
+  months, not 30-day blocks.
+  """
+  def gift(%Site{} = site, months) when is_integer(months) and months > 0 do
+    base = if paid?(site), do: site.license_expires_at, else: DateTime.utc_now()
+
+    site
+    |> Ecto.Changeset.change(
+      license_status: "active",
+      license_plan: site.license_plan || "gift",
+      license_expires_at: base |> DateTime.shift(month: months) |> DateTime.truncate(:second)
+    )
+    |> Repo.update()
+    |> announce()
+  end
+
+  @doc "True when the site has a provider customer, so the billing portal can open."
+  def billable?(%Site{payment_customer_id: id}), do: not is_nil(id)
+
   @doc "Licenses `site` until `expires_at` without touching a provider. Seeds and tests."
   def grant(%Site{} = site, plan \\ "yearly", expires_at \\ nil) do
     expires_at =

@@ -203,4 +203,59 @@ defmodule Masthead.LicensesTest do
                Sites.invite_to_site(site, "friend@example.com", fn t -> "u/#{t}" end)
     end
   end
+
+  describe "gift/2" do
+    test "licenses a free site from today", %{site: site} do
+      {:ok, site} = Licenses.gift(site, 3)
+
+      assert Licenses.paid?(site)
+      assert site.license_plan == "gift"
+      assert DateTime.diff(site.license_expires_at, DateTime.utc_now(), :day) in 89..92
+    end
+
+    test "adds onto an existing expiry rather than cutting it short", %{site: site} do
+      {:ok, paid} = Licenses.grant(site, "yearly", at(300))
+      {:ok, gifted} = Licenses.gift(paid, 2)
+
+      assert DateTime.after?(gifted.license_expires_at, paid.license_expires_at)
+      assert DateTime.diff(gifted.license_expires_at, paid.license_expires_at, :day) in 58..62
+    end
+
+    test "keeps the plan a paying site is already on", %{site: site} do
+      {:ok, paid} = Licenses.grant(site, "yearly", at(10))
+      {:ok, gifted} = Licenses.gift(paid, 1)
+
+      assert gifted.license_plan == "yearly"
+    end
+
+    test "restarts from today once a license has lapsed", %{site: site} do
+      {:ok, lapsed} = Licenses.grant(site, "monthly", at(-40))
+      {:ok, gifted} = Licenses.gift(lapsed, 1)
+
+      assert Licenses.paid?(gifted)
+      assert DateTime.after?(gifted.license_expires_at, DateTime.utc_now())
+    end
+  end
+
+  describe "admin paid/free filters" do
+    test "split the sites between them", %{site: site} do
+      paid = fn -> Enum.map(Sites.list_all_sites(:paid, nil, 50), & &1.slug) end
+      free = fn -> Enum.map(Sites.list_all_sites(:free, nil, 50), & &1.slug) end
+
+      assert site.slug in free.()
+      refute site.slug in paid.()
+
+      {:ok, _} = Licenses.gift(site, 1)
+
+      assert site.slug in paid.()
+      refute site.slug in free.()
+    end
+
+    test "an expired license counts as free", %{site: site} do
+      {:ok, _} = Licenses.grant(site, "yearly", at(-1))
+
+      assert site.slug in Enum.map(Sites.list_all_sites(:free, nil, 50), & &1.slug)
+      refute site.slug in Enum.map(Sites.list_all_sites(:paid, nil, 50), & &1.slug)
+    end
+  end
 end

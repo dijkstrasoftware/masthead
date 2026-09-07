@@ -4,7 +4,7 @@ defmodule MastheadWeb.AdminLive.Console do
 
   import MastheadWeb.AdminLive.Components
 
-  alias Masthead.{Accounts, Actions, Sites, Themes}
+  alias Masthead.{Accounts, Actions, Licenses, Sites, Themes}
 
   @default_filters %{users: :all, sites: :enabled, themes: :public}
 
@@ -17,6 +17,9 @@ defmodule MastheadWeb.AdminLive.Console do
        tab: :users,
        action_modal?: false,
        action_site: nil,
+       gift_modal?: false,
+       gift_site: nil,
+       open_menu: nil,
        users_filter: @default_filters.users,
        users_search: "",
        sites_filter: @default_filters.sites,
@@ -73,7 +76,13 @@ defmodule MastheadWeb.AdminLive.Console do
     ]
 
   defp filter_options(:sites),
-    do: [{:enabled, "Enabled"}, {:disabled, "Disabled"}, {:deleted, "Deleted"}]
+    do: [
+      {:enabled, "Enabled"},
+      {:disabled, "Disabled"},
+      {:deleted, "Deleted"},
+      {:paid, "Paid"},
+      {:free, "Free"}
+    ]
 
   defp filter_options(:themes),
     do: [
@@ -122,26 +131,74 @@ defmodule MastheadWeb.AdminLive.Console do
 
   def handle_event("disable_site", %{"id" => id}, socket) do
     {:ok, _} = id |> Sites.get_site!() |> Sites.disable_site()
-    {:noreply, socket |> put_flash(:info, "Site disabled.") |> load_data()}
+
+    {:noreply,
+     socket |> assign(open_menu: nil) |> put_flash(:info, "Site disabled.") |> load_data()}
   end
 
   def handle_event("enable_site", %{"id" => id}, socket) do
     {:ok, _} = id |> Sites.get_site!() |> Sites.enable_site()
-    {:noreply, socket |> put_flash(:info, "Site enabled.") |> load_data()}
+
+    {:noreply,
+     socket |> assign(open_menu: nil) |> put_flash(:info, "Site enabled.") |> load_data()}
   end
 
   def handle_event("delete_site", %{"id" => id}, socket) do
     {:ok, _} = id |> Sites.get_site!() |> Sites.soft_delete_site()
-    {:noreply, socket |> put_flash(:info, "Site deleted (recoverable).") |> load_data()}
+
+    {:noreply,
+     socket
+     |> assign(open_menu: nil)
+     |> put_flash(:info, "Site deleted (recoverable).")
+     |> load_data()}
   end
 
   def handle_event("restore_site", %{"id" => id}, socket) do
     {:ok, _} = id |> Sites.get_site!() |> Sites.restore_site()
-    {:noreply, socket |> put_flash(:info, "Site restored.") |> load_data()}
+
+    {:noreply,
+     socket |> assign(open_menu: nil) |> put_flash(:info, "Site restored.") |> load_data()}
+  end
+
+  def handle_event("toggle_menu", %{"id" => id}, socket) do
+    id = String.to_integer(id)
+    open = if socket.assigns.open_menu == id, do: nil, else: id
+    {:noreply, assign(socket, open_menu: open)}
+  end
+
+  def handle_event("close_menu", _params, socket) do
+    {:noreply, assign(socket, open_menu: nil)}
+  end
+
+  def handle_event("open_gift_modal", %{"site_id" => id}, socket) do
+    {:noreply, assign(socket, gift_modal?: true, gift_site: Sites.get_site!(id), open_menu: nil)}
+  end
+
+  def handle_event("close_gift_modal", _params, socket) do
+    {:noreply, assign(socket, gift_modal?: false, gift_site: nil)}
+  end
+
+  def handle_event("gift_pro", %{"months" => months}, socket) do
+    site = socket.assigns.gift_site
+
+    case Integer.parse(months) do
+      {months, ""} when months > 0 and months <= 120 ->
+        {:ok, site} = Licenses.gift(site, months)
+
+        {:noreply,
+         socket
+         |> assign(gift_modal?: false, gift_site: nil)
+         |> put_flash(:info, "#{site.name} is licensed until #{gift_date(site)}.")
+         |> load_data()}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Enter a whole number of months between 1 and 120.")}
+    end
   end
 
   def handle_event("open_action_modal", %{"site_id" => id}, socket) do
-    {:noreply, assign(socket, action_modal?: true, action_site: Sites.get_site!(id))}
+    {:noreply,
+     assign(socket, action_modal?: true, action_site: Sites.get_site!(id), open_menu: nil)}
   end
 
   def handle_event("close_action_modal", _params, socket) do
@@ -284,7 +341,7 @@ defmodule MastheadWeb.AdminLive.Console do
           limit={list_limit()}
           truncated?={length(@sites) == list_limit()}
         />
-        <table class="table">
+        <table class="table table-menus">
           <thead>
             <tr>
               <th>Name</th>
@@ -292,7 +349,7 @@ defmodule MastheadWeb.AdminLive.Console do
               <th>Members</th>
               <th>Created</th>
               <th>Status</th>
-              <th>Add action</th>
+              <th>License</th>
               <th></th>
             </tr>
           </thead>
@@ -315,52 +372,85 @@ defmodule MastheadWeb.AdminLive.Console do
                 </span>
               </td>
               <td>
-                <button
-                  type="button"
-                  class="btn btn-sm"
-                  phx-click="open_action_modal"
-                  phx-value-site_id={s.id}
-                >
-                  + Action
-                </button>
+                <span class={["pill", Licenses.pill_class(s)]}>{Licenses.label(s)}</span>
               </td>
               <td class="admin-row-actions">
-                <.link :if={is_nil(s.deleted_at)} navigate={~p"/#{s.slug}"} class="btn btn-sm">
-                  Enter
-                </.link>
-                <button
-                  :if={is_nil(s.disabled_at) and is_nil(s.deleted_at)}
-                  class="btn btn-sm"
-                  phx-click="disable_site"
-                  phx-value-id={s.id}
-                >
-                  Disable
-                </button>
-                <button
-                  :if={not is_nil(s.disabled_at) and is_nil(s.deleted_at)}
-                  class="btn btn-sm"
-                  phx-click="enable_site"
-                  phx-value-id={s.id}
-                >
-                  Enable
-                </button>
-                <button
-                  :if={is_nil(s.deleted_at)}
-                  class="btn btn-sm btn-danger"
-                  phx-click="delete_site"
-                  phx-value-id={s.id}
-                  data-confirm={"Delete #{s.name}? It's recoverable from here."}
-                >
-                  Delete
-                </button>
-                <button
-                  :if={not is_nil(s.deleted_at)}
-                  class="btn btn-sm"
-                  phx-click="restore_site"
-                  phx-value-id={s.id}
-                >
-                  Restore
-                </button>
+                <div class="row-menu" phx-click-away={@open_menu == s.id && "close_menu"}>
+                  <button
+                    type="button"
+                    class="row-menu-trigger"
+                    phx-click="toggle_menu"
+                    phx-value-id={s.id}
+                    aria-haspopup="menu"
+                    aria-expanded={to_string(@open_menu == s.id)}
+                    aria-label={"Actions for #{s.name}"}
+                  >
+                    <.dots_icon />
+                  </button>
+
+                  <div :if={@open_menu == s.id} class="row-menu-panel" role="menu">
+                    <.link :if={is_nil(s.deleted_at)} navigate={~p"/#{s.slug}"} role="menuitem">
+                      Enter site
+                    </.link>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      phx-click="open_action_modal"
+                      phx-value-site_id={s.id}
+                    >
+                      Add action
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      phx-click="open_gift_modal"
+                      phx-value-site_id={s.id}
+                    >
+                      Gift Pro…
+                    </button>
+
+                    <hr />
+
+                    <button
+                      :if={is_nil(s.disabled_at) and is_nil(s.deleted_at)}
+                      type="button"
+                      role="menuitem"
+                      phx-click="disable_site"
+                      phx-value-id={s.id}
+                    >
+                      Disable
+                    </button>
+                    <button
+                      :if={not is_nil(s.disabled_at) and is_nil(s.deleted_at)}
+                      type="button"
+                      role="menuitem"
+                      phx-click="enable_site"
+                      phx-value-id={s.id}
+                    >
+                      Enable
+                    </button>
+                    <button
+                      :if={is_nil(s.deleted_at)}
+                      type="button"
+                      role="menuitem"
+                      class="is-danger"
+                      phx-click="delete_site"
+                      phx-value-id={s.id}
+                      data-confirm={"Delete #{s.name}? It's recoverable from here."}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      :if={not is_nil(s.deleted_at)}
+                      type="button"
+                      role="menuitem"
+                      phx-click="restore_site"
+                      phx-value-id={s.id}
+                    >
+                      Restore
+                    </button>
+                  </div>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -488,7 +578,74 @@ defmodule MastheadWeb.AdminLive.Console do
           </form>
         </div>
       </div>
+      <div
+        :if={@gift_modal?}
+        class="dialog-backdrop"
+        phx-window-keydown="close_gift_modal"
+        phx-key="Escape"
+      >
+        <button
+          type="button"
+          phx-click="close_gift_modal"
+          class="dialog-close-overlay"
+          aria-label="Close"
+          tabindex="-1"
+        >
+        </button>
+        <div class="dialog">
+          <header class="dialog-header">
+            <h2>Gift Pro{if @gift_site, do: " — #{@gift_site.name}"}</h2>
+            <button type="button" phx-click="close_gift_modal" class="dialog-close" aria-label="Close">
+              &times;
+            </button>
+          </header>
+
+          <form phx-submit="gift_pro" class="dialog-form">
+            <label>
+              Months
+              <input
+                type="number"
+                name="months"
+                value="3"
+                min="1"
+                max="120"
+                step="1"
+                required
+                autocomplete="off"
+              />
+              <small>
+                {gift_hint(@gift_site)} No card is charged and no subscription is created.
+              </small>
+            </label>
+            <div class="dialog-footer">
+              <button type="button" phx-click="close_gift_modal" class="btn">Cancel</button>
+              <button type="submit" class="btn btn-primary">Gift Pro</button>
+            </div>
+          </form>
+        </div>
+      </div>
     </.shell>
+    """
+  end
+
+  defp gift_hint(nil), do: ""
+
+  defp gift_hint(site) do
+    if Licenses.paid?(site),
+      do: "Added on top of the current expiry (#{gift_date(site)}).",
+      else: "Starts today."
+  end
+
+  defp gift_date(%{license_expires_at: nil}), do: "—"
+  defp gift_date(%{license_expires_at: at}), do: Calendar.strftime(at, "%-d %B %Y")
+
+  defp dots_icon(assigns) do
+    ~H"""
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="12" cy="5" r="1.75" />
+      <circle cx="12" cy="12" r="1.75" />
+      <circle cx="12" cy="19" r="1.75" />
+    </svg>
     """
   end
 end

@@ -1060,7 +1060,16 @@ button.danger:hover { filter: brightness(0.92); }
   color: inherit;
 }
 .card-list li a:hover { text-decoration: none; }
-.card-list li strong { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.015em; color: var(--fg); }
+.card-list li strong {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--fg);
+  padding-right: 5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .card-list li .muted {
   font-size: 0.8rem;
   font-family: ui-monospace, Menlo, monospace;
@@ -1149,6 +1158,15 @@ button.danger:hover { filter: brightness(0.92); }
   font-size: 0.78rem;
   font-family: ui-monospace, Menlo, monospace;
 }
+
+/* A table whose rows carry a kebab menu cannot clip its own overflow, or
+   the panel is cut off at the table edge. The corner radii that
+   `overflow: hidden` was providing are restored on the corner cells. */
+.table-menus { overflow: visible; }
+.table-menus thead tr:first-child th:first-child { border-top-left-radius: 14px; }
+.table-menus thead tr:first-child th:last-child { border-top-right-radius: 14px; }
+.table-menus tbody tr:last-child td:first-child { border-bottom-left-radius: 14px; }
+.table-menus tbody tr:last-child td:last-child { border-bottom-right-radius: 14px; }
 
 /* Right-aligned cluster of row action buttons (e.g. Edit / Delete). */
 .row-actions { display: inline-flex; align-items: center; gap: 0.4rem; }
@@ -1359,6 +1377,12 @@ button.danger:hover { filter: brightness(0.92); }
    wider tables to scroll on narrow viewports and lays out the row's
    action buttons in a right-aligned cluster. */
 .admin-table-wrap { overflow-x: auto; }
+/* The row menu is absolutely positioned inside this box, and overflow-x on
+   one axis forces the other to clip too. Wide screens do not need the
+   horizontal scroll, so drop it there and let the menu escape. */
+@media (min-width: 1024px) {
+  .admin-table-wrap { overflow: visible; }
+}
 .admin-row-actions {
   display: flex;
   gap: 0.4rem;
@@ -1366,6 +1390,72 @@ button.danger:hover { filter: brightness(0.92); }
   align-items: center;
   justify-content: flex-end;
 }
+/* Row kebab menu — collapses per-row admin actions behind one trigger. */
+.row-menu { position: relative; display: inline-flex; }
+.row-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.row-menu-trigger:hover,
+.row-menu-trigger[aria-expanded="true"] {
+  background: var(--bg-soft);
+  border-color: var(--rule);
+  color: var(--fg);
+}
+.row-menu-trigger svg { width: 18px; height: 18px; }
+.row-menu-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 30;
+  min-width: 12rem;
+  padding: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+}
+.row-menu-panel > a,
+.row-menu-panel > button {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.88rem;
+  text-align: left;
+  color: var(--fg);
+  cursor: pointer;
+}
+.row-menu-panel > a:hover,
+.row-menu-panel > button:hover {
+  background: var(--bg-soft);
+  text-decoration: none;
+  color: var(--fg);
+}
+.row-menu-panel > .is-danger { color: var(--danger); }
+.row-menu-panel > .is-danger:hover { background: var(--danger-soft); color: var(--danger); }
+.row-menu-panel hr {
+  margin: 0.35rem 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+
 /* Toolbar above each admin table: filter buttons on the left, search on
    the right, with a cap hint underneath when the list is truncated. */
 .admin-toolbar {
@@ -2408,6 +2498,7 @@ button.danger:hover { filter: brightness(0.92); }
 }
 .dialog-form input[type="text"],
 .dialog-form input[type="email"],
+.dialog-form input[type="number"],
 .dialog-form textarea {
   padding: 0.55rem 0.75rem;
   border: 1px solid var(--rule);
@@ -2420,6 +2511,7 @@ button.danger:hover { filter: brightness(0.92); }
 }
 .dialog-form input[type="text"]:focus,
 .dialog-form input[type="email"]:focus,
+.dialog-form input[type="number"]:focus,
 .dialog-form textarea:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
@@ -4846,4 +4938,17 @@ button.danger:hover { filter: brightness(0.92); }
 }
 @media (prefers-reduced-motion: reduce) {
   .install-card .btn-installed { animation: none; }
+}
+
+/* Below the desktop breakpoint the table still scrolls, so the row menu
+   cannot rely on absolute positioning: fixed escapes the clip entirely. */
+@media (max-width: 1023px) {
+  .row-menu-panel {
+    position: fixed;
+    top: auto;
+    bottom: 1rem;
+    left: 1rem;
+    right: 1rem;
+    min-width: 0;
+  }
 }

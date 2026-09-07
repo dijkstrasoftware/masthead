@@ -127,6 +127,8 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     {:ok, lv, _} = live(conn, ~p"/admin")
     lv |> element(~s(button[phx-value-tab="sites"])) |> render_click()
 
+    open_row_menu(lv, site)
+
     lv
     |> element(~s(button[phx-click="disable_site"][phx-value-id="#{site.id}"]))
     |> render_click()
@@ -140,6 +142,8 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     )
     |> render_click()
 
+    open_row_menu(lv, site)
+
     lv
     |> element(~s(button[phx-click="enable_site"][phx-value-id="#{site.id}"]))
     |> render_click()
@@ -150,6 +154,8 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
   test "admin can soft-delete and restore a site", %{conn: conn, site: site} do
     {:ok, lv, _} = live(conn, ~p"/admin")
     lv |> element(~s(button[phx-value-tab="sites"])) |> render_click()
+
+    open_row_menu(lv, site)
 
     lv
     |> element(~s(button[phx-click="delete_site"][phx-value-id="#{site.id}"]))
@@ -164,6 +170,8 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     )
     |> render_click()
 
+    open_row_menu(lv, site)
+
     lv
     |> element(~s(button[phx-click="restore_site"][phx-value-id="#{site.id}"]))
     |> render_click()
@@ -174,6 +182,8 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
   test "admin can add a custom action to a site via the modal", %{conn: conn, site: site} do
     {:ok, lv, _} = live(conn, ~p"/admin")
     lv |> element(~s(button[phx-value-tab="sites"])) |> render_click()
+
+    open_row_menu(lv, site)
 
     lv
     |> element(~s(button[phx-click="open_action_modal"][phx-value-site_id="#{site.id}"]))
@@ -233,5 +243,46 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     result = Masthead.Themes.Package.install(tmp, owner_id)
     File.rm(tmp)
     result
+  end
+
+  defp open_row_menu(lv, site) do
+    lv
+    |> element(~s(button[phx-click="toggle_menu"][phx-value-id="#{site.id}"]))
+    |> render_click()
+  end
+
+  test "the row menu gifts Pro to a site", %{conn: conn, site: site} do
+    {:ok, lv, _} = live(conn, ~p"/admin")
+    lv |> element(~s(button[phx-value-tab="sites"])) |> render_click()
+
+    refute Masthead.Licenses.paid?(Sites.get_site!(site.id))
+
+    open_row_menu(lv, site)
+
+    lv
+    |> element(~s(button[phx-click="open_gift_modal"][phx-value-site_id="#{site.id}"]))
+    |> render_click()
+
+    lv |> form(~s(form[phx-submit="gift_pro"]), %{months: "4"}) |> render_submit()
+
+    site = Sites.get_site!(site.id)
+    assert Masthead.Licenses.paid?(site)
+    assert site.license_plan == "gift"
+    assert DateTime.diff(site.license_expires_at, DateTime.utc_now(), :day) in 119..123
+  end
+
+  test "gifting rejects a nonsense number of months", %{conn: conn, site: site} do
+    {:ok, lv, _} = live(conn, ~p"/admin")
+    lv |> element(~s(button[phx-value-tab="sites"])) |> render_click()
+    open_row_menu(lv, site)
+
+    lv
+    |> element(~s(button[phx-click="open_gift_modal"][phx-value-site_id="#{site.id}"]))
+    |> render_click()
+
+    html = lv |> form(~s(form[phx-submit="gift_pro"]), %{months: "0"}) |> render_submit()
+
+    assert html =~ "between 1 and 120"
+    refute Masthead.Licenses.paid?(Sites.get_site!(site.id))
   end
 end

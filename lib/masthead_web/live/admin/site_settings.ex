@@ -408,7 +408,7 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
                 </span>
 
                 <button
-                  :if={Licenses.paid?(@site)}
+                  :if={Licenses.paid?(@site) and Licenses.billable?(@site)}
                   type="button"
                   phx-click="billing_portal"
                   class="btn"
