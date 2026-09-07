@@ -31,6 +31,7 @@ defmodule MastheadWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    get "/pricing", PageController, :pricing
 
     get "/login", SessionController, :new
     post "/login", SessionController, :create

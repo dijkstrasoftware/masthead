@@ -1,0 +1,173 @@
+<div class="landing">
+  <.marketing_nav current_user={assigns[:current_user]} active={:pricing} />
+
+  <section class="landing-hero pricing-hero">
+    <div class="hero-inner">
+      <span class="hero-eyebrow">Pricing</span>
+      <h1>Free to publish. Paid when you want a domain of your own.</h1>
+      <p class="hero-lede">
+        Every site starts free and stays free — there is no trial and nothing expires.
+        A license is per site, so you only pay for the ones that need a custom domain
+        or a team behind them.
+      </p>
+    </div>
+  </section>
+
+  <section class="pricing-plans" aria-labelledby="plans-title">
+    <h2 class="section-title" id="plans-title">Two plans, per site</h2>
+
+    <div class="pricing-grid">
+      <article class="pricing-card">
+        <header class="pricing-card-head">
+          <h3>Free</h3>
+          <p class="pricing-amount">{@free_price}<span>forever</span></p>
+          <p class="pricing-sub">Everything you need to write and publish.</p>
+        </header>
+
+        <ul class="pricing-list">
+          <li>Unlimited posts and pages</li>
+          <li>Write in Markdown or HTML</li>
+          <li>Themes from the marketplace, or upload your own</li>
+          <li>A <code>yoursite.masthead.site</code> address</li>
+          <li>Automatic HTTPS</li>
+          <li>Image and file uploads</li>
+          <li>Tags and drafts</li>
+          <li>Import an existing Hugo site</li>
+        </ul>
+
+        <.link
+          :if={is_nil(assigns[:current_user])}
+          navigate={~p"/signup"}
+          class="btn btn-ghost btn-lg pricing-action"
+        >
+          Create your site
+        </.link>
+        <.link
+          :if={assigns[:current_user]}
+          navigate={~p"/sites"}
+          class="btn btn-ghost btn-lg pricing-action"
+        >
+          Open dashboard
+        </.link>
+      </article>
+
+      <article class="pricing-card pricing-card-best">
+        <header class="pricing-card-head">
+          <h3>
+            Paid
+            <span :if={@saving} class="pill pill-ok">
+              Save {@saving} a year
+            </span>
+          </h3>
+          <p class="pricing-amount">
+            {@monthly_price}<span>per month</span>
+          </p>
+          <p class="pricing-sub">
+            or {@yearly_price} billed yearly. Cancel any time.
+          </p>
+        </header>
+
+        <ul class="pricing-list">
+          <li class="pricing-list-head">Everything in Free, plus:</li>
+          <li>Your own custom domain — apex or subdomain</li>
+          <li>TLS certificates provisioned automatically</li>
+          <li>Invite collaborators to the site</li>
+        </ul>
+
+        <.link
+          :if={is_nil(assigns[:current_user])}
+          navigate={~p"/signup"}
+          class="btn btn-primary btn-lg pricing-action"
+        >
+          Start free, upgrade later
+        </.link>
+        <.link
+          :if={assigns[:current_user]}
+          navigate={~p"/sites"}
+          class="btn btn-primary btn-lg pricing-action"
+        >
+          Choose a site to upgrade
+        </.link>
+      </article>
+    </div>
+
+    <p class="pricing-foot">
+      Masthead is open source. You can always
+      <a href="https://github.com/dijkstrasoftware/masthead" target="_blank" rel="noopener">
+        run it yourself
+      </a>
+      instead.
+    </p>
+  </section>
+
+  <section class="landing-faq" aria-labelledby="pricing-faq-title">
+    <h2 class="section-title" id="pricing-faq-title">Questions about billing</h2>
+
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>
+          <h3>Is the free plan really free?</h3>
+          <span class="faq-marker" aria-hidden="true"></span>
+        </summary>
+        <p>
+          Yes. A free site has no expiry date and no card on file. It keeps working
+          indefinitely on its masthead.site address.
+        </p>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          <h3>Do I pay per account or per site?</h3>
+          <span class="faq-marker" aria-hidden="true"></span>
+        </summary>
+        <p>
+          Per site. You can run several sites from one account and license only the
+          ones that need a custom domain or collaborators.
+        </p>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          <h3>What happens if I cancel?</h3>
+          <span class="faq-marker" aria-hidden="true"></span>
+        </summary>
+        <p>
+          The site stays licensed until the period you already paid for runs out, then
+          returns to the free plan. Your content is untouched.
+        </p>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          <h3>How do I change or cancel my plan?</h3>
+          <span class="faq-marker" aria-hidden="true"></span>
+        </summary>
+        <p>
+          From the site's Settings page, under License. That opens the billing portal
+          where you can switch plans, update your card, or cancel.
+        </p>
+      </details>
+    </div>
+  </section>
+
+  <section class="landing-cta">
+    <div class="cta-card">
+      <h2>Start publishing.</h2>
+      <p>Create a site for free and upgrade only when you need your own domain.</p>
+      <div class="hero-cta">
+        <.link :if={assigns[:current_user]} navigate={~p"/sites"} class="btn btn-primary btn-lg">
+          Open dashboard
+        </.link>
+        <.link
+          :if={is_nil(assigns[:current_user])}
+          navigate={~p"/signup"}
+          class="btn btn-primary btn-lg"
+        >
+          Create your site
+        </.link>
+      </div>
+    </div>
+  </section>
+
+  <.marketing_footer current_user={assigns[:current_user]} />
+</div>

@@ -399,7 +399,7 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
 
                   <.link
                     :if={not Licenses.paid?(@site)}
-                    href="https://masthead.site/pricing"
+                    href={~p"/pricing"}
                     target="_blank"
                     rel="noopener"
                   >

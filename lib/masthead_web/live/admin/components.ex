@@ -1179,7 +1179,7 @@ defmodule MastheadWeb.AdminLive.Components do
           </div>
 
           <p class="upgrade-foot">
-            <.link href="https://masthead.site/pricing" target="_blank" rel="noopener">
+            <.link href={~p"/pricing"} target="_blank" rel="noopener">
               See what's included
             </.link>
           </p>

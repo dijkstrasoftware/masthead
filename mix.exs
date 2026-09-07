@@ -4,7 +4,7 @@ defmodule Masthead.MixProject do
   def project do
     [
       app: :masthead,
-      version: "2.26.0",
+      version: "2.27.0",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,

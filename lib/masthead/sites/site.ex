@@ -2,7 +2,7 @@ defmodule Masthead.Sites.Site do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @reserved_slugs ~w(www api app admin dashboard login signup logout auth public assets static help sites new themes)
+  @reserved_slugs ~w(www api app admin dashboard login signup logout auth public assets static help sites new themes pricing marketplace)
 
   schema "sites" do
     field :slug, :string

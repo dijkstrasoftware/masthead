@@ -11,7 +11,7 @@ defmodule MastheadWeb.MarketingComponents do
   use MastheadWeb, :verified_routes
 
   attr :current_user, :map, default: nil
-  attr :active, :atom, default: nil, doc: ":marketplace | nil"
+  attr :active, :atom, default: nil, doc: ":marketplace | :pricing | nil"
 
   def marketing_nav(assigns) do
     ~H"""
@@ -39,39 +39,35 @@ defmodule MastheadWeb.MarketingComponents do
           />
         </svg>
       </label>
-      <div class="nav-cta">
-        <.link
-          navigate={~p"/marketplace"}
-          class={["nav-link", @active == :marketplace && "is-active"]}
-          aria-current={@active == :marketplace && "page"}
-        >
-          Marketplace
-        </.link>
-        <a href="https://docs.masthead.site" target="_blank" rel="noopener" class="nav-link">
-          Docs
-        </a>
-        <a
-          href="https://github.com/dijkstrasoftware/masthead"
-          target="_blank"
-          rel="noopener"
-          class="github-btn"
-        >
-          <.github_mark />
-          <span>GitHub</span>
-        </a>
-        <.link
-          :if={@current_user && @current_user.admin}
-          navigate={~p"/admin"}
-          class="nav-link"
-        >
-          Admin
-        </.link>
-        <.link :if={@current_user} navigate={~p"/sites"} class="btn btn-primary btn-sm">
-          Open dashboard &rarr;
-        </.link>
-        <.link :if={is_nil(@current_user)} navigate={~p"/login"} class="btn btn-primary btn-sm">
-          Login
-        </.link>
+      <div class="nav-menu">
+        <div class="nav-links">
+          <.link
+            navigate={~p"/marketplace"}
+            class={["nav-link", @active == :marketplace && "is-active"]}
+            aria-current={@active == :marketplace && "page"}
+          >
+            Marketplace
+          </.link>
+          <.link
+            navigate={~p"/pricing"}
+            class={["nav-link", @active == :pricing && "is-active"]}
+            aria-current={@active == :pricing && "page"}
+          >
+            Pricing
+          </.link>
+          <a href="https://docs.masthead.site" target="_blank" rel="noopener" class="nav-link">
+            Docs<.external_mark />
+          </a>
+        </div>
+
+        <div class="nav-cta">
+          <.link :if={@current_user} navigate={~p"/sites"} class="btn btn-primary btn-sm">
+            Open dashboard &rarr;
+          </.link>
+          <.link :if={is_nil(@current_user)} navigate={~p"/login"} class="btn btn-primary btn-sm">
+            Login
+          </.link>
+        </div>
       </div>
     </nav>
     """
@@ -89,6 +85,7 @@ defmodule MastheadWeb.MarketingComponents do
       </div>
       <div class="landing-footer-links">
         <.link navigate={~p"/marketplace"}>Marketplace</.link>
+        <.link navigate={~p"/pricing"}>Pricing</.link>
         <a href="https://blog.masthead.site" target="_blank" rel="noopener">Blog</a>
         <a href="https://docs.masthead.site" target="_blank" rel="noopener">Docs</a>
         <.link :if={@current_user} navigate={~p"/sites"}>Dashboard</.link>
@@ -105,6 +102,26 @@ defmodule MastheadWeb.MarketingComponents do
         <span>GitHub</span>
       </a>
     </footer>
+    """
+  end
+
+  defp external_mark(assigns) do
+    ~H"""
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      class="external-mark"
+      aria-hidden="true"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+      />
+    </svg>
     """
   end
 
