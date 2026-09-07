@@ -173,4 +173,65 @@ defmodule MastheadWeb.SiteSettingsLiveTest do
       assert Content.list_tags(site.id) == []
     end
   end
+
+  describe "license" do
+    setup do
+      on_exit(fn -> Application.delete_env(:masthead, :payments_stub) end)
+    end
+
+    test "a free site offers both upgrade plans", %{conn: conn, site: site} do
+      {:ok, _lv, html} = live(conn, ~p"/#{site.slug}/settings")
+
+      assert html =~ "License"
+      assert html =~ "Free forever"
+      assert html =~ "Upgrade — €5/month"
+      assert html =~ "Upgrade — €50/year"
+      refute html =~ "Manage billing"
+    end
+
+    test "upgrading leaves for the provider's checkout", %{conn: conn, site: site} do
+      Application.put_env(:masthead, :payments_stub, %{checkout_url: "https://checkout.test/abc"})
+      {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/settings")
+
+      assert {:error, {:redirect, %{to: "https://checkout.test/abc"}}} =
+               lv
+               |> element(~s(button[phx-click="checkout"][phx-value-plan="yearly"]))
+               |> render_click()
+    end
+
+    test "a licensed site shows its renewal date and the billing portal", %{
+      conn: conn,
+      site: site
+    } do
+      {:ok, _site} = Masthead.Licenses.grant(site, "yearly")
+
+      {:ok, _lv, html} = live(conn, ~p"/#{site.slug}/settings")
+
+      assert html =~ "Licensed — yearly"
+      assert html =~ "Renews"
+      assert html =~ "Manage billing"
+      refute html =~ "Upgrade —"
+    end
+
+    test "a provider failure is reported instead of redirecting", %{conn: conn, site: site} do
+      {:ok, _site} = Masthead.Licenses.grant(site, "yearly")
+      {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/settings")
+
+      html =
+        lv
+        |> element(~s(button[phx-click="billing_portal"]))
+        |> render_click()
+
+      assert html =~ "this site has no billing account yet"
+    end
+
+    test "a webhook landing elsewhere flips the section live", %{conn: conn, site: site} do
+      {:ok, lv, html} = live(conn, ~p"/#{site.slug}/settings")
+      assert html =~ "Free forever"
+
+      {:ok, _site} = Masthead.Licenses.grant(site, "monthly")
+
+      assert render(lv) =~ "Licensed — monthly"
+    end
+  end
 end

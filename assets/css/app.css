@@ -1038,6 +1038,15 @@ button.danger:hover { filter: brightness(0.92); }
   color: var(--muted);
 }
 .card-list li .pill { align-self: flex-start; margin-top: 0.25rem; }
+.card-list li .card-pill {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.9rem;
+  margin-top: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.license-plans { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 
 /* Tables */
 .table {

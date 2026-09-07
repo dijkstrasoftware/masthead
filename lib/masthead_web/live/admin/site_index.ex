@@ -1,6 +1,7 @@
 defmodule MastheadWeb.AdminLive.SiteIndex do
   use MastheadWeb, :live_view
   import MastheadWeb.AdminLive.Components
+  alias Masthead.Licenses
   alias Masthead.Sites
   alias Masthead.Sites.Site
 
@@ -116,6 +117,7 @@ defmodule MastheadWeb.AdminLive.SiteIndex do
 
       <ul :if={@sites != []} class="card-list">
         <li :for={s <- @sites}>
+          <span class={"pill card-pill " <> Licenses.pill_class(s)}>{Licenses.chip(s)}</span>
           <.link navigate={~p"/#{s.slug}"}>
             <strong>{s.name}</strong>
             <span class="muted">{s.slug}.{@host}</span>

@@ -21,6 +21,8 @@ defmodule MastheadWeb.DomainSetupLiveTest do
         "owner_id" => user.id
       })
 
+    {:ok, site} = Masthead.Licenses.grant(site)
+
     conn =
       build_conn()
       |> Plug.Test.init_test_session(%{})

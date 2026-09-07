@@ -4,6 +4,7 @@ defmodule MastheadWeb.AdminLive.DomainSetup do
 
   import MastheadWeb.AdminLive.Components
   alias Masthead.CustomDomains
+  alias Masthead.Licenses
 
   @impl true
   def mount(_params, _session, socket) do
@@ -131,7 +132,16 @@ defmodule MastheadWeb.AdminLive.DomainSetup do
         <%= case @step do %>
           <% 1 -> %>
             <h2 class="wizard-heading">Add a custom domain</h2>
-            <form phx-submit="set_domain" class="form">
+            <div :if={not Licenses.paid?(@site)} class="domain-summary">
+              <span class="muted">
+                Custom domains are part of a paid license. This site is on the free plan.
+              </span>
+              <.link navigate={~p"/#{@site.slug}/settings"} class="btn btn-primary">
+                View license options
+              </.link>
+            </div>
+
+            <form :if={Licenses.paid?(@site)} phx-submit="set_domain" class="form">
               <label>
                 Domain
                 <input

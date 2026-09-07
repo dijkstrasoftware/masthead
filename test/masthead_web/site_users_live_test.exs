@@ -16,6 +16,8 @@ defmodule MastheadWeb.SiteUsersLiveTest do
         user
       )
 
+    {:ok, site} = Masthead.Licenses.grant(site)
+
     %{conn: login(build_conn(), user), site: site, user: user}
   end
 

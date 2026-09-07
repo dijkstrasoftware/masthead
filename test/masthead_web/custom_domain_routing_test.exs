@@ -22,6 +22,8 @@ defmodule MastheadWeb.CustomDomainRoutingTest do
         "owner_id" => user.id
       })
 
+    {:ok, site} = Masthead.Licenses.grant(site)
+
     %{site: site}
   end
 

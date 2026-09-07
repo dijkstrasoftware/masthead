@@ -4,7 +4,7 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
 
   import MastheadWeb.AdminLive.Components
   alias Masthead.Accounts.User
-  alias Masthead.{Accounts, Actions, Realtime, Sites}
+  alias Masthead.{Accounts, Actions, Licenses, Realtime, Sites}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -77,6 +77,12 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
 
       {:error, :invalid_email} ->
         {:noreply, put_flash(socket, :error, "That doesn't look like a valid email address.")}
+
+      {:error, :requires_license} ->
+        {:noreply,
+         socket
+         |> assign(modal_open?: false)
+         |> put_flash(:error, "Extra collaborators need a paid license for this site.")}
     end
   end
 
@@ -190,7 +196,16 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
       present_users={@present_users}
     >
       <:actions>
+        <.link
+          :if={not Licenses.paid?(@site)}
+          navigate={~p"/#{@site.slug}/settings"}
+          class="btn btn-primary btn-add"
+        >
+          Upgrade to invite people
+        </.link>
+
         <button
+          :if={Licenses.paid?(@site)}
           type="button"
           phx-click="open_modal"
           class="btn btn-primary btn-add"
@@ -303,8 +318,27 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
           class="empty-illustration"
         />
         <h2>No pending invitations</h2>
-        <p>Invite someone by email and any pending invitations will show up here.</p>
-        <button type="button" phx-click="open_modal" class="btn btn-primary">+ New user</button>
+        <p :if={Licenses.paid?(@site)}>
+          Invite someone by email and any pending invitations will show up here.
+        </p>
+        <p :if={not Licenses.paid?(@site)}>
+          Inviting collaborators needs a paid license for this site.
+        </p>
+        <button
+          :if={Licenses.paid?(@site)}
+          type="button"
+          phx-click="open_modal"
+          class="btn btn-primary"
+        >
+          + New user
+        </button>
+        <.link
+          :if={not Licenses.paid?(@site)}
+          navigate={~p"/#{@site.slug}/settings"}
+          class="btn btn-primary"
+        >
+          View license options
+        </.link>
       </div>
 
       <div

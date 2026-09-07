@@ -3,7 +3,7 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
   on_mount {MastheadWeb.AdminLive.Hooks, :load_site}
 
   import MastheadWeb.AdminLive.Components
-  alias Masthead.{Actions, Realtime, Sites, Content}
+  alias Masthead.{Actions, Licenses, Realtime, Sites, Content}
   alias Masthead.Content.Tag
 
   @impl true
@@ -23,7 +23,8 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
        tag_modal?: false,
        editing_tag: nil,
        tag_form: nil,
-       tag_slug_touched: false
+       tag_slug_touched: false,
+       plans: Licenses.plans()
      )
      |> assign_form(changeset)}
   end
@@ -37,6 +38,7 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
 
     {:noreply,
      assign(socket,
+       site: Sites.get_site!(site.id),
        tags: Content.list_tags(site.id),
        published_pages: Content.list_published_pages(site.id)
      )}
@@ -52,6 +54,16 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
       |> Map.put(:action, :validate)
 
     {:noreply, assign_form(socket, changeset)}
+  end
+
+  def handle_event("checkout", %{"plan" => plan}, socket) do
+    site = socket.assigns.site
+    leave_for(socket, Licenses.checkout_url(site, plan, settings_url(site)))
+  end
+
+  def handle_event("billing_portal", _params, socket) do
+    site = socket.assigns.site
+    leave_for(socket, Licenses.portal_url(site, settings_url(site)))
   end
 
   def handle_event("save", %{"site" => params}, socket) do
@@ -165,6 +177,21 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
       tag_slug_touched: not is_nil(tag.id)
     )
   end
+
+  defp settings_url(site), do: url(~p"/#{site.slug}/settings")
+
+  defp leave_for(socket, {:ok, url}), do: {:noreply, redirect(socket, external: url)}
+  defp leave_for(socket, {:error, reason}), do: {:noreply, put_flash(socket, :error, reason)}
+
+  defp license_detail(site) do
+    cond do
+      Licenses.canceled?(site) -> "Ends #{on_date(site.license_expires_at)}"
+      Licenses.paid?(site) -> "Renews #{on_date(site.license_expires_at)}"
+      true -> "Free forever. Upgrade any time."
+    end
+  end
+
+  defp on_date(at), do: Calendar.strftime(at, "%-d %B %Y")
 
   defp assign_form(socket, changeset) do
     assign(socket, form: to_form(changeset, as: :site), changeset: changeset)
@@ -326,6 +353,46 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
                 <.link navigate={~p"/#{@site.slug}/import"} class="btn btn-primary">
                   Import a site
                 </.link>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <header class="settings-section-head">
+              <h2>License</h2>
+              <p>
+                Each site is licensed separately. Custom domains and extra collaborators need a paid license.
+              </p>
+            </header>
+
+            <div class="settings-fields">
+              <div class="domain-summary">
+                <span>
+                  <strong>{Licenses.label(@site)}</strong>
+                  <span class={"pill " <> Licenses.pill_class(@site)}>{Licenses.chip(@site)}</span>
+                  <span class="muted">{license_detail(@site)}</span>
+                </span>
+
+                <button
+                  :if={Licenses.paid?(@site)}
+                  type="button"
+                  phx-click="billing_portal"
+                  class="btn"
+                >
+                  Manage billing
+                </button>
+              </div>
+
+              <div :if={not Licenses.paid?(@site)} class="license-plans">
+                <button
+                  :for={{name, plan} <- @plans}
+                  type="button"
+                  phx-click="checkout"
+                  phx-value-plan={name}
+                  class={if name == "yearly", do: "btn btn-primary", else: "btn"}
+                >
+                  Upgrade — {Licenses.format(plan.amount)}/{plan.label}
+                </button>
               </div>
             </div>
           </div>
