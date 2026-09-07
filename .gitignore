@@ -46,3 +46,6 @@ npm-debug.log
 
 priv/themes/.DS_Store
 .gitignore
+
+# Local secrets (Stripe test keys etc). Never commit.
+/.env

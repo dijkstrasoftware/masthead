@@ -23,10 +23,15 @@ defmodule MastheadWeb.Router do
     plug :require_admin_user
   end
 
+  scope "/webhooks", MastheadWeb do
+    post "/payments", WebhookController, :payments
+  end
+
   scope "/", MastheadWeb do
     pipe_through :browser
 
     get "/", PageController, :home
+    get "/pricing", PageController, :pricing
 
     get "/login", SessionController, :new
     post "/login", SessionController, :create

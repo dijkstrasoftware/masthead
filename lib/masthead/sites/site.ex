@@ -2,7 +2,7 @@ defmodule Masthead.Sites.Site do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @reserved_slugs ~w(www api app admin dashboard login signup logout auth public assets static help sites new themes)
+  @reserved_slugs ~w(www api app admin dashboard login signup logout auth public assets static help sites new themes pricing marketplace)
 
   schema "sites" do
     field :slug, :string
@@ -28,6 +28,11 @@ defmodule Masthead.Sites.Site do
     # Admin soft-delete (distinct from `disabled_at`): hides the site from
     # its members and the public, but the row is retained for recovery.
     field :deleted_at, :utc_datetime
+    field :license_plan, :string
+    field :license_status, :string
+    field :license_expires_at, :utc_datetime
+    field :payment_customer_id, :string
+    field :payment_subscription_id, :string
     belongs_to :theme_ref, Masthead.Themes.Theme, foreign_key: :theme_id
     belongs_to :homepage_page, Masthead.Content.Page, foreign_key: :homepage_page_id
     has_many :posts, Masthead.Content.Post

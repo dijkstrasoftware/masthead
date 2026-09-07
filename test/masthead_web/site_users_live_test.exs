@@ -16,6 +16,8 @@ defmodule MastheadWeb.SiteUsersLiveTest do
         user
       )
 
+    {:ok, site} = Masthead.Licenses.grant(site)
+
     %{conn: login(build_conn(), user), site: site, user: user}
   end
 
@@ -152,5 +154,29 @@ defmodule MastheadWeb.SiteUsersLiveTest do
     conn = login(build_conn(), stranger)
 
     assert {:error, {:redirect, %{to: "/sites"}}} = live(conn, ~p"/#{site.slug}/users")
+  end
+
+  test "inviting on a free site opens the upgrade modal instead", %{conn: conn, site: site} do
+    {:ok, free} =
+      site
+      |> Ecto.Changeset.change(license_status: nil, license_expires_at: nil)
+      |> Masthead.Repo.update()
+
+    {:ok, lv, _html} = live(conn, ~p"/#{free.slug}/users")
+
+    html = lv |> element(~s(button[phx-click="open_upgrade"])) |> render_click()
+
+    assert html =~ "Upgrade to use this functionality"
+    assert html =~ "Inviting collaborators needs a paid license"
+    refute has_element?(lv, "#invite-user-form")
+  end
+
+  test "a licensed site still opens the invite form", %{conn: conn, site: site} do
+    {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/users")
+
+    lv |> element(~s(button[phx-click="open_modal"]), "New user") |> render_click()
+
+    assert has_element?(lv, "#invite-user-form")
+    refute has_element?(lv, ".dialog", "Upgrade to use this functionality")
   end
 end

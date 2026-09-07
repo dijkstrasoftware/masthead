@@ -35,6 +35,7 @@ defmodule Masthead.SitesMembershipsTest do
         user
       )
 
+    {:ok, site} = Masthead.Licenses.grant(site)
     site
   end
 

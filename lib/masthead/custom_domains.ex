@@ -23,9 +23,19 @@ defmodule Masthead.CustomDomains do
   alias Masthead.Repo
   alias Masthead.Sites.Site
   alias Masthead.CustomDomains.{DnsResolver, FlyClient}
+  alias Masthead.Licenses
 
-  @doc "Set or change the site's custom domain. Moves it to `pending_dns`."
+  @doc """
+  Set or change the site's custom domain. Moves it to `pending_dns`.
+
+  Custom domains are a paid feature: an unlicensed site gets
+  `{:error, :requires_license}`.
+  """
   def set_domain(%Site{} = site, domain) do
+    if Licenses.paid?(site), do: do_set_domain(site, domain), else: {:error, :requires_license}
+  end
+
+  defp do_set_domain(%Site{} = site, domain) do
     changeset = Site.custom_domain_changeset(site, %{"custom_domain" => domain})
 
     if changeset.valid? do

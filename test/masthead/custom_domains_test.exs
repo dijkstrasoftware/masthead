@@ -23,6 +23,8 @@ defmodule Masthead.CustomDomainsTest do
         "owner_id" => user.id
       })
 
+    {:ok, site} = Masthead.Licenses.grant(site)
+
     on_exit(fn ->
       Application.delete_env(:masthead, :dns_stub)
       Application.delete_env(:masthead, :fly_stub)

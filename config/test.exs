@@ -46,3 +46,5 @@ config :swoosh, :api_client, false
 # Don't run queues/plugins in test. Jobs are inserted and asserted with
 # Oban.Testing (drain or assert_enqueued).
 config :masthead, Oban, testing: :manual
+
+config :masthead, :payments, Masthead.Payments.Stub

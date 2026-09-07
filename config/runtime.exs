@@ -1,5 +1,14 @@
 import Config
 
+if config_env() == :dev and File.exists?(".env") do
+  for line <- File.stream!(".env"),
+      trimmed <- [String.trim(line)],
+      trimmed != "" and not String.starts_with?(trimmed, "#"),
+      [key, value] <- [String.split(String.replace_prefix(trimmed, "export ", ""), "=", parts: 2)] do
+    if is_nil(System.get_env(key)), do: System.put_env(key, String.trim(value, "\""))
+  end
+end
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
@@ -37,6 +46,10 @@ if github_id = System.get_env("GITHUB_CLIENT_ID") do
   config :ueberauth, Ueberauth.Strategy.Github.OAuth,
     client_id: github_id,
     client_secret: System.get_env("GITHUB_CLIENT_SECRET")
+end
+
+if config_env() != :test and System.get_env("STRIPE_SECRET_KEY") do
+  config :masthead, :payments, Masthead.Payments.Stripe
 end
 
 if config_env() == :prod do

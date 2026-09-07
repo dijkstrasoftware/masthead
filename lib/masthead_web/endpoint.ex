@@ -1,3 +1,21 @@
+defmodule MastheadWeb.CacheBodyReader do
+  @moduledoc """
+  Body reader for `Plug.Parsers` that keeps the exact bytes of a payment
+  webhook, which is what its signature is computed over.
+
+  Only the webhook path is buffered. Caching every request would hold whole
+  theme zips and image uploads in memory on their way through the parser.
+  """
+  @webhook_path "/webhooks/payments"
+
+  def read_body(%Plug.Conn{request_path: @webhook_path} = conn, opts) do
+    {:ok, body, conn} = Plug.Conn.read_body(conn, opts)
+    {:ok, body, Plug.Conn.assign(conn, :raw_body, body)}
+  end
+
+  def read_body(conn, opts), do: Plug.Conn.read_body(conn, opts)
+end
+
 defmodule MastheadWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :masthead
 
@@ -51,6 +69,7 @@ defmodule MastheadWeb.Endpoint do
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
+    body_reader: {MastheadWeb.CacheBodyReader, :read_body, []},
     json_decoder: Phoenix.json_library()
 
   plug Plug.MethodOverride

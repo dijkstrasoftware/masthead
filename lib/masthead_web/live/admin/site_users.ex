@@ -4,7 +4,7 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
 
   import MastheadWeb.AdminLive.Components
   alias Masthead.Accounts.User
-  alias Masthead.{Accounts, Actions, Realtime, Sites}
+  alias Masthead.{Accounts, Actions, Licenses, Realtime, Sites}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -16,6 +16,8 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
        page_title: "Users — #{site.name}",
        action_count: Actions.count_pending(site),
        modal_open?: false,
+       upgrade_modal?: false,
+       plans: Licenses.plans(),
        email: ""
      )}
   end
@@ -42,6 +44,23 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
 
   def handle_event("search_list", %{"query" => query}, socket) do
     {:noreply, push_patch(socket, to: users_path(socket, view_param(socket.assigns.view), query))}
+  end
+
+  def handle_event("open_upgrade", _params, socket) do
+    {:noreply, assign(socket, upgrade_modal?: true)}
+  end
+
+  def handle_event("close_upgrade", _params, socket) do
+    {:noreply, assign(socket, upgrade_modal?: false)}
+  end
+
+  def handle_event("checkout", %{"plan" => plan}, socket) do
+    site = socket.assigns.site
+
+    case Licenses.checkout_url(site, plan, url(~p"/#{site.slug}/users")) do
+      {:ok, checkout} -> {:noreply, redirect(socket, external: checkout)}
+      {:error, reason} -> {:noreply, put_flash(socket, :error, reason)}
+    end
   end
 
   def handle_event("open_modal", _params, socket) do
@@ -77,6 +96,12 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
 
       {:error, :invalid_email} ->
         {:noreply, put_flash(socket, :error, "That doesn't look like a valid email address.")}
+
+      {:error, :requires_license} ->
+        {:noreply,
+         socket
+         |> assign(modal_open?: false)
+         |> put_flash(:error, "Extra collaborators need a paid license for this site.")}
     end
   end
 
@@ -192,7 +217,7 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
       <:actions>
         <button
           type="button"
-          phx-click="open_modal"
+          phx-click={if Licenses.paid?(@site), do: "open_modal", else: "open_upgrade"}
           class="btn btn-primary btn-add"
           data-shortcut="new"
         >
@@ -304,7 +329,13 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
         />
         <h2>No pending invitations</h2>
         <p>Invite someone by email and any pending invitations will show up here.</p>
-        <button type="button" phx-click="open_modal" class="btn btn-primary">+ New user</button>
+        <button
+          type="button"
+          phx-click={if Licenses.paid?(@site), do: "open_modal", else: "open_upgrade"}
+          class="btn btn-primary"
+        >
+          + New user
+        </button>
       </div>
 
       <div
@@ -352,6 +383,12 @@ defmodule MastheadWeb.AdminLive.SiteUsers do
           </form>
         </div>
       </div>
+
+      <.upgrade_modal
+        show={@upgrade_modal?}
+        plans={@plans}
+        feature="Inviting collaborators"
+      />
     </.shell>
     """
   end

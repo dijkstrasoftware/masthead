@@ -1,5 +1,6 @@
 defmodule Masthead.Sites do
   import Ecto.Query
+  alias Masthead.Licenses
   alias Masthead.Realtime
   alias Masthead.Repo
   alias Masthead.Accounts
@@ -319,11 +320,17 @@ defmodule Masthead.Sites do
   a fresh invitation is stored and a signup link is emailed (`{:ok,
   :invited}`). `url_fun` turns the raw token into the full `/invite/:token`
   URL. `{:error, :already_member | :invalid_email}` otherwise.
+
+  Collaborators are a paid feature, so an unlicensed site gets
+  `{:error, :requires_license}`.
   """
   def invite_to_site(%Site{} = site, email, url_fun) when is_function(url_fun, 1) do
     email = SiteInvitation.normalize_email(email)
 
     cond do
+      not Licenses.paid?(site) ->
+        {:error, :requires_license}
+
       not String.match?(email, ~r/^[^\s]+@[^\s]+$/) ->
         {:error, :invalid_email}
 

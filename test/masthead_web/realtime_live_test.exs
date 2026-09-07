@@ -16,6 +16,7 @@ defmodule MastheadWeb.RealtimeLiveTest do
 
     a = register("a")
     {:ok, site} = Sites.create_site(%{"slug" => "rt#{uniq()}", "name" => "RT Site"}, a)
+    {:ok, site} = Masthead.Licenses.grant(site)
     b = register("b")
     {:ok, _} = Sites.add_member(site, b)
 

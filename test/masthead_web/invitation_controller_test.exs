@@ -19,6 +19,8 @@ defmodule MastheadWeb.InvitationControllerTest do
         inviter
       )
 
+    {:ok, site} = Masthead.Licenses.grant(site)
+
     %{site: site}
   end
 
