@@ -34,6 +34,32 @@ defmodule Masthead.SitesSoftDeleteTest do
     assert Sites.get_site_by_slug(site.slug)
   end
 
+  test "deleting frees the slug for a new site", %{user: user, site: site} do
+    {:ok, deleted} = Sites.soft_delete_site(site)
+
+    assert deleted.slug =~ ~r/^#{site.slug}-deleted-[0-9a-f]{8}$/
+
+    assert {:ok, replacement} =
+             Sites.create_site(%{"slug" => site.slug, "name" => "Reuse", "owner_id" => user.id})
+
+    assert replacement.slug == site.slug
+  end
+
+  test "restoring keeps the suffixed slug when the original was taken", %{
+    user: user,
+    site: site
+  } do
+    {:ok, deleted} = Sites.soft_delete_site(site)
+
+    {:ok, _} =
+      Sites.create_site(%{"slug" => site.slug, "name" => "Reuse", "owner_id" => user.id})
+
+    {:ok, restored} = Sites.restore_site(Sites.get_site!(deleted.id))
+
+    assert restored.slug == deleted.slug
+    assert Sites.get_site_by_slug(restored.slug).id == site.id
+  end
+
   test "a disabled site stays visible to its owner but stops resolving", %{user: user, site: site} do
     {:ok, _} = Sites.disable_site(site)
 
