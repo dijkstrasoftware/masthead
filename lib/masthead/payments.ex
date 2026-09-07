@@ -282,6 +282,9 @@ defmodule Masthead.Payments.Stub do
   defp expires_at(_value), do: nil
 
   defp stub(key, default) do
-    {:ok, Map.get(Application.get_env(:masthead, :payments_stub, %{}), key, default)}
+    case Map.get(Application.get_env(:masthead, :payments_stub, %{}), key, default) do
+      {:error, _reason} = error -> error
+      url -> {:ok, url}
+    end
   end
 end

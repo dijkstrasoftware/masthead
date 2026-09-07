@@ -203,7 +203,7 @@ defmodule MastheadWeb.SiteSettingsLiveTest do
       conn: conn,
       site: site
     } do
-      {:ok, _site} = Masthead.Licenses.grant(site, "yearly")
+      {:ok, _site} = licensed_with_billing(site)
 
       {:ok, lv, html} = live(conn, ~p"/#{site.slug}/settings")
 
@@ -215,15 +215,28 @@ defmodule MastheadWeb.SiteSettingsLiveTest do
     end
 
     test "a provider failure is reported instead of redirecting", %{conn: conn, site: site} do
-      {:ok, _site} = Masthead.Licenses.grant(site, "yearly")
+      Application.put_env(:masthead, :payments_stub, %{
+        checkout_url: {:error, "billing is not configured"}
+      })
+
       {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/settings")
 
       html =
         lv
-        |> element(~s(button[phx-click="billing_portal"]))
+        |> element(~s(button[phx-click="checkout"][phx-value-plan="yearly"]))
         |> render_click()
 
-      assert html =~ "this site has no billing account yet"
+      assert html =~ "billing is not configured"
+    end
+
+    test "a gifted site is not offered the billing portal", %{conn: conn, site: site} do
+      {:ok, _site} = Masthead.Licenses.gift(site, 6)
+
+      {:ok, lv, html} = live(conn, ~p"/#{site.slug}/settings")
+
+      assert html =~ "Paid"
+      refute html =~ "Manage billing"
+      refute has_element?(lv, ~s(button[phx-click="billing_portal"]))
     end
 
     test "a webhook landing elsewhere flips the section live", %{conn: conn, site: site} do
@@ -267,5 +280,13 @@ defmodule MastheadWeb.SiteSettingsLiveTest do
       refute html =~ "Upgrade this site to set up a custom domain."
       assert has_element?(lv, ~s(a[href="/#{site.slug}/domain"]), "Set up a custom domain")
     end
+  end
+
+  defp licensed_with_billing(site) do
+    {:ok, site} = Masthead.Licenses.grant(site, "yearly")
+
+    site
+    |> Ecto.Changeset.change(payment_customer_id: "cus_test", payment_subscription_id: "sub_test")
+    |> Masthead.Repo.update()
   end
 end

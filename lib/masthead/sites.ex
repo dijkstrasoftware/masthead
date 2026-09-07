@@ -471,11 +471,30 @@ defmodule Masthead.Sites do
   end
 
   defp apply_filter(query, filter) do
+    now = DateTime.utc_now()
+
     case filter do
-      :disabled -> from s in query, where: not is_nil(s.disabled_at)
-      :deleted -> from s in query, where: not is_nil(s.deleted_at)
-      :enabled -> from s in query, where: is_nil(s.disabled_at) and is_nil(s.deleted_at)
-      _ -> query
+      :disabled ->
+        from s in query, where: not is_nil(s.disabled_at)
+
+      :deleted ->
+        from s in query, where: not is_nil(s.deleted_at)
+
+      :enabled ->
+        from s in query, where: is_nil(s.disabled_at) and is_nil(s.deleted_at)
+
+      :paid ->
+        from s in query,
+          where: s.license_status in ~w(active canceling) and s.license_expires_at > ^now
+
+      :free ->
+        from s in query,
+          where:
+            is_nil(s.license_status) or s.license_status not in ~w(active canceling) or
+              is_nil(s.license_expires_at) or s.license_expires_at <= ^now
+
+      _ ->
+        query
     end
   end
 
