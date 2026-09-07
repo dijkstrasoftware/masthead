@@ -4,6 +4,8 @@ defmodule Masthead.Accounts.User do
 
   schema "users" do
     field :email, :string
+    field :display_name, :string
+    field :avatar_path, :string
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
     field :confirmed_at, :utc_datetime
@@ -21,6 +23,8 @@ defmodule Masthead.Accounts.User do
 
     timestamps(type: :utc_datetime)
   end
+
+  @display_name_max 40
 
   @doc "Email is confirmed."
   def confirmed?(%__MODULE__{confirmed_at: at}), do: not is_nil(at)
@@ -71,6 +75,40 @@ defmodule Masthead.Accounts.User do
     change(user, suspended_at: now())
   end
 
+  @doc """
+  Sets the public profile: the display name shown on the marketplace and in
+  the live tracker, plus the storage path of an already-stored avatar.
+  """
+  def profile_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:display_name, :avatar_path])
+    |> update_change(:display_name, &String.trim(&1 || ""))
+    |> validate_required([:display_name])
+    |> validate_length(:display_name, min: 2, max: @display_name_max)
+    |> unsafe_validate_unique(:display_name, Masthead.Repo)
+    |> unique_constraint(:display_name)
+  end
+
+  # The display name defaults to the email's local part. A taken one gets a
+  # numeric suffix, so registration never fails on a name the user never chose.
+  defp put_default_display_name(changeset) do
+    case get_change(changeset, :email) do
+      nil -> changeset
+      email -> put_change(changeset, :display_name, available_name(base_name(email)))
+    end
+  end
+
+  defp base_name(email) do
+    email |> String.split("@") |> hd() |> String.slice(0, @display_name_max - 3)
+  end
+
+  defp available_name(base), do: Enum.find_value(0..99, base, &free_name(base, &1))
+
+  defp free_name(base, n) do
+    name = if n == 0, do: base, else: "#{base}#{n}"
+    if is_nil(Masthead.Repo.get_by(__MODULE__, display_name: name)), do: name
+  end
+
   @doc "Sets a new password (password-reset flow)."
   def password_changeset(user, attrs) do
     user
@@ -94,6 +132,7 @@ defmodule Masthead.Accounts.User do
     |> validate_length(:email, max: 160)
     |> unsafe_validate_unique(:email, Masthead.Repo)
     |> unique_constraint(:email)
+    |> put_default_display_name()
     |> put_change(:password, random_password())
     |> put_change(:confirmed_at, now())
     |> hash_password()
@@ -112,6 +151,7 @@ defmodule Masthead.Accounts.User do
     |> validate_length(:password, min: 8, max: 72)
     |> unsafe_validate_unique(:email, Masthead.Repo)
     |> unique_constraint(:email)
+    |> put_default_display_name()
     |> hash_password()
   end
 

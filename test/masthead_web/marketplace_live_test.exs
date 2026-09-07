@@ -308,4 +308,45 @@ defmodule MastheadWeb.MarketplaceLiveTest do
 
     site
   end
+
+  describe "author filter" do
+    test "?author= narrows the gallery and offers a way out", %{conn: conn, author: author} do
+      other = register("other")
+      _theirs = published(author, "Theirs One")
+      _elsewhere = published(other, "Elsewhere One")
+
+      {:ok, lv, html} = live(conn, ~p"/marketplace?#{[author: author.display_name]}")
+
+      assert html =~ "Theirs One"
+      refute html =~ "Elsewhere One"
+      assert html =~ "By #{author.display_name}"
+
+      # Clearing the chip patches back to the whole gallery.
+      cleared = lv |> element(".author-chip") |> render_click()
+      assert cleared =~ "Elsewhere One"
+    end
+
+    test "an unknown author shows an empty shelf, not everything", %{
+      conn: conn,
+      author: author
+    } do
+      _theirs = published(author, "Theirs One")
+
+      {:ok, _lv, html} = live(conn, ~p"/marketplace?#{[author: "nobody-by-that-name"]}")
+
+      refute html =~ "Theirs One"
+      assert html =~ "hasn&#39;t published any themes here"
+    end
+
+    test "the theme page's author name links to their shelf", %{conn: conn, author: author} do
+      theme = published(author, "Theirs One")
+
+      {:ok, lv, _html} = live(conn, ~p"/marketplace/themes/#{theme.id}")
+
+      {:ok, _lv, html} = lv |> element("a.author-name") |> render_click() |> follow_redirect(conn)
+
+      assert html =~ "By #{author.display_name}"
+      assert html =~ "Theirs One"
+    end
+  end
 end

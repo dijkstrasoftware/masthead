@@ -333,7 +333,7 @@ defmodule MastheadWeb.ThemeShowLiveTest do
 
       assert html =~ "Public Listing"
       assert html =~ "Anyone can read this."
-      assert html =~ "Create an account"
+      assert html =~ "Create your site"
       refute html =~ ~s(id="install-site")
       refute html =~ ~s(id="admin-sidebar")
     end

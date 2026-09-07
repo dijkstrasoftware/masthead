@@ -9,11 +9,17 @@ defmodule Masthead.Accounts do
   alias Masthead.Accounts.UserNotifier
   alias Masthead.Accounts.UserIdentity
   alias Masthead.Sites
+  alias Masthead.Storage
 
   def get_user!(id), do: Repo.get!(User, id)
 
   def get_user_by_email(email) when is_binary(email) do
     Repo.get_by(User, email: email)
+  end
+
+  @doc "Looks a user up by their public display name (case-insensitive)."
+  def get_user_by_display_name(name) when is_binary(name) do
+    Repo.get_by(User, display_name: name)
   end
 
   def get_user_by_email_and_password(email, password)
@@ -178,6 +184,59 @@ defmodule Masthead.Accounts do
         changeset
     end
   end
+
+  ## Profile
+
+  @avatar_namespace "avatars"
+  @avatar_extensions ~w(.png .jpg .jpeg .gif .webp)
+
+  @doc "Renames the user — the name shown on the marketplace and in the live tracker."
+  def update_profile(%User{} = user, attrs) do
+    user
+    |> User.profile_changeset(attrs)
+    |> Repo.update()
+  end
+
+  def change_user_profile(%User{} = user, attrs \\ %{}) do
+    User.profile_changeset(user, attrs)
+  end
+
+  @doc """
+  Stores an uploaded avatar (a path on disk, as handed back by
+  `consume_uploaded_entries`) and points the user at it. The file it replaces
+  is removed once the row is saved.
+  """
+  def update_avatar(%User{} = user, %{filename: filename, path: path}) do
+    with {:ok, rel} <- store_avatar(user, filename, path) do
+      user
+      |> User.profile_changeset(%{"avatar_path" => rel})
+      |> Repo.update()
+      |> drop_avatar(user)
+    end
+  end
+
+  @doc "Public URL of the user's avatar, or nil when they have none."
+  def avatar_url(%{avatar_path: path}) when is_binary(path), do: Storage.url(path)
+  def avatar_url(_user), do: nil
+
+  defp store_avatar(user, filename, path) do
+    case String.downcase(Path.extname(filename)) do
+      ext when ext in @avatar_extensions ->
+        Storage.stream_into(@avatar_namespace, avatar_key(user, ext), path)
+
+      _ ->
+        {:error, :unsupported_image}
+    end
+  end
+
+  defp avatar_key(user, ext), do: "#{user.id}-#{System.system_time(:millisecond)}#{ext}"
+
+  defp drop_avatar({:ok, _} = result, %User{avatar_path: old}) when is_binary(old) do
+    _ = Storage.delete(old)
+    result
+  end
+
+  defp drop_avatar(result, _user), do: result
 
   ## Password change (signed-in)
 

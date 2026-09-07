@@ -228,17 +228,24 @@ defmodule Masthead.Themes do
   `true > false`, so `desc: verified` floats verified to the top. Owner and
   gallery images are preloaded for the grid.
   """
-  def list_marketplace(user_id, filter \\ :all, search \\ nil) do
+  def list_marketplace(user_id, filter \\ :all, search \\ nil, author_id \\ nil) do
     from(t in Theme,
       where: t.source == "uploaded" and t.public == true,
       order_by: [desc: t.verified, asc: t.name],
       preload: [:owner, :images]
     )
-    |> exclude_own(user_id)
+    |> by_author(author_id, user_id)
     |> apply_marketplace_filter(filter)
     |> apply_search(search)
     |> Repo.all()
   end
+
+  # An author's shelf is everything they published, your own themes included;
+  # the unfiltered gallery is other people's work.
+  defp by_author(query, nil, viewer_id), do: exclude_own(query, viewer_id)
+
+  defp by_author(query, author_id, _viewer_id),
+    do: from(t in query, where: t.owner_id == ^author_id)
 
   defp exclude_own(query, nil), do: query
 

@@ -465,6 +465,13 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; background
   font-weight: 600;
   flex-shrink: 0;
 }
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
 .user-email {
   flex: 1;
   font-size: 0.78rem;
@@ -739,6 +746,73 @@ button.danger:hover { filter: brightness(0.92); }
 .account-row-value { font-size: 0.95rem; }
 .account-hint { font-size: 0.85rem; line-height: 1.55; margin: 0.3rem 0 0; max-width: 48ch; }
 .account-divider { border: 0; border-top: 1px solid var(--rule); margin: 0.4rem 0; }
+
+/* Account profile: the avatar is the picker — hover it for the camera
+   overlay — and the display name is edited in place beside it. */
+.profile-identity {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+}
+.profile-avatar-picker {
+  position: relative;
+  display: block;
+  cursor: pointer;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.profile-avatar {
+  width: 76px;
+  height: 76px;
+  font-size: 1.8rem;
+}
+.profile-avatar-picker input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+.profile-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.profile-avatar-overlay svg { width: 26px; height: 26px; }
+.profile-avatar-picker:hover .profile-avatar-overlay,
+.profile-avatar-picker:focus-within .profile-avatar-overlay { opacity: 1; }
+.profile-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.profile-name { font-size: 1.15rem; font-weight: 600; }
+.profile-name-form {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.profile-name-form input { width: 15rem; max-width: 100%; }
+.profile-email { font-size: 0.88rem; color: var(--muted); }
+.profile-pill { margin-left: auto; flex-shrink: 0; }
 .account-form {
   display: flex;
   flex-direction: column;
@@ -1510,6 +1584,35 @@ button.danger:hover { filter: brightness(0.92); }
   color: var(--muted);
 }
 .admin-filters { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+/* Active author filter, sat alongside the filter buttons. Clicking it drops
+   back to the unfiltered gallery. */
+.author-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+.author-chip-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.author-chip:hover { border-color: var(--accent); }
 .admin-search { margin: 0; flex: 0 1 18rem; }
 .admin-search input[type="search"] {
   width: 100%;
@@ -2535,6 +2638,7 @@ button.danger:hover { filter: brightness(0.92); }
 }
 .dialog-form input[type="text"],
 .dialog-form input[type="email"],
+.dialog-form input[type="password"],
 .dialog-form input[type="number"],
 .dialog-form textarea {
   padding: 0.55rem 0.75rem;
@@ -2548,6 +2652,7 @@ button.danger:hover { filter: brightness(0.92); }
 }
 .dialog-form input[type="text"]:focus,
 .dialog-form input[type="email"]:focus,
+.dialog-form input[type="password"]:focus,
 .dialog-form input[type="number"]:focus,
 .dialog-form textarea:focus {
   outline: 2px solid var(--accent);
@@ -4811,6 +4916,8 @@ button.danger:hover { filter: brightness(0.92); }
   flex-direction: column;
   min-width: 0;
 }
+a.author-name { color: inherit; text-decoration: none; }
+a.author-name:hover { text-decoration: underline; }
 .author-name {
   font-size: 0.95rem;
   font-weight: 600;

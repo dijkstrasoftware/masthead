@@ -98,8 +98,6 @@ defmodule MastheadWeb.Router do
     # page a suspended user can reach.
     get "/verify", VerifyController, :show
 
-    get "/account", AccountController, :show
-    post "/account/password", AccountController, :update_password
     post "/account/disable", AccountController, :disable
 
     # Admin overview — defined before the `/:site_slug` catch-all so "admin"
@@ -120,6 +118,7 @@ defmodule MastheadWeb.Router do
         {MastheadWeb.UserAuth, :require_verified}
       ] do
       live "/sites", AdminLive.SiteIndex, :index
+      live "/account", AdminLive.Account, :show
 
       live "/:site_slug", AdminLive.SiteDashboard, :show
       live "/:site_slug/settings", AdminLive.SiteSettings, :edit

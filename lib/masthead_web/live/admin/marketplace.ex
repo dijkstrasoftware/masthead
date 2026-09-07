@@ -23,6 +23,7 @@ defmodule MastheadWeb.AdminLive.Marketplace do
   use MastheadWeb, :live_view
 
   import MastheadWeb.AdminLive.Components
+  alias Masthead.Accounts
   alias Masthead.Sites
   alias Masthead.Themes
   alias Masthead.Themes.Package
@@ -38,6 +39,8 @@ defmodule MastheadWeb.AdminLive.Marketplace do
        page_title: "Marketplace",
        filter: :all,
        search: "",
+       author: nil,
+       author_name: nil,
        visibility: :all,
        installed: MapSet.new(),
        install_site: nil,
@@ -71,7 +74,9 @@ defmodule MastheadWeb.AdminLive.Marketplace do
          page_title: "Marketplace",
          filter: filter,
          install_site: site,
-         installed: installed
+         installed: installed,
+         author_name: params["author"],
+         author: load_author(params["author"])
        )
        |> load_themes()}
     end
@@ -111,11 +116,28 @@ defmodule MastheadWeb.AdminLive.Marketplace do
   end
 
   defp load_themes(%{assigns: a} = socket) do
-    assign(socket, themes: Themes.list_marketplace(viewer_id(a), a.filter, a.search))
+    assign(socket, themes: browse_themes(a))
   end
+
+  # A shared link naming an author who no longer exists shows an empty shelf
+  # rather than quietly falling back to the whole gallery.
+  defp browse_themes(%{author_name: name, author: nil}) when is_binary(name), do: []
+
+  defp browse_themes(a),
+    do: Themes.list_marketplace(viewer_id(a), a.filter, a.search, author_id(a))
 
   defp viewer_id(%{current_user: nil}), do: nil
   defp viewer_id(%{current_user: user}), do: user.id
+
+  defp author_id(%{author: %{id: id}}), do: id
+  defp author_id(_assigns), do: nil
+
+  # The author filter travels as `?author=<display name>` — names are unique,
+  # so the URL stays readable and shareable.
+  defp load_author(name) when is_binary(name) and name != "",
+    do: Accounts.get_user_by_display_name(name)
+
+  defp load_author(_absent), do: nil
 
   # Reload after an install/uninstall/etc. — refresh the installed set too.
   defp refresh(%{assigns: %{install_site: nil}} = socket), do: load_themes(socket)
@@ -494,10 +516,23 @@ defmodule MastheadWeb.AdminLive.Marketplace do
           <div class="admin-filters">
             <.link
               :for={{value, label} <- filter_options(@current_user)}
+              :if={is_nil(@author_name)}
               patch={filter_path(value, @install_site)}
               class={["btn btn-sm", @filter == value && "btn-primary"]}
             >
               {label}
+            </.link>
+
+            <%!-- An author's shelf is its own view: the chip stands in for the
+                  filter buttons, and clicking it puts them back. --%>
+            <.link
+              :if={@author_name}
+              patch={filter_path(@filter, @install_site)}
+              class="author-chip"
+              title="Clear the author filter"
+            >
+              <.user_avatar :if={@author} user={@author} class="author-chip-avatar" />
+              By {@author_name} <span aria-hidden="true">&times;</span>
             </.link>
           </div>
           <div class="admin-toolbar-controls">
@@ -545,6 +580,7 @@ defmodule MastheadWeb.AdminLive.Marketplace do
         <p>
           {cond do
             @search != "" -> "No themes match \"#{@search}\"."
+            @author_name -> "#{@author_name} hasn't published any themes here."
             @filter == :verified -> "No verified themes yet."
             @filter == :community -> "No community themes yet."
             true -> "No themes have been published to the marketplace yet."

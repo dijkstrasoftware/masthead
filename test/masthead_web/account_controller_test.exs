@@ -33,38 +33,6 @@ defmodule MastheadWeb.AccountControllerTest do
     assert html_response(conn, 200) =~ user.email
   end
 
-  describe "POST /account/password" do
-    test "updates with correct current password", %{conn: conn} do
-      user = new_user()
-
-      conn =
-        conn
-        |> log_in(user)
-        |> post(~p"/account/password", %{
-          "current_password" => "password1234",
-          "user" => %{"password" => "freshpass987"}
-        })
-
-      assert redirected_to(conn) == ~p"/account"
-      assert Accounts.get_user_by_email_and_password(user.email, "freshpass987")
-    end
-
-    test "rejects a wrong current password", %{conn: conn} do
-      user = new_user()
-
-      conn =
-        conn
-        |> log_in(user)
-        |> post(~p"/account/password", %{
-          "current_password" => "wrongwrong",
-          "user" => %{"password" => "freshpass987"}
-        })
-
-      assert html_response(conn, 422) =~ "Current password is incorrect"
-      refute Accounts.get_user_by_email_and_password(user.email, "freshpass987")
-    end
-  end
-
   describe "POST /account/disable" do
     test "disables, logs out, and blocks re-login", %{conn: conn} do
       user = new_user()
