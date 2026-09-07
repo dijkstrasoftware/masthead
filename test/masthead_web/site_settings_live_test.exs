@@ -183,7 +183,7 @@ defmodule MastheadWeb.SiteSettingsLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/#{site.slug}/settings")
 
       assert html =~ "License"
-      assert html =~ "Free forever"
+      assert html =~ "Custom domains and extra collaborators need a paid license."
       assert html =~ "Upgrade — €5/month"
       assert html =~ "Upgrade — €50/year"
       refute html =~ "Manage billing"
@@ -227,7 +227,7 @@ defmodule MastheadWeb.SiteSettingsLiveTest do
 
     test "a webhook landing elsewhere flips the section live", %{conn: conn, site: site} do
       {:ok, lv, html} = live(conn, ~p"/#{site.slug}/settings")
-      assert html =~ "Free forever"
+      assert html =~ "<strong>Free</strong>"
 
       {:ok, _site} = Masthead.Licenses.grant(site, "monthly")
 

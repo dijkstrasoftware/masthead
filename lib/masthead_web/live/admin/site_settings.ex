@@ -187,7 +187,7 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
     cond do
       Licenses.canceled?(site) -> "Ends #{on_date(site.license_expires_at)}"
       Licenses.paid?(site) -> "Renews #{on_date(site.license_expires_at)}"
-      true -> "Free forever. Upgrade any time."
+      true -> "Custom domains and extra collaborators need a paid license."
     end
   end
 
@@ -360,16 +360,14 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
           <div class="settings-section">
             <header class="settings-section-head">
               <h2>License</h2>
-              <p>
-                Each site is licensed separately. Custom domains and extra collaborators need a paid license.
-              </p>
+              <p>Each site is licensed separately.</p>
             </header>
 
             <div class="settings-fields">
               <div class="domain-summary">
-                <span>
+                <span class="license-state">
                   <strong>{Licenses.label(@site)}</strong>
-                  <span class={"pill " <> Licenses.pill_class(@site)}>{Licenses.chip(@site)}</span>
+                  <span :if={Licenses.canceled?(@site)} class="pill pill-warn">Ending</span>
                   <span class="muted">{license_detail(@site)}</span>
                 </span>
 
@@ -381,18 +379,18 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
                 >
                   Manage billing
                 </button>
-              </div>
 
-              <div :if={not Licenses.paid?(@site)} class="license-plans">
-                <button
-                  :for={{name, plan} <- @plans}
-                  type="button"
-                  phx-click="checkout"
-                  phx-value-plan={name}
-                  class={if name == "yearly", do: "btn btn-primary", else: "btn"}
-                >
-                  Upgrade — {Licenses.format(plan.amount)}/{plan.label}
-                </button>
+                <span :if={not Licenses.paid?(@site)} class="license-plans">
+                  <button
+                    :for={{name, plan} <- @plans}
+                    type="button"
+                    phx-click="checkout"
+                    phx-value-plan={name}
+                    class={if name == "yearly", do: "btn btn-primary", else: "btn"}
+                  >
+                    Upgrade — {Licenses.format(plan.amount)}/{plan.label}
+                  </button>
+                </span>
               </div>
             </div>
           </div>

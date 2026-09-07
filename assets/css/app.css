@@ -1046,7 +1046,8 @@ button.danger:hover { filter: brightness(0.92); }
   pointer-events: none;
   z-index: 1;
 }
-.license-plans { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.license-plans { display: inline-flex; flex-wrap: wrap; gap: 0.6rem; }
+.license-state { display: inline-flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
 
 /* Tables */
 .table {
