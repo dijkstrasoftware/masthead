@@ -30,7 +30,7 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
 
   ## Events the host LiveView must handle
 
-  The components emit `toggle_settings_group`, `add_list_item`,
+  The components emit `toggle_container`, `add_list_item`,
   `remove_list_item`, `reorder_list` and `clear_meta`, and open the file picker
   named by `picker_target` with a `meta`/`sub`/`item` context that comes back as
   `{:file_picked, upload, ctx}`.
@@ -216,6 +216,44 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
     update_list(values, key, &(&1 ++ [blank_item(subfields)]))
   end
 
+  @doc """
+  The open/closed state of every settings accordion, in one value the host
+  keeps across re-renders (a `phx-change` would reset native `<details>`).
+  `group` is the expanded category and `open` the expanded list item — both
+  open one at a time, collapsed by default. `closed` holds the `object` fields
+  the user has collapsed: an object is a group of its own, so it starts open
+  and never closes anything else.
+  """
+  def containers, do: %{group: nil, open: nil, closed: MapSet.new()}
+
+  @doc "Toggle one container. `kind` picks which of the three rules applies."
+  def toggle_container(state, handle, "group"),
+    do: %{state | group: toggle_slot(state.group, handle)}
+
+  def toggle_container(state, handle, "standalone"),
+    do: %{state | closed: toggle_member(state.closed, handle)}
+
+  def toggle_container(state, handle, _item), do: %{state | open: toggle_slot(state.open, handle)}
+
+  @doc "Expand the last item of `key` — the one `add_item/3` just appended."
+  def open_last_item(state, values, key), do: %{state | open: last_item_handle(values, key)}
+
+  defp toggle_slot(open, handle), do: if(open == handle, do: nil, else: handle)
+
+  defp toggle_member(set, handle) do
+    case MapSet.member?(set, handle) do
+      true -> MapSet.delete(set, handle)
+      false -> MapSet.put(set, handle)
+    end
+  end
+
+  defp last_item_handle(values, key) do
+    case List.last(items_at(values, key)) do
+      nil -> nil
+      item -> item_handle(key, item)
+    end
+  end
+
   @doc "Drop the `list` item with the given `_id`."
   def remove_item(values, key, id) do
     update_list(values, key, fn list ->
@@ -308,9 +346,8 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
 
   @doc """
   Render a field list. Fields group into collapsible sections when any of them
-  declares a `category`; otherwise they render flat. `open` is the currently
-  expanded category (tracked by the host LiveView so a `phx-change` re-render
-  doesn't collapse it).
+  declares a `category`; otherwise they render flat. `containers` is the host's
+  accordion state (see `containers/0`).
 
   `prefix` is the form-name prefix the values are cast from (`"page[page_options]"`,
   `"site[theme_tokens]"`), and `picker_target` is the DOM id of the host's
@@ -321,7 +358,7 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
   attr :prefix, :string, required: true
   attr :picker_target, :string, required: true
   attr :site_uploads, :list, default: []
-  attr :open, :string, default: nil
+  attr :containers, :map, required: true
 
   def settings_fields(assigns) do
     ~H"""
@@ -330,12 +367,13 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
         <details
           :for={{category, fields} <- group_fields(@fields)}
           class="token-group"
-          open={@open == category}
+          open={@containers.group == category}
         >
           <summary
             class="token-group-summary"
-            phx-click="toggle_settings_group"
-            phx-value-group={category}
+            phx-click="toggle_container"
+            phx-value-handle={category}
+            phx-value-kind="group"
           >
             {category}
           </summary>
@@ -347,6 +385,7 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
               prefix={@prefix}
               picker_target={@picker_target}
               site_uploads={@site_uploads}
+              containers={@containers}
             />
           </div>
         </details>
@@ -360,6 +399,7 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
           prefix={@prefix}
           picker_target={@picker_target}
           site_uploads={@site_uploads}
+          containers={@containers}
         />
       </div>
     <% end %>
@@ -378,7 +418,7 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
   attr :prefix, :string, required: true
   attr :picker_target, :string, required: true
   attr :site_uploads, :list, default: []
-  attr :open, :string, default: nil
+  attr :containers, :map, required: true
 
   def settings_form(assigns) do
     ~H"""
@@ -389,7 +429,7 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
         prefix={@prefix}
         picker_target={@picker_target}
         site_uploads={@site_uploads}
-        open={@open}
+        containers={@containers}
       />
     </form>
     """
@@ -420,6 +460,7 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
   attr :prefix, :string, required: true
   attr :picker_target, :string, required: true
   attr :site_uploads, :list, default: []
+  attr :containers, :map, required: true
 
   defp setting_input(%{field: %{type: "object"}} = assigns), do: object_field(assigns)
   defp setting_input(%{field: %{type: "list"}} = assigns), do: list_field(assigns)
@@ -435,13 +476,24 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
     scalar_field(assigns)
   end
 
-  # An `object` field: a group of scalar subfields under one key.
+  # An `object` field: a group of scalar subfields under one key, collapsed
+  # into the accordion the host tracks as `containers`.
   defp object_field(assigns) do
     assigns = assign(assigns, :obj, ensure_map(Map.get(assigns.values, assigns.field.key)))
 
     ~H"""
-    <fieldset class="settings-group-field">
-      <legend>{@field.label}</legend>
+    <details
+      class="settings-group-field"
+      open={standalone_open?(@containers, @field.key)}
+    >
+      <summary
+        class="settings-group-summary"
+        phx-click="toggle_container"
+        phx-value-handle={@field.key}
+        phx-value-kind="standalone"
+      >
+        {@field.label}
+      </summary>
       <small :if={@field.description} class="muted">{@field.description}</small>
       <div class="settings-fields">
         <.scalar_field
@@ -454,11 +506,13 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
           site_uploads={@site_uploads}
         />
       </div>
-    </fieldset>
+    </details>
     """
   end
 
-  # A `list` field: a repeatable group with add / remove / drag-reorder.
+  # A `list` field: a repeatable group with add / remove / drag-reorder. Items
+  # collapse into the same one-at-a-time accordion as `object` fields, so a long
+  # list reads as a sortable overview rather than a wall of inputs.
   defp list_field(assigns) do
     assigns = assign(assigns, :items, items_at(assigns.values, assigns.field.key))
 
@@ -475,33 +529,49 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
         class="settings-list"
       >
         <li
-          :for={item <- @items}
+          :for={{item, index} <- Enum.with_index(@items)}
           id={@field.key <> "-" <> to_string(item["_id"])}
           draggable="true"
           data-sortable-id={item["_id"]}
           class="settings-list-item"
         >
           <span class="settings-list-drag" aria-hidden="true"><.drag_handle_icon /></span>
-          <div class="settings-fields settings-list-fields">
-            <.scalar_field
-              :for={sf <- @field.fields}
-              field={sf}
-              name={@prefix <> "[" <> @field.key <> "][" <> to_string(item["_id"]) <> "][" <> sf.key <> "]"}
-              value={sub_value(item, sf.key)}
-              picker_ctx={%{"meta" => @field.key, "item" => to_string(item["_id"]), "sub" => sf.key}}
-              picker_target={@picker_target}
-              site_uploads={@site_uploads}
-            />
-          </div>
-          <button
-            type="button"
-            class="btn btn-sm btn-danger settings-list-remove"
-            phx-click="remove_list_item"
-            phx-value-key={@field.key}
-            phx-value-id={item["_id"]}
+          <details
+            class="settings-list-details"
+            open={item_open?(@containers, item_handle(@field.key, item))}
           >
-            Remove
-          </button>
+            <summary
+              class="settings-list-summary"
+              phx-click="toggle_container"
+              phx-value-handle={item_handle(@field.key, item)}
+            >
+              <span class="settings-list-title">{item_title(item, @field, index)}</span>
+              <button
+                type="button"
+                class="settings-list-remove"
+                phx-click="remove_list_item"
+                phx-value-key={@field.key}
+                phx-value-id={item["_id"]}
+                title={"Remove " <> item_title(item, @field, index)}
+                aria-label={"Remove " <> item_title(item, @field, index)}
+              >
+                <.trash_icon />
+              </button>
+            </summary>
+            <div class="settings-fields settings-list-fields">
+              <.scalar_field
+                :for={sf <- @field.fields}
+                field={sf}
+                name={@prefix <> "[" <> @field.key <> "][" <> to_string(item["_id"]) <> "][" <> sf.key <> "]"}
+                value={sub_value(item, sf.key)}
+                picker_ctx={
+                  %{"meta" => @field.key, "item" => to_string(item["_id"]), "sub" => sf.key}
+                }
+                picker_target={@picker_target}
+                site_uploads={@site_uploads}
+              />
+            </div>
+          </details>
         </li>
       </ul>
 
@@ -659,6 +729,25 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
     """
   end
 
+  defp trash_icon(assigns) do
+    ~H"""
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke-width="1.7"
+      stroke="currentColor"
+      aria-hidden="true"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
+      />
+    </svg>
+    """
+  end
+
   # ---- value + input helpers ----
 
   # A stored `false` is a value, not an absence — match on nil rather than
@@ -684,6 +773,27 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
 
   defp sub_value(map, key) when is_map(map), do: value_at(map, key)
   defp sub_value(_map, _key), do: ""
+
+  defp item_handle(key, item), do: key <> ":" <> to_string(item["_id"])
+
+  defp standalone_open?(containers, handle), do: not MapSet.member?(containers.closed, handle)
+
+  defp item_open?(containers, handle), do: containers.open == handle
+
+  # A collapsed item is identified by its first titleish subfield — the one an
+  # author would recognise the row by. Numbers, colors and files say nothing
+  # at a glance, so they never become the title.
+  @title_types ~w(string text url select)
+
+  defp item_title(item, field, index) do
+    field.fields
+    |> Enum.filter(&(&1.type in @title_types))
+    |> Enum.map(&subfield_text(item, &1))
+    |> Enum.find("#{field.item_label || field.label} #{index + 1}", &(&1 != ""))
+  end
+
+  defp subfield_text(item, subfield),
+    do: item |> sub_value(subfield.key) |> to_string() |> String.trim()
 
   defp effective_value(value, field) do
     case value do

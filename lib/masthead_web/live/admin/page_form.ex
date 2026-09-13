@@ -69,7 +69,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
        allow_theme?: page_template_names != [],
        tags: Content.list_tags(socket.assigns.site.id),
        site_uploads: Uploads.list_uploads(socket.assigns.site.id),
-       open_settings_group: nil
+       containers: SettingsFields.containers()
      )
      |> maybe_allow_import()
      |> assign_changeset(draft)}
@@ -186,9 +186,9 @@ defmodule MastheadWeb.AdminLive.PageForm do
     end
   end
 
-  def handle_event("toggle_settings_group", %{"group" => group}, socket) do
-    open = if socket.assigns.open_settings_group == group, do: nil, else: group
-    {:noreply, assign(socket, open_settings_group: open)}
+  def handle_event("toggle_container", %{"handle" => handle} = params, socket) do
+    {:noreply,
+     update(socket, :containers, &SettingsFields.toggle_container(&1, handle, params["kind"]))}
   end
 
   def handle_event("clear_meta", %{"meta" => k, "sub" => sub, "item" => id}, socket) do
@@ -209,7 +209,11 @@ defmodule MastheadWeb.AdminLive.PageForm do
   def handle_event("add_list_item", %{"key" => key}, socket) do
     fields = current_settings_fields(socket)
     draft = update_page_options(socket.assigns.draft, &SettingsFields.add_item(&1, fields, key))
-    {:noreply, socket |> assign(draft: draft) |> assign_changeset(draft)}
+
+    containers =
+      SettingsFields.open_last_item(socket.assigns.containers, page_options(draft), key)
+
+    {:noreply, socket |> assign(draft: draft, containers: containers) |> assign_changeset(draft)}
   end
 
   def handle_event("remove_list_item", %{"key" => key, "id" => id}, socket) do
@@ -699,7 +703,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
                 published={@page != nil and @page.published}
                 site={@site}
                 site_uploads={@site_uploads}
-                open_group={@open_settings_group}
+                containers={@containers}
                 view_path={@page && "/" <> @page.slug}
                 show_errors={@show_errors}
                 template={@draft["template"]}
@@ -713,7 +717,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
                 draft={@draft}
                 format={@draft["format"]}
                 site_uploads={@site_uploads}
-                open_group={@open_settings_group}
+                containers={@containers}
                 has_page_options={@has_page_options?}
               />
             <% end %>
@@ -1008,7 +1012,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
   attr :draft, :map, required: true
   attr :format, :string, default: nil
   attr :site_uploads, :list, default: []
-  attr :open_group, :string, default: nil
+  attr :containers, :map, required: true
   attr :has_page_options, :boolean, default: true
 
   defp settings_step(assigns) do
@@ -1025,7 +1029,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
       prefix={prefix()}
       picker_target={picker_target()}
       site_uploads={@site_uploads}
-      open={@open_group}
+      containers={@containers}
     />
 
     <div class="wizard-footer">
@@ -1042,7 +1046,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
   attr :published, :boolean, default: false
   attr :site, :map, default: nil
   attr :site_uploads, :list, default: []
-  attr :open_group, :string, default: nil
+  attr :containers, :map, required: true
   attr :view_path, :string, default: nil
   attr :show_errors, :boolean, default: false
   attr :template, :string, default: nil
@@ -1077,7 +1081,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
             prefix={prefix()}
             picker_target={picker_target()}
             site_uploads={@site_uploads}
-            open={@open_group}
+            containers={@containers}
           />
 
           <p :if={@fields == []} class="muted">This template has no settings to configure.</p>
