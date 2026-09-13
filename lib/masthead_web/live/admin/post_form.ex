@@ -53,7 +53,7 @@ defmodule MastheadWeb.AdminLive.PostForm do
        post_option_fields: post_option_fields,
        has_post_options?: post_option_fields != [],
        site_uploads: Uploads.list_uploads(socket.assigns.site.id),
-       open_settings_group: nil,
+       containers: SettingsFields.containers(),
        tags: Content.list_tags(socket.assigns.site.id)
      )
      |> maybe_allow_import()
@@ -113,9 +113,9 @@ defmodule MastheadWeb.AdminLive.PostForm do
     end
   end
 
-  def handle_event("toggle_settings_group", %{"group" => group}, socket) do
-    open = if socket.assigns.open_settings_group == group, do: nil, else: group
-    {:noreply, assign(socket, open_settings_group: open)}
+  def handle_event("toggle_container", %{"handle" => handle} = params, socket) do
+    {:noreply,
+     update(socket, :containers, &SettingsFields.toggle_container(&1, handle, params["kind"]))}
   end
 
   def handle_event("clear_meta", %{"meta" => k, "sub" => sub, "item" => id}, socket) do
@@ -136,7 +136,11 @@ defmodule MastheadWeb.AdminLive.PostForm do
   def handle_event("add_list_item", %{"key" => key}, socket) do
     fields = socket.assigns.post_option_fields
     draft = update_post_options(socket.assigns.draft, &SettingsFields.add_item(&1, fields, key))
-    {:noreply, socket |> assign(draft: draft) |> assign_changeset(draft)}
+
+    containers =
+      SettingsFields.open_last_item(socket.assigns.containers, post_options(draft), key)
+
+    {:noreply, socket |> assign(draft: draft, containers: containers) |> assign_changeset(draft)}
   end
 
   def handle_event("remove_list_item", %{"key" => key, "id" => id}, socket) do
@@ -579,7 +583,7 @@ defmodule MastheadWeb.AdminLive.PostForm do
               fields={@post_option_fields}
               draft={@draft}
               site_uploads={@site_uploads}
-              open_group={@open_settings_group}
+              containers={@containers}
             />
           <% 4 -> %>
             <.content_step
@@ -783,7 +787,7 @@ defmodule MastheadWeb.AdminLive.PostForm do
   attr :fields, :list, required: true
   attr :draft, :map, required: true
   attr :site_uploads, :list, default: []
-  attr :open_group, :string, default: nil
+  attr :containers, :map, required: true
 
   defp post_options_step(assigns) do
     ~H"""
@@ -799,7 +803,7 @@ defmodule MastheadWeb.AdminLive.PostForm do
       prefix={prefix()}
       picker_target={picker_target()}
       site_uploads={@site_uploads}
-      open={@open_group}
+      containers={@containers}
     />
 
     <div class="wizard-footer">

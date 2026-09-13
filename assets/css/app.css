@@ -4470,11 +4470,54 @@ button.danger:hover { filter: brightness(0.92); }
   display: inline-flex;
   color: var(--muted);
   cursor: grab;
-  padding-top: 0.4rem;
+  padding-top: 0.1rem;
 }
 .settings-list-drag svg { width: 1rem; height: 1rem; }
-.settings-list-fields { flex: 1; }
-.settings-list-remove { align-self: flex-start; }
+.settings-list-details { flex: 1; min-width: 0; }
+.settings-list-remove {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.settings-list-remove svg { width: 0.95rem; height: 0.95rem; }
+.settings-list-remove:hover { color: var(--danger); }
+.settings-list-details[open] > .settings-list-fields { margin-top: 0.7rem; }
+.settings-list-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Object fields and list items get the same disclosure affordance as the token
+   categories above, one size down and without the category's own padding. */
+.settings-group-summary,
+.settings-list-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.settings-group-summary::-webkit-details-marker,
+.settings-list-summary::-webkit-details-marker { display: none; }
+.settings-group-summary::after,
+.settings-list-summary::after {
+  content: "\25b8";
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.8rem;
+  transition: transform 0.15s ease;
+}
+[open] > .settings-group-summary::after,
+[open] > .settings-list-summary::after { transform: rotate(90deg); }
 
 /* Install/Installed action on a browse card, in a site's install context. */
 .marketplace-card-actions {

@@ -115,12 +115,12 @@ defmodule MastheadWeb.PageFormLiveTest do
         |> render_submit()
 
       assert html =~ "token-group"
-      assert html =~ ~s(phx-value-group="Media")
-      assert html =~ ~s(phx-value-group="Hero")
+      assert html =~ ~s(phx-value-handle="Media")
+      assert html =~ ~s(phx-value-handle="Hero")
 
       # Expanding a group is tracked server-side so typing doesn't collapse it.
-      html = lv |> render_hook("toggle_settings_group", %{"group" => "Hero"})
-      assert html =~ ~r/<details[^>]*open[^>]*>\s*<summary[^>]*phx-value-group="Hero"/
+      html = lv |> render_hook("toggle_container", %{"handle" => "Hero", "kind" => "group"})
+      assert html =~ ~r/<details[^>]*open[^>]*>\s*<summary[^>]*phx-value-handle="Hero"/
     end
 
     test "the wizard ends on Page settings (no Content step) and saves a theme page", %{
@@ -190,11 +190,11 @@ defmodule MastheadWeb.PageFormLiveTest do
 
       # Object/list fields group under their declared categories like any field.
       assert html =~ "token-group"
-      assert html =~ ~s(phx-value-group="Hero")
-      assert html =~ ~s(phx-value-group="Crew")
+      assert html =~ ~s(phx-value-handle="Hero")
+      assert html =~ ~s(phx-value-handle="Crew")
 
       # Open the Crew group, then add a second item inside it → a draggable row.
-      lv |> render_hook("toggle_settings_group", %{"group" => "Crew"})
+      lv |> render_hook("toggle_container", %{"handle" => "Crew", "kind" => "group"})
 
       html =
         lv
@@ -237,7 +237,7 @@ defmodule MastheadWeb.PageFormLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/pages/#{page.id}/edit")
 
       # Expand a settings group, then save.
-      lv |> render_hook("toggle_settings_group", %{"group" => "Hero"})
+      lv |> render_hook("toggle_container", %{"handle" => "Hero", "kind" => "group"})
 
       html =
         lv
@@ -247,7 +247,7 @@ defmodule MastheadWeb.PageFormLiveTest do
       # Saved in place (no redirect — html is rendered markup, not a redirect),
       # and the Hero group is still expanded.
       assert html =~ "Changes saved."
-      assert html =~ ~r/<details[^>]*open[^>]*>\s*<summary[^>]*phx-value-group="Hero"/
+      assert html =~ ~r/<details[^>]*open[^>]*>\s*<summary[^>]*phx-value-handle="Hero"/
       assert render(lv) =~ "Page settings"
     end
   end

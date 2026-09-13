@@ -33,7 +33,7 @@ defmodule MastheadWeb.AdminLive.SiteTheme do
        site_uploads: Uploads.list_uploads(site.id),
        action_count: Actions.count_pending(site),
        show_errors: false,
-       open_settings_group: nil,
+       containers: SettingsFields.containers(),
        selected_theme: selected,
        token_fields: fields,
        tokens: SettingsFields.hydrate(site.theme_tokens || %{}, fields)
@@ -42,12 +42,9 @@ defmodule MastheadWeb.AdminLive.SiteTheme do
   end
 
   @impl true
-  # Track the single open token-category accordion server-side, so a form
-  # re-render (phx-change while typing) doesn't reset the native `<details>`
-  # state. Only one category is open at a time; clicking the open one closes it.
-  def handle_event("toggle_settings_group", %{"group" => group}, socket) do
-    open = if socket.assigns.open_settings_group == group, do: nil, else: group
-    {:noreply, assign(socket, open_settings_group: open)}
+  def handle_event("toggle_container", %{"handle" => handle} = params, socket) do
+    {:noreply,
+     update(socket, :containers, &SettingsFields.toggle_container(&1, handle, params["kind"]))}
   end
 
   def handle_event("validate", %{"site" => params}, socket) do
@@ -94,8 +91,13 @@ defmodule MastheadWeb.AdminLive.SiteTheme do
   # ---- list tokens (add / remove / drag-reorder) ----
 
   def handle_event("add_list_item", %{"key" => key}, socket) do
-    fields = socket.assigns.token_fields
-    {:noreply, update(socket, :tokens, &SettingsFields.add_item(&1, fields, key))}
+    tokens = SettingsFields.add_item(socket.assigns.tokens, socket.assigns.token_fields, key)
+
+    {:noreply,
+     assign(socket,
+       tokens: tokens,
+       containers: SettingsFields.open_last_item(socket.assigns.containers, tokens, key)
+     )}
   end
 
   def handle_event("remove_list_item", %{"key" => key, "id" => id}, socket) do
@@ -299,7 +301,7 @@ defmodule MastheadWeb.AdminLive.SiteTheme do
               prefix={prefix()}
               picker_target={picker_target()}
               site_uploads={@site_uploads}
-              open={@open_settings_group}
+              containers={@containers}
             />
           </div>
 

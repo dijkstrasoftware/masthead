@@ -163,10 +163,10 @@ defmodule MastheadWeb.SiteThemeLiveTest do
     {:ok, _lv, html} = live(conn, ~p"/#{site.slug}/theme")
 
     assert html =~ "token-group-summary"
-    assert html =~ ~s(phx-value-group="Header")
-    assert html =~ ~s(phx-value-group="Footer")
+    assert html =~ ~s(phx-value-handle="Header")
+    assert html =~ ~s(phx-value-handle="Footer")
     # the uncategorized accent token → grouped under General.
-    assert html =~ ~s(phx-value-group="General")
+    assert html =~ ~s(phx-value-handle="General")
   end
 
   test "an opened category stays open across a form change, and only one opens at a time", %{
@@ -177,10 +177,10 @@ defmodule MastheadWeb.SiteThemeLiveTest do
     {:ok, site} = Sites.update_settings(site, %{"theme_id" => theme.id})
     {:ok, lv, _} = live(conn, ~p"/#{site.slug}/theme")
 
-    open_header = ~r/<details[^>]*\bopen\b[^>]*>\s*<summary[^>]*phx-value-group="Header"/
+    open_header = ~r/<details[^>]*\bopen\b[^>]*>\s*<summary[^>]*phx-value-handle="Header"/
 
     # Open the Header group.
-    html = lv |> element(~s(summary[phx-value-group="Header"])) |> render_click()
+    html = lv |> element(~s(summary[phx-value-handle="Header"])) |> render_click()
     assert html =~ open_header
 
     # A form change (what previously closed it) keeps it open.
@@ -190,9 +190,9 @@ defmodule MastheadWeb.SiteThemeLiveTest do
     assert html =~ open_header
 
     # Opening Footer closes Header (single-open accordion).
-    html = lv |> element(~s(summary[phx-value-group="Footer"])) |> render_click()
+    html = lv |> element(~s(summary[phx-value-handle="Footer"])) |> render_click()
     refute html =~ open_header
-    assert html =~ ~r/<details[^>]*\bopen\b[^>]*>\s*<summary[^>]*phx-value-group="Footer"/
+    assert html =~ ~r/<details[^>]*\bopen\b[^>]*>\s*<summary[^>]*phx-value-handle="Footer"/
   end
 
   test "a file token renders a picker that lists the site's uploads in a modal", %{
@@ -376,7 +376,7 @@ defmodule MastheadWeb.SiteThemeLiveTest do
       assert html =~ "Home"
 
       # Container fields group into accordions by category like any other field.
-      assert html =~ ~s(phx-value-group="Hero")
+      assert html =~ ~s(phx-value-handle="Hero")
     end
 
     test "an added list item is draggable, and saves as a nested map + real array", %{
@@ -421,6 +421,34 @@ defmodule MastheadWeb.SiteThemeLiveTest do
       lv |> form("#site-theme-form") |> render_submit()
 
       assert Sites.get_site!(site.id).theme_tokens["links"] == []
+    end
+
+    test "items collapse one at a time; an object starts open and sits that out", %{
+      conn: conn,
+      site: site
+    } do
+      {:ok, lv, html} = live(conn, ~p"/#{site.slug}/theme")
+
+      [_, id] = Regex.run(~r/data-sortable-id="(\d+)"/, html)
+      item = ~r/<details[^>]*open[^>]*>\s*<summary[^>]*phx-value-handle="links:#{id}"/
+      hero = ~r/<details[^>]*open[^>]*>\s*<summary[^>]*phx-value-handle="hero"/
+
+      # The item is collapsed and labelled by its first text subfield, the
+      # object open.
+      refute html =~ item
+      assert html =~ ~s(<span class="settings-list-title">Home</span>)
+      assert html =~ hero
+
+      html = lv |> element(~s(summary[phx-value-handle="links:#{id}"])) |> render_click()
+      assert html =~ item
+      assert html =~ hero
+
+      # The object closes only by hand; adding an item opens it over this one.
+      refute lv |> element(~s(summary[phx-value-handle="hero"])) |> render_click() =~ hero
+
+      refute lv
+             |> element(~s(button[phx-click="add_list_item"][phx-value-key="links"]))
+             |> render_click() =~ item
     end
   end
 
