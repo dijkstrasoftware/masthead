@@ -43,8 +43,10 @@ defmodule MastheadWeb.PostFormTagsLiveTest do
     # Toggle the tag (managed in the draft, outside the form fields).
     lv |> element(~s(button.tag-toggle[phx-value-id="#{tag.id}"])) |> render_click()
 
-    # Submit the details form to advance, then save from the content step.
+    # Submit the details form to advance, step past Post options, then save
+    # from the content step.
     lv |> form("#meta-form", post: %{title: "Tagged via form"}) |> render_submit()
+    lv |> form("#settings-form") |> render_submit()
     lv |> form("#content-form") |> render_submit()
 
     [post] = Content.list_posts(site.id)
@@ -71,6 +73,7 @@ defmodule MastheadWeb.PostFormTagsLiveTest do
     # Toggle it off, advance, and save.
     lv |> element(~s(button.tag-toggle[phx-value-id="#{tag.id}"])) |> render_click()
     lv |> form("#meta-form", post: %{title: "Has a tag"}) |> render_submit()
+    lv |> form("#settings-form") |> render_submit()
     lv |> form("#content-form") |> render_submit()
 
     assert Content.get_post!(site.id, post.id).tags == []

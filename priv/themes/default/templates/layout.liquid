@@ -12,7 +12,7 @@
     </style>
   </head>
   <body>
-    {% unless page.metadata.show_navigation == false %}
+    {% unless page.page_options.show_navigation == false %}
       <nav class="site-nav">
         <a class="brand" href="/">{{ site.name | escape }}</a>
         {% if pages != empty %}
@@ -22,7 +22,7 @@
         {% endif %}
       </nav>
     {% endunless %}
-    <main{% if page.metadata.layout == "wide" %} class="wide"{% endif %}>
+    <main{% if page.page_options.layout == "wide" %} class="wide"{% endif %}>
       {{ content }}
     </main>
     <footer class="site-footer">

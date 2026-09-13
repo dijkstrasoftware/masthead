@@ -186,7 +186,7 @@ defmodule Masthead.Themes.PackageTest do
         "templates/pages/blog.json",
         Jason.encode!(%{
           "label" => "Blog",
-          "metadata" => [%{"key" => "x", "label" => "X", "type" => "string", "default" => ""}]
+          "page_options" => [%{"key" => "x", "label" => "X", "type" => "string", "default" => ""}]
         })
       )
 
@@ -194,7 +194,7 @@ defmodule Masthead.Themes.PackageTest do
     assert {:ok, theme} = Package.install(zip_path, user.id)
     assert Enum.sort(theme.manifest["page_templates"]) == ["blog", "landing"]
     # Only the page with a .json gets a config; its label + fields are persisted.
-    assert %{"blog" => %{"label" => "Blog", "metadata" => [%{"key" => "x"}]}} =
+    assert %{"blog" => %{"label" => "Blog", "page_options" => [%{"key" => "x"}]}} =
              theme.manifest["page_configs"]
 
     refute Map.has_key?(theme.manifest["page_configs"], "landing")
@@ -208,7 +208,7 @@ defmodule Masthead.Themes.PackageTest do
         "templates/pages/landing.json",
         Jason.encode!(%{
           "label" => "Landing",
-          "metadata" => [
+          "page_options" => [
             %{
               "key" => "hero",
               "label" => "Hero",
@@ -236,7 +236,7 @@ defmodule Masthead.Themes.PackageTest do
     cfg = theme.manifest["page_configs"]["landing"]
 
     assert [%{"type" => "object", "fields" => [_]}, %{"type" => "list", "item_label" => "Member"}] =
-             cfg["metadata"]
+             cfg["page_options"]
   end
 
   test "rejects a page config that nests a container inside a container", %{user: user} do
@@ -246,7 +246,7 @@ defmodule Masthead.Themes.PackageTest do
       |> Map.put(
         "templates/pages/x.json",
         Jason.encode!(%{
-          "metadata" => [
+          "page_options" => [
             %{
               "key" => "a",
               "label" => "A",
@@ -267,7 +267,7 @@ defmodule Masthead.Themes.PackageTest do
       |> Map.put("templates/pages/blog.liquid", "<h1>x</h1>")
       |> Map.put(
         "templates/pages/blog.json",
-        Jason.encode!(%{"metadata" => [%{"key" => "k", "label" => "K", "type" => "weird"}]})
+        Jason.encode!(%{"page_options" => [%{"key" => "k", "label" => "K", "type" => "weird"}]})
       )
 
     zip_path = build_zip(files)

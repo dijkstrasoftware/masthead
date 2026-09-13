@@ -66,7 +66,7 @@ defmodule MastheadWeb.SiteThemeLiveTest do
           "tokens" => [
             %{"key" => "accent", "label" => "Accent", "type" => "color", "default" => "#000000"}
           ],
-          "metadata" => []
+          "page_options" => []
         }),
       "templates/layout.liquid" => "<html><head></head><body>{{ content }}</body></html>",
       "templates/index.liquid" => "<h1>{{ site.name | escape }}</h1>",
@@ -120,7 +120,7 @@ defmodule MastheadWeb.SiteThemeLiveTest do
             },
             %{"key" => "accent", "label" => "Accent", "type" => "color", "default" => "#123456"}
           ],
-          "metadata" => []
+          "page_options" => []
         }),
       "templates/layout.liquid" => "<html><head></head><body>{{ content }}</body></html>",
       "templates/index.liquid" => "<h1>{{ site.name | escape }}</h1>",
@@ -361,7 +361,7 @@ defmodule MastheadWeb.SiteThemeLiveTest do
       {:ok, site: Sites.get_site!(site.id)}
     end
 
-    test "they render like page metadata: subfield inputs, a seeded item, an Add button", %{
+    test "they render like page options: subfield inputs, a seeded item, an Add button", %{
       conn: conn,
       site: site
     } do
@@ -425,7 +425,7 @@ defmodule MastheadWeb.SiteThemeLiveTest do
   end
 
   # A theme whose tokens include an `object` and a `list` — the same field types
-  # a page's metadata can declare.
+  # a page's options can declare.
   defp build_container_token_theme_zip(slug) do
     files = %{
       "manifest.json" =>
@@ -457,7 +457,7 @@ defmodule MastheadWeb.SiteThemeLiveTest do
               ]
             }
           ],
-          "metadata" => []
+          "page_options" => []
         }),
       "templates/layout.liquid" => "<html><head></head><body>{{ content }}</body></html>",
       "templates/index.liquid" => "<h1>{{ site.name | escape }}</h1>",

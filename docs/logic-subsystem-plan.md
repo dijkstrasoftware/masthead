@@ -167,7 +167,7 @@ with `{% slot "key" %}`.
 ### Logic manifest (`priv/logic/<slug>/manifest.json`)
 
 Mirrors `Themes.Manifest` identity + typed-field system, replacing
-`tokens`/`metadata` with `config` (per-site settings, reusing the token type
+`tokens`/`page_options` with `config` (per-site settings, reusing the token type
 system verbatim), `providers`, and `actions`. Each provider/action declares the
 capability **kind** it emits — the only thing that crosses the boundary:
 
@@ -231,7 +231,7 @@ capability **kind** it emits — the only thing that crosses the boundary:
   ```
   %{ "contact_form" => %{ "logic_slug" => "contact", "capability" => "submit" } }
   ```
-  Mirrors `pages.metadata` storage/normalization. Only logics the *site* has
+  Mirrors `pages.page_options` storage/normalization. Only logics the *site* has
   enabled (via `site_logics`) are bindable.
 
 ## New modules

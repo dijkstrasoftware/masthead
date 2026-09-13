@@ -15,7 +15,7 @@ body {
 main { flex: 1; width: 100%; }
 main, .site-nav, .site-footer { max-width: var(--max); margin: 0 auto; padding: 0 1.25rem; width: 100%; }
 /* `wide` page layout escapes the container — set per-page from the
-   editor's "Page settings" via `metadata.layout`. */
+   editor's "Page settings" via `page_options.layout`. */
 main.wide { max-width: none; padding-left: 0; padding-right: 0; }
 .site-nav { display: flex; align-items: center; justify-content: space-between; padding-top: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--rule); }
 .site-nav .brand { font-weight: 600; text-decoration: none; color: var(--fg); }
@@ -31,6 +31,8 @@ main { padding-top: 2rem; padding-bottom: 4rem; }
 .post-list h2 { margin: 0 0 0.25rem; font-size: 1.25rem; }
 .post-list .excerpt { margin: 0.25rem 0; color: var(--muted); }
 .post-list time { font-size: 0.85rem; color: var(--muted); }
+.post-list .post-thumb { display: block; width: 100%; max-height: 14rem; object-fit: cover; border-radius: 4px; margin: 0 0 0.75rem; }
+.post-featured { display: block; width: 100%; border-radius: 4px; margin: 0 0 1.5rem; }
 .post header { margin-bottom: 1.5rem; }
 .post header time { color: var(--muted); font-size: 0.9rem; }
 .post-body, .page-body { font-size: 1.05rem; }

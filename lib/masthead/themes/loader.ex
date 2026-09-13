@@ -237,7 +237,7 @@ defmodule Masthead.Themes.Loader do
   end
 
   # A page template may carry a sidecar `templates/pages/<name>.json` declaring
-  # its label/description/metadata. The file is optional (no entry when absent);
+  # its label/description/page_options. The file is optional (no entry when absent);
   # a present-but-invalid one raises, like a bad manifest/template.
   defp read_page_configs!(reader, names) when is_list(names) do
     names

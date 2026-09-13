@@ -152,11 +152,11 @@ defmodule Masthead.Themes.ManifestTest do
     end
   end
 
-  describe "metadata schema parsing" do
+  describe "page option schema parsing" do
     test "accepts all supported field types" do
       json = """
       {"name":"X","slug":"x","version":"1.0.0","tokens":[],
-       "metadata":[
+       "page_options":[
          {"key":"s","label":"S","type":"string","default":""},
          {"key":"t","label":"T","type":"text","default":""},
          {"key":"b","label":"B","type":"boolean","default":false},
@@ -167,13 +167,13 @@ defmodule Masthead.Themes.ManifestTest do
        ]}
       """
 
-      assert {:ok, %Manifest{metadata: fields}} = Manifest.parse(json)
+      assert {:ok, %Manifest{page_options: fields}} = Manifest.parse(json)
       assert length(fields) == 7
     end
 
     test "select fields require a non-empty options list" do
       json = ~s({"name":"X","slug":"x","version":"1.0.0","tokens":[],
-                 "metadata":[{"key":"sel","label":"S","type":"select","default":"a"}]})
+                 "page_options":[{"key":"sel","label":"S","type":"select","default":"a"}]})
 
       assert {:error, errs} = Manifest.parse(json)
       assert Enum.any?(errs, &String.contains?(&1, "options"))
@@ -181,7 +181,7 @@ defmodule Masthead.Themes.ManifestTest do
 
     test "default is required for every field" do
       json = ~s({"name":"X","slug":"x","version":"1.0.0","tokens":[],
-                 "metadata":[{"key":"k","label":"K","type":"string"}]})
+                 "page_options":[{"key":"k","label":"K","type":"string"}]})
 
       assert {:error, errs} = Manifest.parse(json)
       assert Enum.any?(errs, &String.contains?(&1, "default"))
@@ -189,24 +189,24 @@ defmodule Masthead.Themes.ManifestTest do
 
     test "unknown type is rejected" do
       json = ~s({"name":"X","slug":"x","version":"1.0.0","tokens":[],
-                 "metadata":[{"key":"k","label":"K","type":"weird","default":""}]})
+                 "page_options":[{"key":"k","label":"K","type":"weird","default":""}]})
 
       assert {:error, errs} = Manifest.parse(json)
       assert Enum.any?(errs, &String.contains?(&1, "type:"))
     end
 
-    test "missing metadata key is fine (defaults to empty list)" do
+    test "missing page_options key is fine (defaults to empty list)" do
       json = ~s({"name":"X","slug":"x","version":"1.0.0","tokens":[]})
-      assert {:ok, %Manifest{metadata: []}} = Manifest.parse(json)
+      assert {:ok, %Manifest{page_options: []}} = Manifest.parse(json)
     end
   end
 
-  describe "effective_metadata/2" do
+  describe "page option defaults and coercion" do
     setup do
       {:ok, m} =
         Manifest.parse(~s({
           "name":"X","slug":"x","version":"1.0.0","tokens":[],
-          "metadata":[
+          "page_options":[
             {"key":"layout","label":"L","type":"select","options":["a","b"],"default":"a"},
             {"key":"hero","label":"H","type":"url","default":""},
             {"key":"hide","label":"D","type":"boolean","default":false},
@@ -223,45 +223,45 @@ defmodule Masthead.Themes.ManifestTest do
                "hero" => "",
                "hide" => false,
                "count" => 0
-             } = Manifest.effective_metadata(m, %{})
+             } = Manifest.merge_fields(m.page_options, %{})
     end
 
     test "overrides win", %{manifest: m} do
       assert %{"layout" => "b", "hero" => "/x.jpg"} =
-               Manifest.effective_metadata(m, %{"layout" => "b", "hero" => "/x.jpg"})
+               Manifest.merge_fields(m.page_options, %{"layout" => "b", "hero" => "/x.jpg"})
     end
 
     test "booleans coerce from form strings", %{manifest: m} do
-      assert %{"hide" => true} = Manifest.effective_metadata(m, %{"hide" => "true"})
-      assert %{"hide" => false} = Manifest.effective_metadata(m, %{"hide" => "false"})
+      assert %{"hide" => true} = Manifest.merge_fields(m.page_options, %{"hide" => "true"})
+      assert %{"hide" => false} = Manifest.merge_fields(m.page_options, %{"hide" => "false"})
     end
 
     test "numbers coerce from form strings", %{manifest: m} do
-      assert %{"count" => 42} = Manifest.effective_metadata(m, %{"count" => "42"})
-      assert %{"count" => 3.5} = Manifest.effective_metadata(m, %{"count" => "3.5"})
+      assert %{"count" => 42} = Manifest.merge_fields(m.page_options, %{"count" => "42"})
+      assert %{"count" => 3.5} = Manifest.merge_fields(m.page_options, %{"count" => "3.5"})
     end
 
     test "unknown override keys are preserved (theme-switch resilience)", %{manifest: m} do
-      out = Manifest.effective_metadata(m, %{"from_old_theme" => "still here"})
+      out = Manifest.merge_fields(m.page_options, %{"from_old_theme" => "still here"})
       assert out["from_old_theme"] == "still here"
     end
   end
 
-  describe "field type parity (tokens and metadata share one type set)" do
-    test "metadata accepts a file field (same as a token)" do
+  describe "field type parity (tokens and options share one type set)" do
+    test "page options accept a file field (same as a token)" do
       json =
         ~s({"name":"X","slug":"x","version":"1.0.0","tokens":[],) <>
-          ~s("metadata":[{"key":"hero","label":"Hero","type":"file","default":""}]})
+          ~s("page_options":[{"key":"hero","label":"Hero","type":"file","default":""}]})
 
-      assert {:ok, %Manifest{metadata: [%{key: "hero", type: "file"}]}} = Manifest.parse(json)
+      assert {:ok, %Manifest{page_options: [%{key: "hero", type: "file"}]}} = Manifest.parse(json)
     end
 
     test "a page config accepts a file field" do
-      json = ~s({"metadata":[{"key":"img","label":"Image","type":"file","default":""}]})
-      assert {:ok, %{metadata: [%{type: "file"}]}} = Manifest.parse_page_config(json)
+      json = ~s({"page_options":[{"key":"img","label":"Image","type":"file","default":""}]})
+      assert {:ok, %{page_options: [%{type: "file"}]}} = Manifest.parse_page_config(json)
     end
 
-    test "tokens accept text and url types (same as metadata)" do
+    test "tokens accept text and url types (same as options)" do
       json =
         ~s({"name":"X","slug":"x","version":"1.0.0","tokens":[) <>
           ~s({"key":"bio","label":"Bio","type":"text","default":""},) <>
@@ -280,7 +280,7 @@ defmodule Masthead.Themes.ManifestTest do
       assert Enum.any?(errs, &String.contains?(&1, "tokens[0].type"))
     end
 
-    test "tokens accept object and list containers (same as metadata)" do
+    test "tokens accept object and list containers (same as options)" do
       json =
         ~s({"name":"X","slug":"x","version":"1.0.0","tokens":[) <>
           ~s({"key":"hero","label":"Hero","type":"object","fields":[) <>
@@ -317,10 +317,10 @@ defmodule Masthead.Themes.ManifestTest do
   end
 
   describe "parse_page_config/1" do
-    test "parses a label, description, and metadata fields" do
+    test "parses a label, description, and page option fields" do
       json = """
       {"label":"About","description":"The about page",
-       "metadata":[
+       "page_options":[
          {"key":"layout","label":"L","type":"select","options":["a","b"],"default":"a"},
          {"key":"show_footer","label":"F","type":"boolean","default":true}
        ]}
@@ -329,11 +329,11 @@ defmodule Masthead.Themes.ManifestTest do
       assert {:ok, config} = Manifest.parse_page_config(json)
       assert config.label == "About"
       assert config.description == "The about page"
-      assert [%{key: "layout"}, %{key: "show_footer"}] = config.metadata
+      assert [%{key: "layout"}, %{key: "show_footer"}] = config.page_options
     end
 
-    test "label, description and metadata are all optional" do
-      assert {:ok, %{label: nil, description: nil, metadata: []}} =
+    test "label, description and page options are all optional" do
+      assert {:ok, %{label: nil, description: nil, page_options: []}} =
                Manifest.parse_page_config("{}")
     end
 
@@ -347,34 +347,34 @@ defmodule Masthead.Themes.ManifestTest do
       assert Enum.any?(errors, &String.contains?(&1, "label"))
     end
 
-    test "validates each metadata field (invalid type / select without options)" do
+    test "validates each page option field (invalid type / select without options)" do
       json =
-        ~s({"metadata":[) <>
+        ~s({"page_options":[) <>
           ~s({"key":"a","label":"A","type":"weird","default":"x"},) <>
           ~s({"key":"b","label":"B","type":"select","default":"x"}]})
 
       assert {:error, errors} = Manifest.parse_page_config(json)
-      assert Enum.any?(errors, &String.contains?(&1, "metadata[0].type"))
-      assert Enum.any?(errors, &String.contains?(&1, "metadata[1].options"))
+      assert Enum.any?(errors, &String.contains?(&1, "page_options[0].type"))
+      assert Enum.any?(errors, &String.contains?(&1, "page_options[1].options"))
     end
   end
 
   describe "object/list (nested) field types" do
     test "parses an object field with nested fields" do
-      json = ~s({"metadata":[{"key":"hero","label":"Hero","type":"object","fields":[
+      json = ~s({"page_options":[{"key":"hero","label":"Hero","type":"object","fields":[
         {"key":"title","label":"T","type":"string","default":"Hi"},
         {"key":"image","label":"I","type":"file","default":""}]}]})
 
-      assert {:ok, %{metadata: [field]}} = Manifest.parse_page_config(json)
+      assert {:ok, %{page_options: [field]}} = Manifest.parse_page_config(json)
       assert field.type == "object"
       assert [%{key: "title"}, %{key: "image", type: "file"}] = field.fields
     end
 
     test "parses a list field with item_label and nested fields" do
-      json = ~s({"metadata":[{"key":"crew","label":"Crew","type":"list","item_label":"Member",
+      json = ~s({"page_options":[{"key":"crew","label":"Crew","type":"list","item_label":"Member",
         "default":[],"fields":[{"key":"name","label":"N","type":"string","default":""}]}]})
 
-      assert {:ok, %{metadata: [field]}} = Manifest.parse_page_config(json)
+      assert {:ok, %{page_options: [field]}} = Manifest.parse_page_config(json)
       assert field.type == "list"
       assert field.item_label == "Member"
       assert [%{key: "name"}] = field.fields
@@ -383,31 +383,31 @@ defmodule Masthead.Themes.ManifestTest do
     test "a container requires a non-empty fields list" do
       assert {:error, errs} =
                Manifest.parse_page_config(
-                 ~s({"metadata":[{"key":"x","label":"X","type":"object"}]})
+                 ~s({"page_options":[{"key":"x","label":"X","type":"object"}]})
                )
 
-      assert Enum.any?(errs, &String.contains?(&1, "metadata[0].fields"))
+      assert Enum.any?(errs, &String.contains?(&1, "page_options[0].fields"))
     end
 
     test "containers cannot nest other containers (one level only)" do
-      json = ~s({"metadata":[{"key":"x","label":"X","type":"object","fields":[
+      json = ~s({"page_options":[{"key":"x","label":"X","type":"object","fields":[
         {"key":"y","label":"Y","type":"list","fields":[]}]}]})
 
       assert {:error, errs} = Manifest.parse_page_config(json)
-      assert Enum.any?(errs, &String.contains?(&1, "metadata[0].fields[0].type"))
+      assert Enum.any?(errs, &String.contains?(&1, "page_options[0].fields[0].type"))
     end
 
     test "a nested scalar still needs a default" do
-      json = ~s({"metadata":[{"key":"x","label":"X","type":"object","fields":[
+      json = ~s({"page_options":[{"key":"x","label":"X","type":"object","fields":[
         {"key":"y","label":"Y","type":"string"}]}]})
 
       assert {:error, errs} = Manifest.parse_page_config(json)
-      assert Enum.any?(errs, &String.contains?(&1, "metadata[0].fields[0].default"))
+      assert Enum.any?(errs, &String.contains?(&1, "page_options[0].fields[0].default"))
     end
 
     test "merge_fields recurses into objects and lists" do
-      {:ok, %{metadata: fields}} =
-        Manifest.parse_page_config(~s({"metadata":[
+      {:ok, %{page_options: fields}} =
+        Manifest.parse_page_config(~s({"page_options":[
           {"key":"hero","label":"H","type":"object","fields":[
             {"key":"title","label":"T","type":"string","default":"Default title"},
             {"key":"on","label":"O","type":"boolean","default":true}]},
@@ -431,8 +431,8 @@ defmodule Masthead.Themes.ManifestTest do
     end
 
     test "a list's default items render when there is no override" do
-      {:ok, %{metadata: fields}} =
-        Manifest.parse_page_config(~s({"metadata":[
+      {:ok, %{page_options: fields}} =
+        Manifest.parse_page_config(~s({"page_options":[
           {"key":"stats","label":"S","type":"list","default":[
             {"value":"30+","label":"Years"},{"value":"0","label":"Sales"}],
            "fields":[
@@ -452,13 +452,13 @@ defmodule Masthead.Themes.ManifestTest do
     setup do
       {:ok, config} =
         Manifest.parse_page_config(~s({
-          "metadata":[
+          "page_options":[
             {"key":"layout","label":"L","type":"select","options":["contained","wide"],"default":"contained"},
             {"key":"show_nav","label":"N","type":"boolean","default":true}
           ]
         }))
 
-      {:ok, fields: config.metadata}
+      {:ok, fields: config.page_options}
     end
 
     test "applies defaults, coercion, and preserves unknown keys", %{fields: fields} do
@@ -472,6 +472,104 @@ defmodule Masthead.Themes.ManifestTest do
 
     test "an empty field list yields just the preserved overrides" do
       assert %{"x" => "1"} = Manifest.merge_fields([], %{"x" => "1"})
+    end
+  end
+
+  describe "render_version" do
+    test "defaults to beta when the manifest omits it" do
+      json = ~s({"name":"X","slug":"x","version":"1.0.0","tokens":[]})
+      assert {:ok, %Manifest{render_version: "beta"}} = Manifest.parse(json)
+    end
+
+    test "accepts a known version" do
+      json = ~s({"name":"X","slug":"x","version":"1.0.0","render_version":"v1","tokens":[]})
+      assert {:ok, %Manifest{render_version: "v1"}} = Manifest.parse(json)
+    end
+
+    test "rejects an unknown version" do
+      json = ~s({"name":"X","slug":"x","version":"1.0.0","render_version":"v99","tokens":[]})
+      assert {:error, errs} = Manifest.parse(json)
+      assert Enum.any?(errs, &String.contains?(&1, "render_version"))
+    end
+  end
+
+  describe "legacy metadata key (beta themes)" do
+    test "parses into page_options" do
+      json =
+        ~s({"name":"X","slug":"x","version":"1.0.0","tokens":[],) <>
+          ~s("metadata":[{"key":"layout","label":"L","type":"string","default":"a"}]})
+
+      assert {:ok, %Manifest{render_version: "beta", page_options: [%{key: "layout"}]}} =
+               Manifest.parse(json)
+    end
+
+    test "a page config's metadata parses into page_options" do
+      json = ~s({"metadata":[{"key":"img","label":"Image","type":"file","default":""}]})
+      assert {:ok, %{page_options: [%{key: "img"}]}} = Manifest.parse_page_config(json)
+    end
+
+    test "errors are reported under the key the manifest actually used" do
+      json =
+        ~s({"name":"X","slug":"x","version":"1.0.0","tokens":[],) <>
+          ~s("metadata":[{"key":"k","label":"K","type":"weird","default":""}]})
+
+      assert {:error, errs} = Manifest.parse(json)
+      assert Enum.any?(errs, &String.contains?(&1, "metadata[0].type"))
+    end
+  end
+
+  describe "post_options" do
+    test "parse with the same field types as page options" do
+      json =
+        ~s({"name":"X","slug":"x","version":"1.0.0","render_version":"v1","tokens":[],) <>
+          ~s("post_options":[) <>
+          ~s({"key":"featured_image","label":"F","type":"file","default":""},) <>
+          ~s({"key":"crew","label":"C","type":"list","fields":[) <>
+          ~s({"key":"name","label":"N","type":"string","default":""}]}]})
+
+      assert {:ok, %Manifest{post_options: [%{key: "featured_image", type: "file"}, list_field]}} =
+               Manifest.parse(json)
+
+      assert list_field.type == "list"
+    end
+
+    test "default to an empty list" do
+      json = ~s({"name":"X","slug":"x","version":"1.0.0","render_version":"v1","tokens":[]})
+      assert {:ok, %Manifest{post_options: []}} = Manifest.parse(json)
+    end
+
+    test "are rejected on a beta theme, whose renderer can't expose them" do
+      json =
+        ~s({"name":"X","slug":"x","version":"1.0.0","tokens":[],) <>
+          ~s("post_options":[{"key":"f","label":"F","type":"file","default":""}]})
+
+      assert {:error, errs} = Manifest.parse(json)
+      assert Enum.any?(errs, &String.contains?(&1, "post_options"))
+    end
+
+    test "invalid fields are reported under the post_options prefix" do
+      json =
+        ~s({"name":"X","slug":"x","version":"1.0.0","render_version":"v1","tokens":[],) <>
+          ~s("post_options":[{"key":"f","label":"F","type":"weird","default":""}]})
+
+      assert {:error, errs} = Manifest.parse(json)
+      assert Enum.any?(errs, &String.contains?(&1, "post_options[0].type"))
+    end
+  end
+
+  describe "option_fields/2" do
+    test "reads string-keyed, atom-keyed and legacy persisted manifests" do
+      declared = [%{"key" => "layout", "label" => "L", "type" => "string", "default" => ""}]
+
+      assert Manifest.option_fields(%{"page_options" => declared}, :page_options) == declared
+      assert Manifest.option_fields(%{page_options: declared}, :page_options) == declared
+      assert Manifest.option_fields(%{"metadata" => declared}, :page_options) == declared
+      assert Manifest.option_fields(%{"post_options" => declared}, :post_options) == declared
+    end
+
+    test "is empty for a manifest that declares nothing" do
+      assert Manifest.option_fields(%{}, :page_options) == []
+      assert Manifest.option_fields(nil, :post_options) == []
     end
   end
 end

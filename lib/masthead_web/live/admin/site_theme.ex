@@ -8,7 +8,7 @@ defmodule MastheadWeb.AdminLive.SiteTheme do
   alias Masthead.{Actions, Sites, Themes, Uploads}
   alias MastheadWeb.AdminLive.SettingsFields
 
-  # Token overrides are edited exactly like page metadata — same field types,
+  # Token overrides are edited exactly like page options — same field types,
   # same editor (`SettingsFields`), including `object`/`list` containers. They
   # live in their own `@tokens` draft rather than in the changeset: a `list`
   # token's items need identity (`_id`) across add/remove/drag-reorder, which
@@ -222,7 +222,7 @@ defmodule MastheadWeb.AdminLive.SiteTheme do
   end
 
   # The theme's token declarations, normalized. A token is the same kind of
-  # field as page metadata — scalars, plus `object`/`list` containers — so the
+  # field as page options — scalars, plus `object`/`list` containers — so the
   # manifest's list feeds the shared editor directly.
   defp token_fields(nil), do: []
 

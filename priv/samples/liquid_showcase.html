@@ -6,9 +6,9 @@
   Context this page can read (see Themes.Presenter / Themes.Renderer):
     site            -> { name, title, description, slug, homepage_slug, css_overrides }
     theme           -> { name, slug, version, asset_base, tokens, css }
-    page            -> { title, slug, format, url, metadata }
-    posts           -> [ { title, slug, excerpt, published_at, url, tags:[{name,slug}] } ]  (all published)
-    pages           -> [ { title, slug, format, url, metadata } ]
+    page            -> { title, slug, format, url, page_options }
+    posts           -> [ { title, slug, excerpt, published_at, url, tags:[{name,slug}], post_options } ]  (all published)
+    pages           -> [ { title, slug, format, url, page_options } ]
     tags            -> [ { name, slug, active } ]      (active = matches ?tag=)
     current_tag     -> { name, slug } | nil            (from ?tag= on blog pages)
     search_query    -> string                          (search results page only)

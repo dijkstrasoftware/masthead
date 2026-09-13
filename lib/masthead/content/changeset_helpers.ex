@@ -44,6 +44,22 @@ defmodule Masthead.Content.ChangesetHelpers do
   defp liquid_error(err), do: inspect(err)
 
   @doc """
+  Strip blank values out of an options map before it is stored, so the renderer
+  falls back to the theme's declared default instead of storing an empty
+  override. Unknown keys are preserved — a page authored under another theme
+  keeps its data.
+  """
+  def normalize_options(changeset, field) do
+    case get_change(changeset, field) do
+      m when is_map(m) ->
+        put_change(changeset, field, Map.reject(m, fn {_, v} -> v == "" or is_nil(v) end))
+
+      _ ->
+        changeset
+    end
+  end
+
+  @doc """
   Ensure the changeset carries a URL-safe `:slug`.
 
   If `:slug` is present, slugify it; otherwise derive one from `source_field`
