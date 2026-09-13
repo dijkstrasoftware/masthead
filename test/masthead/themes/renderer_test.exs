@@ -440,10 +440,11 @@ defmodule Masthead.Themes.RendererTest do
     end
   end
 
-  describe "page metadata" do
+  describe "page options on a beta theme (no render_version)" do
     setup %{user: user, site: site} do
-      # Install a tiny theme that declares a metadata schema and uses it
-      # in page.liquid. Stripped down to just what we need to test.
+      # A theme with no render_version declares its page options under the
+      # legacy "metadata" key and reads them as page.metadata — it must keep
+      # rendering exactly as it did before page_options existed.
       slug = "metatest#{System.unique_integer([:positive])}"
       zip_path = build_metadata_theme_zip(slug)
 
@@ -473,7 +474,7 @@ defmodule Masthead.Themes.RendererTest do
 
     test "per-page overrides win over manifest defaults", %{site: site} do
       [page | _] = Content.list_published_pages(site.id)
-      {:ok, page} = Content.update_page(page, %{"metadata" => %{"layout" => "wide"}})
+      {:ok, page} = Content.update_page(page, %{"page_options" => %{"layout" => "wide"}})
 
       pages = Content.list_published_pages(site.id)
       body_html = Content.render_body(page.body, page.format)
@@ -489,11 +490,11 @@ defmodule Masthead.Themes.RendererTest do
       assert out =~ ~s(data-layout="wide")
     end
 
-    test "empty-string metadata override falls back to default", %{site: site} do
+    test "empty-string override falls back to default", %{site: site} do
       [page | _] = Content.list_published_pages(site.id)
-      # Empty values are stripped by the Page changeset's normalize_metadata.
-      {:ok, page} = Content.update_page(page, %{"metadata" => %{"layout" => ""}})
-      assert page.metadata == %{}
+      # Empty values are stripped by the Page changeset's normalize_options.
+      {:ok, page} = Content.update_page(page, %{"page_options" => %{"layout" => ""}})
+      assert page.page_options == %{}
 
       pages = Content.list_published_pages(site.id)
       body_html = Content.render_body(page.body, page.format)
@@ -513,9 +514,9 @@ defmodule Masthead.Themes.RendererTest do
       [page | _] = Content.list_published_pages(site.id)
 
       {:ok, page} =
-        Content.update_page(page, %{"metadata" => %{"from_old_theme" => "still here"}})
+        Content.update_page(page, %{"page_options" => %{"from_old_theme" => "still here"}})
 
-      assert page.metadata["from_old_theme"] == "still here"
+      assert page.page_options["from_old_theme"] == "still here"
     end
   end
 
@@ -560,7 +561,7 @@ defmodule Masthead.Themes.RendererTest do
           "format" => "theme",
           "template" => "blog",
           "published" => true,
-          "metadata" => %{"layout" => "wide"}
+          "page_options" => %{"layout" => "wide"}
         })
 
       out =
@@ -585,7 +586,7 @@ defmodule Masthead.Themes.RendererTest do
           "format" => "theme",
           "template" => "blog",
           "published" => true,
-          "metadata" => %{"hero_image" => to_string(upload.id)}
+          "page_options" => %{"hero_image" => to_string(upload.id)}
         })
 
       out =
@@ -612,7 +613,7 @@ defmodule Masthead.Themes.RendererTest do
           "format" => "theme",
           "template" => "showcase",
           "published" => true,
-          "metadata" => %{
+          "page_options" => %{
             "hero" => %{"title" => "Welcome", "image" => to_string(hero_img.id)},
             "crew" => [
               %{"name" => "Ada", "photo" => to_string(photo.id)},
@@ -845,8 +846,176 @@ defmodule Masthead.Themes.RendererTest do
     tmp
   end
 
-  # Helper: write a minimal zipped theme that surfaces page.metadata.layout
-  # via a data attribute in the rendered HTML.
+  describe "render version v1" do
+    setup %{user: user, site: site} do
+      slug = "v1test#{System.unique_integer([:positive])}"
+      zip_path = build_v1_theme_zip(slug)
+
+      {:ok, theme} = Masthead.Themes.Package.install(zip_path, user.id)
+      File.rm(zip_path)
+      {:ok, site} = Sites.update_settings(site, %{"theme_id" => theme.id})
+
+      {:ok, theme: theme, site: Sites.get_site!(site.id)}
+    end
+
+    test "page options reach the template under page.page_options", %{site: site} do
+      [page | _] = Content.list_published_pages(site.id)
+      {:ok, page} = Content.update_page(page, %{"page_options" => %{"layout" => "wide"}})
+      pages = Content.list_published_pages(site.id)
+
+      out =
+        Renderer.render_page(%{
+          site: site,
+          page: page,
+          body_html: Content.render_body(page.body, page.format),
+          pages: pages
+        })
+
+      assert out =~ ~s(data-layout="wide")
+    end
+
+    test "page options fall back to the manifest default", %{site: site} do
+      [page | _] = Content.list_published_pages(site.id)
+      pages = Content.list_published_pages(site.id)
+
+      out =
+        Renderer.render_page(%{
+          site: site,
+          page: page,
+          body_html: Content.render_body(page.body, page.format),
+          pages: pages
+        })
+
+      assert out =~ ~s(data-layout="contained")
+    end
+
+    test "a theme page reads its sidecar config's page options", %{site: site} do
+      {:ok, page} =
+        Content.create_page(site.id, %{
+          "title" => "Journal",
+          "format" => "theme",
+          "template" => "blog",
+          "published" => true,
+          "page_options" => %{"heading" => "Latest"}
+        })
+
+      out =
+        Renderer.render_theme_page(%{
+          site: site,
+          page: page,
+          posts: Content.list_published_posts(site.id),
+          pages: Content.list_published_pages(site.id)
+        })
+
+      assert out =~ ~s(data-heading="Latest")
+    end
+
+    test "post options reach the post template", %{site: site} do
+      [post | _] = Content.list_published_posts(site.id)
+
+      {:ok, post} =
+        Content.update_post(post, %{"post_options" => %{"subtitle" => "A subtitle"}})
+
+      out =
+        Renderer.render_post(%{
+          site: site,
+          post: post,
+          pages: Content.list_published_pages(site.id),
+          body_html: "<p>Body.</p>"
+        })
+
+      assert out =~ ~s(data-subtitle="A subtitle")
+    end
+
+    test "post options fall back to the manifest default", %{site: site} do
+      [post | _] = Content.list_published_posts(site.id)
+
+      out =
+        Renderer.render_post(%{
+          site: site,
+          post: post,
+          pages: Content.list_published_pages(site.id),
+          body_html: "<p>Body.</p>"
+        })
+
+      assert out =~ ~s(data-subtitle="")
+    end
+
+    test "posts in a list carry their own options", %{site: site} do
+      [post | _] = Content.list_published_posts(site.id)
+      {:ok, _} = Content.update_post(post, %{"post_options" => %{"subtitle" => "In the list"}})
+
+      out =
+        Renderer.render_index(%{
+          site: site,
+          posts: Content.list_published_posts(site.id),
+          pages: Content.list_published_pages(site.id)
+        })
+
+      assert out =~ ~s(data-subtitle="In the list")
+    end
+
+    test "a file post option resolves to the upload's URL", %{site: site} do
+      upload = create_upload(site, "cover.png")
+      [post | _] = Content.list_published_posts(site.id)
+
+      {:ok, post} =
+        Content.update_post(post, %{"post_options" => %{"cover" => to_string(upload.id)}})
+
+      out =
+        Renderer.render_post(%{
+          site: site,
+          post: post,
+          pages: Content.list_published_pages(site.id),
+          body_html: "<p>Body.</p>"
+        })
+
+      assert out =~ ~s(data-cover="#{Uploads.url(upload)}")
+    end
+
+    test "posts reached through posts_by_tag carry their options too", %{site: site} do
+      [post | _] = Content.list_published_posts(site.id)
+      {:ok, tag} = Content.create_tag(site.id, %{"name" => "Featured"})
+
+      {:ok, post} =
+        Content.update_post(post, %{
+          "tag_ids" => [to_string(tag.id)],
+          "post_options" => %{"subtitle" => "Via the tag query"}
+        })
+
+      {:ok, page} =
+        Content.create_page(site.id, %{
+          "title" => "Tagged",
+          "format" => "html",
+          "published" => true,
+          "body" =>
+            ~s({% for p in posts_by_tag["featured"] %}S={{ p.post_options.subtitle }};{% endfor %})
+        })
+
+      out =
+        Renderer.render_page(%{
+          site: site,
+          page: page,
+          liquid_body: page.body,
+          pages: Content.list_published_pages(site.id)
+        })
+
+      assert out =~ "S=Via the tag query;"
+      assert post.post_options["subtitle"] == "Via the tag query"
+    end
+
+    test "unknown post option keys survive a theme switch", %{site: site} do
+      [post | _] = Content.list_published_posts(site.id)
+
+      {:ok, post} =
+        Content.update_post(post, %{"post_options" => %{"from_old_theme" => "still here"}})
+
+      assert post.post_options["from_old_theme"] == "still here"
+    end
+  end
+
+  # A beta theme (no render_version): page options declared as "metadata",
+  # read in the template as page.metadata.
   defp build_metadata_theme_zip(slug) do
     files = %{
       "manifest.json" =>
@@ -876,6 +1045,60 @@ defmodule Masthead.Themes.RendererTest do
     }
 
     tmp = Path.join(System.tmp_dir!(), "metatest-#{System.unique_integer([:positive])}.zip")
+    entries = Enum.map(files, fn {n, b} -> {String.to_charlist(n), b} end)
+    {:ok, _} = :zip.create(String.to_charlist(tmp), entries)
+    tmp
+  end
+
+  # A v1 theme: page_options + post_options, read under their own names.
+  defp build_v1_theme_zip(slug) do
+    files = %{
+      "manifest.json" =>
+        Jason.encode!(%{
+          "name" => "V1 " <> slug,
+          "slug" => slug,
+          "version" => "1.0.0",
+          "render_version" => "v1",
+          "tokens" => [],
+          "page_options" => [
+            %{
+              "key" => "layout",
+              "label" => "Layout",
+              "type" => "select",
+              "options" => ["contained", "wide"],
+              "default" => "contained"
+            }
+          ],
+          "post_options" => [
+            %{"key" => "subtitle", "label" => "Subtitle", "type" => "string", "default" => ""},
+            %{"key" => "cover", "label" => "Cover", "type" => "file", "default" => ""}
+          ]
+        }),
+      "templates/layout.liquid" => "<html><head></head><body>{{ content }}</body></html>",
+      "templates/index.liquid" =>
+        "{% for p in posts %}" <>
+          ~s(<li data-subtitle="{{ p.post_options.subtitle }}">{{ p.title | escape }}</li>) <>
+          "{% endfor %}",
+      "templates/post.liquid" =>
+        ~s(<article data-subtitle="{{ post.post_options.subtitle }}" data-cover="{{ post.post_options.cover }}">) <>
+          "{{ body_html }}</article>",
+      "templates/page.liquid" =>
+        ~s(<article data-layout="{{ page.page_options.layout }}">{{ body_html }}</article>),
+      "templates/not_found.liquid" => "<h1>Not found</h1>",
+      "templates/pages/blog.liquid" =>
+        ~s(<section data-heading="{{ page.page_options.heading }}">) <>
+          "{% for p in posts %}<li>{{ p.title | escape }}</li>{% endfor %}</section>",
+      "templates/pages/blog.json" =>
+        Jason.encode!(%{
+          "label" => "Blog",
+          "page_options" => [
+            %{"key" => "heading", "label" => "Heading", "type" => "string", "default" => "Posts"}
+          ]
+        }),
+      "theme.css" => "body { background: white; }"
+    }
+
+    tmp = Path.join(System.tmp_dir!(), "v1test-#{System.unique_integer([:positive])}.zip")
     entries = Enum.map(files, fn {n, b} -> {String.to_charlist(n), b} end)
     {:ok, _} = :zip.create(String.to_charlist(tmp), entries)
     tmp

@@ -92,7 +92,7 @@ defmodule MastheadWeb.PageFormLiveTest do
         |> form("#meta-form", page: %{"title" => "Home"})
         |> render_submit()
 
-      assert html =~ ~s(name="page[metadata][banner]")
+      assert html =~ ~s(name="page[page_options][banner]")
       assert html =~ ~s(phx-value-meta="banner")
       assert html =~ "Choose file"
     end
@@ -148,19 +148,19 @@ defmodule MastheadWeb.PageFormLiveTest do
         |> form("#meta-form", page: %{"title" => "Writing"})
         |> render_submit()
 
-      # Page settings shows the blog template's page_metadata (layout select).
+      # Page settings shows the blog template's page options (layout select).
       assert html =~ "Page settings"
-      assert html =~ ~s(name="page[metadata][layout]")
+      assert html =~ ~s(name="page[page_options][layout]")
 
       # Save & publish from the terminal settings step.
       lv
-      |> form("#content-form", page: %{"metadata" => %{"layout" => "wide"}})
+      |> form("#content-form", page: %{"page_options" => %{"layout" => "wide"}})
       |> render_submit(%{"action" => "publish"})
 
       page = Masthead.Content.list_pages(site.id) |> Enum.find(&(&1.title == "Writing"))
       assert page.format == "theme"
       assert page.template == "blog"
-      assert page.metadata["layout"] == "wide"
+      assert page.page_options["layout"] == "wide"
       assert page.published
     end
 
@@ -182,7 +182,7 @@ defmodule MastheadWeb.PageFormLiveTest do
       html = lv |> form("#meta-form", page: %{"title" => "Home"}) |> render_submit()
 
       # Object subfield input + the list (pre-seeded with its default item).
-      assert html =~ ~s(name="page[metadata][hero][title]")
+      assert html =~ ~s(name="page[page_options][hero][title]")
       assert html =~ ~s(phx-click="add_list_item")
       assert html =~ ~s(phx-value-key="crew")
       # The crew list declares a default member, seeded into the editor.
@@ -206,7 +206,7 @@ defmodule MastheadWeb.PageFormLiveTest do
 
       # Set an object subfield, then save.
       lv
-      |> form("#content-form", page: %{"metadata" => %{"hero" => %{"title" => "Welcome"}}})
+      |> form("#content-form", page: %{"page_options" => %{"hero" => %{"title" => "Welcome"}}})
       |> render_change()
 
       lv |> form("#content-form") |> render_submit(%{"action" => "publish"})
@@ -215,8 +215,8 @@ defmodule MastheadWeb.PageFormLiveTest do
       assert page.template == "widgets"
       # Object saved as a real map; list as a real array (`_id` stripped) with the
       # seeded default item first, then the added (empty) one.
-      assert page.metadata["hero"] == %{"title" => "Welcome"}
-      assert [%{"name" => "Ada Lovelace"}, empty] = page.metadata["crew"]
+      assert page.page_options["hero"] == %{"title" => "Welcome"}
+      assert [%{"name" => "Ada Lovelace"}, empty] = page.page_options["crew"]
       refute Map.has_key?(empty, "_id")
     end
 
@@ -241,7 +241,7 @@ defmodule MastheadWeb.PageFormLiveTest do
 
       html =
         lv
-        |> form("#content-form", page: %{"metadata" => %{"hero" => %{"title" => "Hi"}}})
+        |> form("#content-form", page: %{"page_options" => %{"hero" => %{"title" => "Hi"}}})
         |> render_submit()
 
       # Saved in place (no redirect — html is rendered markup, not a redirect),
@@ -265,7 +265,7 @@ defmodule MastheadWeb.PageFormLiveTest do
           "slug" => slug,
           "version" => "1.0.0",
           "tokens" => [],
-          "metadata" => []
+          "page_options" => []
         }),
       "templates/layout.liquid" => "<html><body>{{ content }}</body></html>",
       "templates/index.liquid" => "<h1>{{ site.name | escape }}</h1>",
@@ -276,7 +276,7 @@ defmodule MastheadWeb.PageFormLiveTest do
       "templates/pages/widgets.json" =>
         Jason.encode!(%{
           "label" => "Widgets",
-          "metadata" => [
+          "page_options" => [
             %{
               "key" => "banner",
               "label" => "Banner",
@@ -321,7 +321,7 @@ defmodule MastheadWeb.PageFormLiveTest do
     Sites.get_site!(site.id)
   end
 
-  test "a boolean metadata field defaults to its manifest value (checked)", %{
+  test "a boolean page option defaults to its manifest value (checked)", %{
     conn: conn,
     site: site
   } do
@@ -335,7 +335,7 @@ defmodule MastheadWeb.PageFormLiveTest do
 
     # The default theme declares show_navigation with "default": true, so a
     # brand-new page must start with the checkbox checked.
-    assert html =~ ~s(id="meta-page-metadata-show_navigation")
-    assert html =~ ~r/<input[^>]*id="meta-page-metadata-show_navigation"[^>]*checked/
+    assert html =~ ~s(id="meta-page-page_options-show_navigation")
+    assert html =~ ~r/<input[^>]*id="meta-page-page_options-show_navigation"[^>]*checked/
   end
 end

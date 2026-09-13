@@ -1,7 +1,7 @@
 {
   "label": "Blog",
   "description": "Lists your published posts, with optional tag filtering. Set it as the homepage to make it your front page.",
-  "metadata": [
+  "page_options": [
     {
       "key": "layout",
       "label": "Page layout",

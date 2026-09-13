@@ -3,8 +3,14 @@ defmodule MastheadWeb.AdminLive.PostForm do
   on_mount {MastheadWeb.AdminLive.Hooks, :load_site}
 
   import MastheadWeb.AdminLive.Components
-  alias Masthead.{Content, Realtime}
+  import MastheadWeb.AdminLive.SettingsFields, only: [settings_form: 1]
+  alias Masthead.{Content, Realtime, Themes, Uploads}
   alias Masthead.Content.Post
+  alias Masthead.Themes.Manifest
+  alias MastheadWeb.AdminLive.SettingsFields
+
+  defp prefix, do: "post[post_options]"
+  defp picker_target, do: "#post-options-file-picker"
 
   @impl true
   def mount(params, _session, socket) do
@@ -26,8 +32,12 @@ defmodule MastheadWeb.AdminLive.PostForm do
           post = Content.get_post!(socket.assigns.site.id, params["id"])
           # Open existing posts directly on the content step — most edits
           # are body tweaks; format and details are reachable via Back.
-          {post, post_to_draft(post), "Edit: #{post.title}", 3}
+          {post, post_to_draft(post), "Edit: #{post.title}", 4}
       end
+
+    theme_manifest = Themes.manifest_for_site(socket.assigns.site)
+    post_option_fields = extract_post_option_fields(theme_manifest)
+    draft = update_post_options(draft, &SettingsFields.hydrate(&1, post_option_fields))
 
     {:ok,
      socket
@@ -39,6 +49,11 @@ defmodule MastheadWeb.AdminLive.PostForm do
        slug_touched: post != nil,
        show_errors: false,
        external_change: nil,
+       theme_manifest: theme_manifest,
+       post_option_fields: post_option_fields,
+       has_post_options?: post_option_fields != [],
+       site_uploads: Uploads.list_uploads(socket.assigns.site.id),
+       open_settings_group: nil,
        tags: Content.list_tags(socket.assigns.site.id)
      )
      |> maybe_allow_import()
@@ -55,6 +70,12 @@ defmodule MastheadWeb.AdminLive.PostForm do
 
   defp maybe_allow_import(socket), do: socket
 
+  defp extract_post_option_fields(manifest) do
+    manifest
+    |> Manifest.option_fields(:post_options)
+    |> SettingsFields.normalize_fields()
+  end
+
   # ---- Step navigation ----
 
   @impl true
@@ -70,25 +91,62 @@ defmodule MastheadWeb.AdminLive.PostForm do
   end
 
   def handle_event("advance", _params, socket) do
-    {:noreply, assign(socket, step: min(socket.assigns.step + 1, 3))}
+    {:noreply, assign(socket, step: next_step(socket))}
   end
 
   def handle_event("back", _params, socket) do
-    {:noreply, assign(socket, step: max(socket.assigns.step - 1, 1))}
+    {:noreply, assign(socket, step: prev_step(socket))}
   end
 
-  # Stepper navigation — jump straight to a step by clicking it. Steps 2–3
-  # require a chosen format; step 1 is always reachable. The draft is kept in
-  # sync by each step's `phx-change="validate"`, so jumping never loses input.
+  # Stepper navigation — jump straight to a step by clicking it. Every step
+  # past the first requires a chosen format; step 1 is always reachable. The
+  # draft is kept in sync by each step's `phx-change="validate"`, so jumping
+  # never loses input.
   def handle_event("goto_step", %{"step" => step}, socket) do
     target = String.to_integer(step)
     format_chosen = socket.assigns.draft["format"] not in [nil, ""]
 
-    if target == 1 or (target in 2..3 and format_chosen) do
+    if target == 1 or (target in visible_step_nums(socket.assigns) and format_chosen) do
       {:noreply, assign(socket, step: target)}
     else
       {:noreply, socket}
     end
+  end
+
+  def handle_event("toggle_settings_group", %{"group" => group}, socket) do
+    open = if socket.assigns.open_settings_group == group, do: nil, else: group
+    {:noreply, assign(socket, open_settings_group: open)}
+  end
+
+  def handle_event("clear_meta", %{"meta" => k, "sub" => sub, "item" => id}, socket) do
+    draft = put_list_item_value(socket.assigns.draft, k, id, sub, "")
+    {:noreply, socket |> assign(draft: draft) |> assign_changeset(draft)}
+  end
+
+  def handle_event("clear_meta", %{"meta" => k, "sub" => sub}, socket) do
+    draft = put_object_value(socket.assigns.draft, k, sub, "")
+    {:noreply, socket |> assign(draft: draft) |> assign_changeset(draft)}
+  end
+
+  def handle_event("clear_meta", %{"meta" => key}, socket) do
+    draft = put_post_option_value(socket.assigns.draft, key, "")
+    {:noreply, socket |> assign(draft: draft) |> assign_changeset(draft)}
+  end
+
+  def handle_event("add_list_item", %{"key" => key}, socket) do
+    fields = socket.assigns.post_option_fields
+    draft = update_post_options(socket.assigns.draft, &SettingsFields.add_item(&1, fields, key))
+    {:noreply, socket |> assign(draft: draft) |> assign_changeset(draft)}
+  end
+
+  def handle_event("remove_list_item", %{"key" => key, "id" => id}, socket) do
+    draft = update_post_options(socket.assigns.draft, &SettingsFields.remove_item(&1, key, id))
+    {:noreply, socket |> assign(draft: draft) |> assign_changeset(draft)}
+  end
+
+  def handle_event("reorder_list", %{"key" => key, "ids" => ids}, socket) do
+    draft = update_post_options(socket.assigns.draft, &SettingsFields.reorder(&1, key, ids))
+    {:noreply, socket |> assign(draft: draft) |> assign_changeset(draft)}
   end
 
   # ---- Import ----
@@ -148,7 +206,7 @@ defmodule MastheadWeb.AdminLive.PostForm do
     if Ecto.Changeset.get_field(changeset, :title) not in [nil, ""] do
       {:noreply,
        socket
-       |> assign(draft: draft, step: 3)
+       |> assign(draft: draft, step: step_after(socket.assigns, 2))
        |> assign_changeset(draft)}
     else
       {:noreply,
@@ -156,6 +214,19 @@ defmodule MastheadWeb.AdminLive.PostForm do
        |> assign(draft: draft, show_errors: true)
        |> assign_changeset(draft, validate: true)}
     end
+  end
+
+  def handle_event("next_settings", %{"post" => params}, socket) do
+    draft = merge_draft_params(socket.assigns.draft, params, socket.assigns.post_option_fields)
+
+    {:noreply,
+     socket
+     |> assign(draft: draft, step: 4)
+     |> assign_changeset(draft)}
+  end
+
+  def handle_event("next_settings", _params, socket) do
+    {:noreply, assign(socket, step: 4)}
   end
 
   def handle_event("toggle_tag", %{"id" => id}, socket) do
@@ -182,7 +253,7 @@ defmodule MastheadWeb.AdminLive.PostForm do
         params
       end
 
-    draft = Map.merge(socket.assigns.draft, params)
+    draft = merge_draft_params(socket.assigns.draft, params, socket.assigns.post_option_fields)
 
     {:noreply,
      socket
@@ -201,9 +272,12 @@ defmodule MastheadWeb.AdminLive.PostForm do
         post -> post.published
       end
 
+    fields = socket.assigns.post_option_fields
+    draft = merge_draft_params(socket.assigns.draft, post_params, fields)
+
     full_params =
-      socket.assigns.draft
-      |> Map.merge(post_params)
+      draft
+      |> Map.put("post_options", SettingsFields.canonicalize(post_options(draft), fields))
       |> Map.put("published", to_string(publish?))
 
     result =
@@ -293,6 +367,27 @@ defmodule MastheadWeb.AdminLive.PostForm do
   end
 
   @impl true
+  def handle_info({:file_picked, upload, %{"meta" => k, "sub" => sub, "item" => id}}, socket) do
+    draft = put_list_item_value(socket.assigns.draft, k, id, sub, upload_value(upload))
+
+    {:noreply,
+     socket |> maybe_refresh_uploads(upload) |> assign(draft: draft) |> assign_changeset(draft)}
+  end
+
+  def handle_info({:file_picked, upload, %{"meta" => k, "sub" => sub}}, socket) do
+    draft = put_object_value(socket.assigns.draft, k, sub, upload_value(upload))
+
+    {:noreply,
+     socket |> maybe_refresh_uploads(upload) |> assign(draft: draft) |> assign_changeset(draft)}
+  end
+
+  def handle_info({:file_picked, upload, %{"meta" => key}}, socket) do
+    draft = put_post_option_value(socket.assigns.draft, key, upload_value(upload))
+
+    {:noreply,
+     socket |> maybe_refresh_uploads(upload) |> assign(draft: draft) |> assign_changeset(draft)}
+  end
+
   def handle_info({:file_picked, %Masthead.Uploads.Upload{} = upload, _ctx}, socket) do
     format = socket.assigns.draft["format"] || "markdown"
     text = image_snippet(upload, format)
@@ -352,8 +447,58 @@ defmodule MastheadWeb.AdminLive.PostForm do
       "format" => post.format,
       "body" => post.body,
       "published" => to_string(post.published),
+      "post_options" => post.post_options || %{},
       "tag_ids" => Enum.map(post.tags, &to_string(&1.id))
     }
+  end
+
+  defp post_options(draft), do: SettingsFields.draft_values(draft, "post_options")
+
+  defp update_post_options(draft, fun),
+    do: SettingsFields.update_draft(draft, "post_options", fun)
+
+  defp merge_draft_params(draft, params, fields),
+    do: SettingsFields.merge_draft_params(draft, "post_options", params, fields)
+
+  defp put_post_option_value(draft, key, value),
+    do: update_post_options(draft, &SettingsFields.put_value(&1, key, value))
+
+  defp put_object_value(draft, key, sub, value),
+    do: update_post_options(draft, &SettingsFields.put_object_value(&1, key, sub, value))
+
+  defp put_list_item_value(draft, key, id, sub, value),
+    do: update_post_options(draft, &SettingsFields.put_list_item_value(&1, key, id, sub, value))
+
+  defp upload_value(nil), do: ""
+  defp upload_value(upload), do: to_string(upload.id)
+
+  defp maybe_refresh_uploads(socket, nil), do: socket
+
+  defp maybe_refresh_uploads(socket, _upload),
+    do: assign(socket, site_uploads: Uploads.list_uploads(socket.assigns.site.id))
+
+  defp visible_steps(true),
+    do: [{1, "Format"}, {2, "Details"}, {3, "Post options"}, {4, "Content"}]
+
+  defp visible_steps(false), do: [{1, "Format"}, {2, "Details"}, {4, "Content"}]
+
+  defp visible_step_nums(assigns),
+    do: assigns.has_post_options? |> visible_steps() |> Enum.map(&elem(&1, 0))
+
+  defp step_after(assigns, step) do
+    assigns
+    |> visible_step_nums()
+    |> Enum.find(step, &(&1 > step))
+  end
+
+  defp next_step(%{assigns: %{step: step} = assigns}), do: step_after(assigns, step)
+
+  defp prev_step(%{assigns: %{step: step} = assigns}) do
+    assigns
+    |> visible_step_nums()
+    |> Enum.take_while(&(&1 < step))
+    |> List.last()
+    |> Kernel.||(1)
   end
 
   defp import_flash(entity, ok, 0), do: "Imported #{ok} #{entity}s."
@@ -415,6 +560,7 @@ defmodule MastheadWeb.AdminLive.PostForm do
               format={@draft["format"]}
               editing={@post != nil}
               site_slug={@site.slug}
+              has_post_options={@has_post_options?}
             />
           <% 2 -> %>
             <.meta_step
@@ -426,8 +572,16 @@ defmodule MastheadWeb.AdminLive.PostForm do
               show_errors={@show_errors}
               tags={@tags}
               selected_tag_ids={@draft["tag_ids"] || []}
+              has_post_options={@has_post_options?}
             />
           <% 3 -> %>
+            <.post_options_step
+              fields={@post_option_fields}
+              draft={@draft}
+              site_uploads={@site_uploads}
+              open_group={@open_settings_group}
+            />
+          <% 4 -> %>
             <.content_step
               form={@form}
               changeset={@changeset}
@@ -438,28 +592,41 @@ defmodule MastheadWeb.AdminLive.PostForm do
               view_path={@post && "/posts/" <> @post.slug}
               site_slug={@site.slug}
               show_errors={@show_errors}
+              has_post_options={@has_post_options?}
             />
         <% end %>
+
+        <.live_component
+          module={MastheadWeb.AdminLive.FilePicker}
+          id="post-options-file-picker"
+          site={@site}
+          accept={~w(.png .jpg .jpeg .gif .webp .svg .ico .pdf)}
+          clearable
+        />
       </div>
     </.shell>
     """
   end
 
   attr :step, :integer, default: 1
+  attr :has_post_options, :boolean, default: false
 
   defp stepper(assigns) do
+    assigns =
+      assign(assigns, :entries, Enum.with_index(visible_steps(assigns.has_post_options), 1))
+
     ~H"""
     <ol class="stepper">
       <li
-        :for={i <- 1..3}
-        class={"step " <> step_class(i, @step)}
+        :for={{{step_num, label}, display_idx} <- @entries}
+        class={"step " <> step_class(step_num, @step)}
         phx-click="goto_step"
-        phx-value-step={i}
+        phx-value-step={step_num}
         role="button"
         tabindex="0"
       >
-        <span class="step-num">{i}</span>
-        <span class="step-label">{step_label(i)}</span>
+        <span class="step-num">{display_idx}</span>
+        <span class="step-label">{label}</span>
       </li>
     </ol>
     """
@@ -468,10 +635,6 @@ defmodule MastheadWeb.AdminLive.PostForm do
   defp step_class(i, current) when i < current, do: "step-done"
   defp step_class(i, current) when i == current, do: "step-current"
   defp step_class(_, _), do: "step-future"
-
-  defp step_label(1), do: "Format"
-  defp step_label(2), do: "Details"
-  defp step_label(3), do: "Content"
 
   attr :uploads, :map, required: true
   attr :site_slug, :string, required: true
@@ -533,10 +696,11 @@ defmodule MastheadWeb.AdminLive.PostForm do
   attr :format, :string, default: nil
   attr :editing, :boolean, default: false
   attr :site_slug, :string, required: true
+  attr :has_post_options, :boolean, default: false
 
   defp format_step(assigns) do
     ~H"""
-    <.stepper step={1} />
+    <.stepper step={1} has_post_options={@has_post_options} />
 
     <h2 class="wizard-heading">
       {if @editing, do: "Post format", else: "How do you want to write this post?"}
@@ -560,10 +724,11 @@ defmodule MastheadWeb.AdminLive.PostForm do
   attr :show_errors, :boolean, default: false
   attr :tags, :list, default: []
   attr :selected_tag_ids, :list, default: []
+  attr :has_post_options, :boolean, default: false
 
   defp meta_step(assigns) do
     ~H"""
-    <.stepper step={2} />
+    <.stepper step={2} has_post_options={@has_post_options} />
 
     <form id="meta-form" phx-submit="next_meta" phx-change="validate" class="form">
       <.error_list changeset={@changeset} show={@show_errors} />
@@ -615,6 +780,35 @@ defmodule MastheadWeb.AdminLive.PostForm do
     """
   end
 
+  attr :fields, :list, required: true
+  attr :draft, :map, required: true
+  attr :site_uploads, :list, default: []
+  attr :open_group, :string, default: nil
+
+  defp post_options_step(assigns) do
+    ~H"""
+    <.stepper step={3} has_post_options={true} />
+
+    <h2 class="wizard-heading">Post options</h2>
+
+    <.settings_form
+      id="settings-form"
+      submit="next_settings"
+      fields={@fields}
+      values={post_options(@draft)}
+      prefix={prefix()}
+      picker_target={picker_target()}
+      site_uploads={@site_uploads}
+      open={@open_group}
+    />
+
+    <div class="wizard-footer">
+      <button type="button" phx-click="back" class="btn">&larr; Back</button>
+      <button type="submit" form="settings-form" class="btn btn-primary">Continue &rarr;</button>
+    </div>
+    """
+  end
+
   attr :form, :map, required: true
   attr :changeset, :map, required: true
   attr :format, :string, required: true
@@ -624,10 +818,11 @@ defmodule MastheadWeb.AdminLive.PostForm do
   attr :view_path, :string, default: nil
   attr :site_slug, :string, required: true
   attr :show_errors, :boolean, default: false
+  attr :has_post_options, :boolean, default: false
 
   defp content_step(assigns) do
     ~H"""
-    <.stepper step={3} />
+    <.stepper step={4} has_post_options={@has_post_options} />
 
     <div class="content-layout">
       <div class="content-main">

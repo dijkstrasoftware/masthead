@@ -41,19 +41,27 @@ defmodule Masthead.Themes.Manifest do
       seed items). Reaches templates as an array of maps, so themes can
       `{% for link in theme.tokens.nav_links %}`.
 
-  Tokens and page metadata share one type set: anything a metadata field can
-  declare, a token can declare too. The only difference is what the value is
-  *for* — a scalar token also becomes a CSS custom property (`--accent`),
-  while `object`/`list` tokens are template-only (they have no CSS
+  Tokens, page options and post options share one type set: anything a page
+  option can declare, a token can declare too. The only difference is what the
+  value is *for* — a scalar token also becomes a CSS custom property
+  (`--accent`), while `object`/`list` tokens are template-only (they have no CSS
   representation, so they're skipped when the `:root` block is composed).
+
+  ## Render version
+
+  `render_version` pins the theme to a frozen renderer (see
+  `Masthead.Themes.Renderer`). A manifest that omits it is a `"beta"` theme —
+  the original render contract, where page options are declared under the
+  legacy `"metadata"` key and reach templates as `page.metadata`. A `"v1"` theme
+  declares `page_options`/`post_options` and reads them under those names.
   """
 
-  # A "field" — a customisation token, a global page-metadata field, or a
-  # per-page `page_metadata` field — is conceptually the same thing: a
+  # A "field" — a customisation token, a global page option, a post option, or
+  # a per-page option on a theme page — is conceptually the same thing: a
   # `key`/`label`/`type`/`default` (+ optional `options`/`description`/
   # `category`) declaration. Only where its value is stored and used differs
-  # (a token feeds a CSS variable; metadata feeds a page's template context).
-  # So they share one type set and one validator.
+  # (a token feeds a CSS variable; a page option feeds a page's template
+  # context). So they share one type set and one validator.
   @scalar_field_types ~w(color string length number file select boolean text url)
   # Container fields nest a `fields` list (one level only — their children must
   # be scalar). `object` holds one group; `list` holds a repeatable group.
@@ -63,6 +71,9 @@ defmodule Masthead.Themes.Manifest do
   @slug_re ~r/^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$/
   @token_key_re ~r/^[a-z][a-z0-9_]*$/
 
+  @render_versions ~w(beta v1)
+  @default_render_version "beta"
+
   @enforce_keys [:name, :slug, :version, :tokens]
   defstruct [
     :name,
@@ -70,14 +81,16 @@ defmodule Masthead.Themes.Manifest do
     :version,
     :author,
     :description,
+    render_version: @default_render_version,
     tokens: [],
-    metadata: []
+    page_options: [],
+    post_options: []
   ]
 
   # A token *is* a field — same declaration, same types, same validator.
-  @type token :: metadata_field()
+  @type token :: option_field()
 
-  @type metadata_field :: %{
+  @type option_field :: %{
           key: String.t(),
           label: String.t(),
           type: String.t(),
@@ -87,18 +100,18 @@ defmodule Masthead.Themes.Manifest do
           category: String.t() | nil,
           # For `object`/`list` container fields: the nested (scalar) fields and,
           # for lists, the singular item label. nil for scalar fields.
-          fields: [metadata_field()] | nil,
+          fields: [option_field()] | nil,
           item_label: String.t() | nil
         }
 
   @typedoc """
   A page's sidecar config (`templates/pages/<name>.json`): an optional label and
-  description plus the page's settings `metadata` field schema. No version.
+  description plus that page's own `page_options` field schema. No version.
   """
   @type page_config :: %{
           label: String.t() | nil,
           description: String.t() | nil,
-          metadata: [metadata_field()]
+          page_options: [option_field()]
         }
 
   @type t :: %__MODULE__{
@@ -107,8 +120,10 @@ defmodule Masthead.Themes.Manifest do
           version: String.t(),
           author: String.t() | nil,
           description: String.t() | nil,
+          render_version: String.t(),
           tokens: [token()],
-          metadata: [metadata_field()]
+          page_options: [option_field()],
+          post_options: [option_field()]
         }
 
   @doc """
@@ -138,8 +153,11 @@ defmodule Masthead.Themes.Manifest do
       |> require_string(map, "version", 1, 32)
       |> optional_string(map, "author", 0, 100)
       |> optional_string(map, "description", 0, 500)
-      |> validate_tokens(map)
-      |> validate_metadata(map)
+      |> validate_render_version(map)
+      |> validate_field_list(map, "tokens")
+      |> validate_page_options(map)
+      |> validate_field_list(map, "post_options")
+      |> validate_post_options_version(map)
 
     case errors do
       [] ->
@@ -149,8 +167,10 @@ defmodule Masthead.Themes.Manifest do
           version: map["version"],
           author: map["author"],
           description: map["description"],
+          render_version: Map.get(map, "render_version") || @default_render_version,
           tokens: normalize_fields(Map.get(map, "tokens", [])),
-          metadata: normalize_fields(Map.get(map, "metadata", []))
+          page_options: normalize_fields(raw_page_options(map)),
+          post_options: normalize_fields(Map.get(map, "post_options", []))
         }
 
         {:ok, manifest}
@@ -164,13 +184,12 @@ defmodule Masthead.Themes.Manifest do
   Return the merge of manifest token defaults with a map of per-site
   override values.
 
-  Tokens use the same field types (and the same coercion) as metadata, so an
-  `object` token merges against its nested defaults and a `list` token comes
-  back as a list of merged maps. Two things differ from
-  `effective_metadata/2`:
+  Tokens use the same field types (and the same coercion) as page options, so
+  an `object` token merges against its nested defaults and a `list` token comes
+  back as a list of merged maps. Two things differ from `merge_fields/2`:
 
     * Unknown override keys are **dropped** — a token is inert without a
-      matching declaration, whereas metadata is preserved across theme
+      matching declaration, whereas an option is preserved across theme
       switches so the user doesn't lose page content.
     * A blank scalar override falls back to the manifest default (the settings
       form stores "" for "not overridden").
@@ -189,29 +208,21 @@ defmodule Masthead.Themes.Manifest do
   end
 
   @doc """
-  Return the merge of manifest metadata defaults with per-page overrides.
+  Merge an option field list's defaults with a map of overrides, coercing
+  declared fields to their type and passing unknown keys through verbatim. This
+  is the shared primitive behind page options, post options and a theme page's
+  per-page options (whose fields come from its sidecar config).
 
   Differences from `effective_tokens/2`:
 
     * Unknown override keys are **preserved** — the page may have been
       authored under a different theme. Tokens disappear silently because
-      they're inert without a matching CSS variable; metadata is meant to
+      they're inert without a matching CSS variable; options are meant to
       survive theme switches so the user doesn't lose data.
     * Values are coerced to the declared type at the boundary so the
       template sees a typed value (boolean true vs. "true", etc).
   """
-  @spec effective_metadata(t(), map()) :: %{String.t() => term()}
-  def effective_metadata(%__MODULE__{metadata: fields}, overrides) when is_map(overrides) do
-    merge_fields(fields, overrides)
-  end
-
-  @doc """
-  Merge a metadata field list's defaults with a map of overrides, coercing
-  declared fields to their type and passing unknown keys through verbatim. This
-  is the shared primitive behind both global `metadata` and a theme page's
-  per-page settings (whose fields come from its sidecar config).
-  """
-  @spec merge_fields([metadata_field()], map()) :: %{String.t() => term()}
+  @spec merge_fields([option_field()], map()) :: %{String.t() => term()}
   def merge_fields(fields, overrides) when is_list(fields) and is_map(overrides) do
     defaults =
       Enum.reduce(fields, %{}, fn field, acc -> Map.put(acc, field.key, default_value(field)) end)
@@ -240,7 +251,7 @@ defmodule Masthead.Themes.Manifest do
        do: Enum.map(items, fn item -> merge_fields(nested, item_map(item)) end)
 
   defp default_value(%{type: "list"}), do: []
-  defp default_value(%{type: type, default: default}), do: coerce_metadata_value(type, default)
+  defp default_value(%{type: type, default: default}), do: coerce_value(type, default)
 
   # The effective value for a field given an override.
   defp merge_value(%{type: "object", fields: nested}, v) when is_list(nested) and is_map(v),
@@ -254,24 +265,24 @@ defmodule Masthead.Themes.Manifest do
        do: Enum.map(items, fn item -> merge_fields(nested, item_map(item)) end)
 
   defp merge_value(%{type: "list"}, _v), do: []
-  defp merge_value(%{type: type}, v), do: coerce_metadata_value(type, v)
+  defp merge_value(%{type: type}, v), do: coerce_value(type, v)
 
   defp item_map(item) when is_map(item), do: item
   defp item_map(_), do: %{}
 
-  defp coerce_metadata_value("boolean", v) when is_boolean(v), do: v
-  defp coerce_metadata_value("boolean", v) when v in ["true", "on", "1", 1], do: true
-  defp coerce_metadata_value("boolean", _), do: false
-  defp coerce_metadata_value("number", v) when is_number(v), do: v
+  defp coerce_value("boolean", v) when is_boolean(v), do: v
+  defp coerce_value("boolean", v) when v in ["true", "on", "1", 1], do: true
+  defp coerce_value("boolean", _), do: false
+  defp coerce_value("number", v) when is_number(v), do: v
 
-  defp coerce_metadata_value("number", v) when is_binary(v) do
+  defp coerce_value("number", v) when is_binary(v) do
     case Float.parse(v) do
       {n, ""} -> if n == trunc(n), do: trunc(n), else: n
       _ -> v
     end
   end
 
-  defp coerce_metadata_value(_type, v), do: v
+  defp coerce_value(_type, v), do: v
 
   # ---- internal validators ----
 
@@ -328,35 +339,50 @@ defmodule Masthead.Themes.Manifest do
     end
   end
 
-  defp validate_tokens(errors, map) do
-    case Map.get(map, "tokens", []) do
-      list when is_list(list) ->
-        list
-        |> Enum.with_index()
-        |> Enum.reduce(errors, fn {tok, idx}, acc ->
-          validate_field(acc, tok, "tokens[#{idx}]")
-        end)
-
-      _ ->
-        ["tokens: must be a list" | errors]
+  defp validate_render_version(errors, map) do
+    case Map.get(map, "render_version") do
+      nil -> errors
+      v when v in @render_versions -> errors
+      _ -> ["render_version: must be one of #{Enum.join(@render_versions, ", ")}" | errors]
     end
   end
 
-  defp validate_metadata(errors, map) do
-    case Map.get(map, "metadata", []) do
+  defp validate_post_options_version(errors, map) do
+    beta? = (Map.get(map, "render_version") || @default_render_version) == @default_render_version
+
+    if beta? and Map.get(map, "post_options", []) != [] do
+      ["post_options: requires render_version v1" | errors]
+    else
+      errors
+    end
+  end
+
+  defp validate_page_options(errors, map) do
+    validate_field_list(errors, map, page_options_key(map))
+  end
+
+  defp validate_field_list(errors, map, key) do
+    case Map.get(map, key, []) do
       list when is_list(list) ->
         list
         |> Enum.with_index()
         |> Enum.reduce(errors, fn {field, idx}, acc ->
-          validate_field(acc, field, "metadata[#{idx}]")
+          validate_field(acc, field, "#{key}[#{idx}]")
         end)
 
       _ ->
-        ["metadata: must be a list" | errors]
+        ["#{key}: must be a list" | errors]
     end
   end
 
-  # The one validator shared by tokens, metadata, and page-config fields.
+  defp page_options_key(map) do
+    if Map.has_key?(map, "page_options"), do: "page_options", else: "metadata"
+  end
+
+  defp raw_page_options(map), do: Map.get(map, page_options_key(map), [])
+
+  # The one validator shared by tokens, page/post options and page-config
+  # fields.
   # `allow_container?` is true at the top level and false for nested fields, so
   # `object`/`list` can only appear one level deep.
   defp validate_field(errors, field, prefix, allow_container? \\ true)
@@ -432,7 +458,7 @@ defmodule Masthead.Themes.Manifest do
     end
   end
 
-  # One normalizer for tokens, metadata and page-config fields. `category` is an
+  # One normalizer for tokens, options and page-config fields. `category` is an
   # optional grouping label: fields with one render in an accordion in the
   # settings UI (uncategorized → "General").
   defp normalize_fields(list) when is_list(list) do
@@ -458,8 +484,9 @@ defmodule Masthead.Themes.Manifest do
 
   @doc """
   Parse a theme page's sidecar config from a JSON-encoded binary. A page config
-  is `{"label"?, "description"?, "metadata"?: [field, ...]}` — no version. The
-  `metadata` fields reuse the same validation as manifest tokens/metadata.
+  is `{"label"?, "description"?, "page_options"?: [field, ...]}` — no version.
+  The fields reuse the same validation as manifest tokens and options; a beta
+  theme's config declares them under the legacy `"metadata"` key.
   """
   @spec parse_page_config(String.t()) :: {:ok, page_config()} | {:error, [String.t()]}
   def parse_page_config(json) when is_binary(json) do
@@ -477,7 +504,7 @@ defmodule Masthead.Themes.Manifest do
       []
       |> optional_string(map, "label", 0, 100)
       |> optional_string(map, "description", 0, 500)
-      |> validate_metadata(map)
+      |> validate_page_options(map)
 
     case errors do
       [] ->
@@ -485,7 +512,7 @@ defmodule Masthead.Themes.Manifest do
          %{
            label: map["label"],
            description: map["description"],
-           metadata: normalize_fields(Map.get(map, "metadata", []))
+           page_options: normalize_fields(raw_page_options(map))
          }}
 
       errs ->
@@ -495,19 +522,43 @@ defmodule Masthead.Themes.Manifest do
 
   @doc """
   Serialize a page config to a string-keyed map for DB persistence (mirrors the
-  field shape `Package.manifest_to_map/1` uses for tokens/metadata).
+  field shape `Package.manifest_to_map/1` uses for tokens and options).
   """
   @spec page_config_to_map(page_config()) :: map()
   def page_config_to_map(%{} = config) do
     %{
       "label" => config[:label],
       "description" => config[:description],
-      "metadata" => Enum.map(config[:metadata] || [], &field_to_map/1)
+      "page_options" => Enum.map(config[:page_options] || [], &field_to_map/1)
     }
   end
 
+  @doc """
+  Read one option field list out of a **persisted** manifest (or page config)
+  map — the jsonb blob on `themes.manifest`, which the admin UI reads without
+  going through `from_map/1`. The list comes back as declared; callers that
+  render it normalize with `MastheadWeb.AdminLive.SettingsFields.normalize_fields/1`.
+
+  Two key spellings are in the wild — string-keyed (uploaded themes, written by
+  `Package`) and atom-keyed (built-ins, written by `Seed` via
+  `Map.from_struct/1`) — plus the legacy `"metadata"` key that beta themes use
+  for their page options.
+  """
+  @spec option_fields(map() | nil, :page_options | :post_options) :: list()
+  def option_fields(%{} = map, :page_options) do
+    get_either(map, :page_options) || get_either(map, :metadata) || []
+  end
+
+  def option_fields(%{} = map, :post_options) do
+    get_either(map, :post_options) || []
+  end
+
+  def option_fields(_map, _kind), do: []
+
+  defp get_either(map, key), do: Map.get(map, to_string(key), Map.get(map, key))
+
   @doc "Serialize one normalized field to a string-keyed map."
-  @spec field_to_map(metadata_field()) :: map()
+  @spec field_to_map(option_field()) :: map()
   def field_to_map(f) do
     nested = Map.get(f, :fields)
 

@@ -25,16 +25,27 @@ as a single Phoenix/OTP release.
   `:persistent_term`) → `Sandbox` (Solid/Liquid, no Elixir/DB/FS access)
   → `Presenter` (the *only* path from schemas to templates). Uploaded
   theme zips go through `Themes.Package` (validation + install/update).
-- **Per-page theme settings** come from the theme manifest's `metadata`
-  schema, rendered as a form step in `AdminLive.PageForm`, stored in
-  `pages.metadata` jsonb, merged with manifest defaults at render time.
-- **Settings fields are one system.** A manifest `token`, a `metadata`
-  field and a page's sidecar config field are the same declaration with
-  the same type set (scalars + `object`/`list` containers, one level
+- **Renderers are versioned and frozen.** A manifest's `render_version`
+  picks the renderer: absent or `"beta"` → `Themes.Renderer.Beta` (page
+  settings declared as `metadata`, read as `page.metadata`); `"v1"` →
+  `Themes.Renderer.V1` (`page.page_options` + `post.post_options`).
+  `Themes.Renderer` itself is only a façade that resolves the theme and
+  dispatches. **Never edit a shipped version to change output** — copy it
+  to the next version and add the name to `Manifest`'s `@render_versions`,
+  so a site keeps rendering the way it did the day it was built.
+- **Per-page / per-post theme settings** come from the manifest's
+  `page_options` / `post_options` schema, rendered as a form step in
+  `AdminLive.PageForm` and `AdminLive.PostForm`, stored in
+  `pages.page_options` / `posts.post_options` jsonb, merged with manifest
+  defaults at render time.
+- **Settings fields are one system.** A manifest `token`, a page option, a
+  post option and a page's sidecar config field are the same declaration
+  with the same type set (scalars + `object`/`list` containers, one level
   deep) — validated by `Themes.Manifest`, edited by the shared
-  `AdminLive.SettingsFields` (used by both `PageForm` and `SiteTheme`).
+  `AdminLive.SettingsFields` (the editor component, the wizard's
+  `settings_form`, and the draft-value helpers all three wizards use).
   The only difference is the destination: tokens land in
-  `sites.theme_tokens`, metadata in `pages.metadata`, and only *scalar*
+  `sites.theme_tokens`, options in the page/post row, and only *scalar*
   tokens also become CSS custom properties (`--accent`).
 - **Object storage** is pluggable via `Masthead.Storage.Adapter`
   (`Local` for dev, `S3` for prod). Call sites are adapter-agnostic.

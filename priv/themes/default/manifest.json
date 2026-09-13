@@ -1,7 +1,8 @@
 {
   "name": "Default",
   "slug": "default",
-  "version": "1.8.0",
+  "version": "1.9.0",
+  "render_version": "v1",
   "author": "Masthead",
   "description": "Minimal, readable, opinionated about typography.",
   "tokens": [
@@ -34,7 +35,7 @@
       "category": "Posts"
     }
   ],
-  "metadata": [
+  "page_options": [
     {
       "key": "layout",
       "label": "Page layout",
@@ -49,6 +50,22 @@
       "type": "boolean",
       "default": true,
       "description": "Untick to hide the top nav bar on this page only — useful for splash / landing pages."
+    }
+  ],
+  "post_options": [
+    {
+      "key": "featured_image",
+      "label": "Featured image",
+      "type": "file",
+      "default": "",
+      "description": "Shown above the post and next to it in the post list."
+    },
+    {
+      "key": "seo_description",
+      "label": "Search description",
+      "type": "text",
+      "default": "",
+      "description": "Overrides the excerpt in the page's meta description tag."
     }
   ]
 }

@@ -281,7 +281,7 @@ defmodule Masthead.Themes.Package do
   end
 
   # Each `templates/pages/<name>.json` is an optional sidecar config (label,
-  # description, metadata). Validated strictly: a present-but-invalid one fails
+  # description, page_options). Validated strictly: a present-but-invalid one fails
   # the install, like a bad manifest/template.
   defp read_page_configs(root) do
     dir = Path.join([root, "templates", "pages"])
@@ -514,8 +514,10 @@ defmodule Masthead.Themes.Package do
       "version" => m.version,
       "author" => m.author,
       "description" => m.description,
+      "render_version" => m.render_version,
       "tokens" => Enum.map(m.tokens, &Manifest.field_to_map/1),
-      "metadata" => Enum.map(m.metadata, &Manifest.field_to_map/1)
+      "page_options" => Enum.map(m.page_options, &Manifest.field_to_map/1),
+      "post_options" => Enum.map(m.post_options, &Manifest.field_to_map/1)
     }
   end
 

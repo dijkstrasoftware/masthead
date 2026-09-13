@@ -5,6 +5,9 @@
       <time datetime="{{ post.published_at | iso8601 }}">{{ post.published_at | strftime: "%B %-d, %Y" }}</time>
     {% endif %}
   </header>
+  {% if post.post_options.featured_image != "" %}
+    <img class="post-featured" src="{{ post.post_options.featured_image }}" alt="" />
+  {% endif %}
   <div class="post-body">
     {{ body_html }}
   </div>

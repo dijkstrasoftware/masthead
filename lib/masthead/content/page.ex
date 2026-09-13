@@ -1,7 +1,9 @@
 defmodule Masthead.Content.Page do
   use Ecto.Schema
   import Ecto.Changeset
-  import Masthead.Content.ChangesetHelpers, only: [ensure_slug: 2, validate_liquid_body: 1]
+
+  import Masthead.Content.ChangesetHelpers,
+    only: [ensure_slug: 2, validate_liquid_body: 1, normalize_options: 2]
 
   schema "pages" do
     field :title, :string
@@ -13,7 +15,7 @@ defmodule Masthead.Content.Page do
     field :template, :string
     field :published, :boolean, default: false
     field :show_in_nav, :boolean, default: true
-    field :metadata, :map, default: %{}
+    field :page_options, :map, default: %{}
     belongs_to :site, Masthead.Sites.Site
     # Tags a "blog"-format page filters its post list by (empty = show all).
     # Pages are not taggable content; this is a render-time filter selection.
@@ -34,7 +36,7 @@ defmodule Masthead.Content.Page do
       :template,
       :published,
       :show_in_nav,
-      :metadata,
+      :page_options,
       :site_id
     ])
     |> validate_required([:title, :site_id])
@@ -45,7 +47,7 @@ defmodule Masthead.Content.Page do
     |> validate_format(:slug, ~r/^[a-z0-9]([a-z0-9-]{0,80}[a-z0-9])?$/,
       message: "lowercase letters, numbers, hyphens"
     )
-    |> normalize_metadata()
+    |> normalize_options(:page_options)
     |> unique_constraint([:site_id, :slug], name: :pages_site_id_slug_index)
     |> assoc_constraint(:site)
   end
@@ -56,27 +58,6 @@ defmodule Masthead.Content.Page do
     case get_field(changeset, :format) do
       "theme" -> validate_required(changeset, [:template])
       _ -> put_change(changeset, :template, nil)
-    end
-  end
-
-  # Form posts arrive as `metadata[<key>] => "..."`. Strip empty-string
-  # values so the renderer falls back to the manifest default instead of
-  # storing an empty override. Booleans come in as "true" / "on" / absent;
-  # absent means "false" (HTML checkbox semantics) — keep them coerced as
-  # strings here and let `Manifest.effective_metadata/2` coerce to the
-  # declared type at render time. Unknown keys are preserved.
-  defp normalize_metadata(changeset) do
-    case get_change(changeset, :metadata) do
-      m when is_map(m) ->
-        cleaned =
-          m
-          |> Enum.reject(fn {_, v} -> v == "" or is_nil(v) end)
-          |> Map.new()
-
-        put_change(changeset, :metadata, cleaned)
-
-      _ ->
-        changeset
     end
   end
 end

@@ -3,16 +3,17 @@ defmodule MastheadWeb.AdminLive.PageForm do
   on_mount {MastheadWeb.AdminLive.Hooks, :load_site}
 
   import MastheadWeb.AdminLive.Components
-  import MastheadWeb.AdminLive.SettingsFields, only: [settings_fields: 1]
+  import MastheadWeb.AdminLive.SettingsFields, only: [settings_fields: 1, settings_form: 1]
 
   alias Masthead.{Content, Realtime, Themes, Uploads}
   alias Masthead.Content.Page
+  alias Masthead.Themes.Manifest
   alias MastheadWeb.AdminLive.SettingsFields
 
   # The form-name prefix a page's settings values are cast from, and the file
   # picker they open. The editor itself is shared with the site's theme-token
   # settings (`site[theme_tokens]`) — see `SettingsFields`.
-  defp prefix, do: "page[metadata]"
+  defp prefix, do: "page[page_options]"
   defp picker_target, do: "#page-meta-file-picker"
 
   @impl true
@@ -40,15 +41,15 @@ defmodule MastheadWeb.AdminLive.PageForm do
           {page, page_to_draft(page), "Edit: #{page.title}", edit_step}
       end
 
-    theme_manifest = theme_manifest_for_site(socket.assigns.site)
-    metadata_fields = extract_metadata_fields(theme_manifest)
-    has_metadata? = metadata_fields != []
+    theme_manifest = Themes.manifest_for_site(socket.assigns.site)
+    page_option_fields = extract_page_option_fields(theme_manifest)
+    has_page_options? = page_option_fields != []
     page_template_names = Themes.Loader.manifest_page_template_names(theme_manifest)
 
-    # Give any existing list-item metadata fresh `_id`s so the editor can track
+    # Give any existing list-item option fresh `_id`s so the editor can track
     # them across add/remove/reorder.
-    fields = settings_fields_for(draft, theme_manifest, metadata_fields)
-    draft = update_metadata(draft, &SettingsFields.hydrate(&1, fields))
+    fields = settings_fields_for(draft, theme_manifest, page_option_fields)
+    draft = update_page_options(draft, &SettingsFields.hydrate(&1, fields))
 
     {:ok,
      socket
@@ -61,8 +62,8 @@ defmodule MastheadWeb.AdminLive.PageForm do
        show_errors: false,
        external_change: nil,
        theme_manifest: theme_manifest,
-       metadata_fields: metadata_fields,
-       has_metadata?: has_metadata?,
+       page_option_fields: page_option_fields,
+       has_page_options?: has_page_options?,
        page_template_names: page_template_names,
        page_templates: page_template_options(theme_manifest, page_template_names),
        allow_theme?: page_template_names != [],
@@ -85,24 +86,11 @@ defmodule MastheadWeb.AdminLive.PageForm do
   defp maybe_allow_import(socket), do: socket
 
   # The site's current theme manifest (a plain map from the DB), or nil.
-  defp theme_manifest_for_site(%Masthead.Sites.Site{theme_id: id}) when is_integer(id) do
-    case Themes.get_theme(id) do
-      nil -> nil
-      theme -> theme.manifest
-    end
-  end
-
-  defp theme_manifest_for_site(_), do: nil
-
-  # Pull the global metadata schema off a theme manifest. Returns a list of
-  # `%{key, label, type, default, description, options}` maps, or [].
-  defp extract_metadata_fields(%{} = manifest) do
+  defp extract_page_option_fields(manifest) do
     manifest
-    |> Map.get("metadata", Map.get(manifest, :metadata, []))
+    |> Manifest.option_fields(:page_options)
     |> normalize_field_list()
   end
-
-  defp extract_metadata_fields(_), do: []
 
   # A theme page's settings come from its sidecar config
   # (`templates/pages/<name>.json`), persisted into the DB manifest under
@@ -120,7 +108,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
 
   defp page_settings_fields(manifest, template) do
     case page_config(manifest, template) do
-      %{} = cfg -> normalize_field_list(cfg["metadata"] || cfg[:metadata] || [])
+      %{} = cfg -> normalize_field_list(Manifest.option_fields(cfg, :page_options))
       _ -> []
     end
   end
@@ -193,7 +181,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
            d
            |> Map.put("format", "theme")
            |> Map.put("template", name)
-           |> Map.put("metadata", meta)
+           |> Map.put("page_options", meta)
          end)}
     end
   end
@@ -214,23 +202,23 @@ defmodule MastheadWeb.AdminLive.PageForm do
   end
 
   def handle_event("clear_meta", %{"meta" => key}, socket) do
-    draft = put_metadata_value(socket.assigns.draft, key, "")
+    draft = put_page_option_value(socket.assigns.draft, key, "")
     {:noreply, socket |> assign(draft: draft) |> assign_changeset(draft)}
   end
 
   def handle_event("add_list_item", %{"key" => key}, socket) do
     fields = current_settings_fields(socket)
-    draft = update_metadata(socket.assigns.draft, &SettingsFields.add_item(&1, fields, key))
+    draft = update_page_options(socket.assigns.draft, &SettingsFields.add_item(&1, fields, key))
     {:noreply, socket |> assign(draft: draft) |> assign_changeset(draft)}
   end
 
   def handle_event("remove_list_item", %{"key" => key, "id" => id}, socket) do
-    draft = update_metadata(socket.assigns.draft, &SettingsFields.remove_item(&1, key, id))
+    draft = update_page_options(socket.assigns.draft, &SettingsFields.remove_item(&1, key, id))
     {:noreply, socket |> assign(draft: draft) |> assign_changeset(draft)}
   end
 
   def handle_event("reorder_list", %{"key" => key, "ids" => ids}, socket) do
-    draft = update_metadata(socket.assigns.draft, &SettingsFields.reorder(&1, key, ids))
+    draft = update_page_options(socket.assigns.draft, &SettingsFields.reorder(&1, key, ids))
     {:noreply, socket |> assign(draft: draft) |> assign_changeset(draft)}
   end
 
@@ -261,7 +249,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
 
   # Stepper navigation â jump directly to any visible step. The draft is
   # kept in sync by the per-step `phx-change="validate"`, so jumping
-  # around doesn't lose typed content or metadata selections. Final
+  # around doesn't lose typed content or page-option selections. Final
   # validation still happens on save.
   def handle_event("goto_step", %{"step" => step}, socket) do
     target = String.to_integer(step)
@@ -327,11 +315,11 @@ defmodule MastheadWeb.AdminLive.PageForm do
 
     if Ecto.Changeset.get_field(changeset, :title) not in [nil, ""] do
       # Skip the settings step entirely when the theme declares no
-      # metadata â we'd render an empty step otherwise.
+      # page options — we'd render an empty step otherwise.
       next =
         cond do
           draft["format"] == "theme" -> 3
-          socket.assigns.has_metadata? -> 3
+          socket.assigns.has_page_options? -> 3
           true -> 4
         end
 
@@ -348,7 +336,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
   end
 
   def handle_event("next_settings", %{"page" => params}, socket) do
-    # Merge the metadata sub-map into the draft and advance to Content.
+    # Merge the page-options sub-map into the draft and advance to Content.
     draft = merge_draft_params(socket.assigns.draft, params, current_settings_fields(socket))
 
     {:noreply,
@@ -390,11 +378,11 @@ defmodule MastheadWeb.AdminLive.PageForm do
 
     fields = current_settings_fields(socket)
     draft = merge_draft_params(socket.assigns.draft, page_params, fields)
-    canonical = SettingsFields.canonicalize(metadata(draft), fields)
+    canonical = SettingsFields.canonicalize(page_options(draft), fields)
 
     full_params =
       draft
-      |> Map.put("metadata", canonical)
+      |> Map.put("page_options", canonical)
       |> Map.put("published", to_string(publish?))
 
     result =
@@ -495,9 +483,9 @@ defmodule MastheadWeb.AdminLive.PageForm do
      |> push_event("editor_replace", %{id: editor_dom_id(format), text: formatted})}
   end
 
-  # A file-type metadata field's picker reports back here with the field key in
+  # A file-type page option's picker reports back here with the field key in
   # its context. Store the chosen upload's id (or "" to clear) into the draft's
-  # metadata map — the renderer resolves the id to a URL, exactly like a file
+  # options map — the renderer resolves the id to a URL, exactly like a file
   # token. Must precede the body-insert clause, which matches any upload.
   # A file inside a list item (context carries the list key, item `_id`, subkey).
   @impl true
@@ -516,9 +504,9 @@ defmodule MastheadWeb.AdminLive.PageForm do
      socket |> maybe_refresh_uploads(upload) |> assign(draft: draft) |> assign_changeset(draft)}
   end
 
-  # A top-level file metadata field.
+  # A top-level file page option.
   def handle_info({:file_picked, upload, %{"meta" => key}}, socket) do
-    draft = put_metadata_value(socket.assigns.draft, key, upload_value(upload))
+    draft = put_page_option_value(socket.assigns.draft, key, upload_value(upload))
 
     {:noreply,
      socket |> maybe_refresh_uploads(upload) |> assign(draft: draft) |> assign_changeset(draft)}
@@ -581,26 +569,27 @@ defmodule MastheadWeb.AdminLive.PageForm do
       "body" => page.body,
       "published" => to_string(page.published),
       "show_in_nav" => to_string(page.show_in_nav),
-      "metadata" => page.metadata || %{},
+      "page_options" => page.page_options || %{},
       "filter_tag_ids" => Enum.map(page.filter_tags, &to_string(&1.id))
     }
   end
 
-  # The draft's settings values live under "metadata" (they're cast straight
+  # The draft's settings values live under "page_options" (they're cast straight
   # into the page's jsonb column); every mutation goes through the shared
   # editor's value helpers.
-  defp metadata(draft), do: ensure_map(Map.get(draft, "metadata"))
+  defp page_options(draft), do: SettingsFields.draft_values(draft, "page_options")
 
-  defp update_metadata(draft, fun), do: Map.put(draft, "metadata", fun.(metadata(draft)))
+  defp update_page_options(draft, fun),
+    do: SettingsFields.update_draft(draft, "page_options", fun)
 
-  defp put_metadata_value(draft, key, value),
-    do: update_metadata(draft, &SettingsFields.put_value(&1, key, value))
+  defp put_page_option_value(draft, key, value),
+    do: update_page_options(draft, &SettingsFields.put_value(&1, key, value))
 
   defp put_object_value(draft, key, sub, value),
-    do: update_metadata(draft, &SettingsFields.put_object_value(&1, key, sub, value))
+    do: update_page_options(draft, &SettingsFields.put_object_value(&1, key, sub, value))
 
   defp put_list_item_value(draft, key, id, sub, value),
-    do: update_metadata(draft, &SettingsFields.put_list_item_value(&1, key, id, sub, value))
+    do: update_page_options(draft, &SettingsFields.put_list_item_value(&1, key, id, sub, value))
 
   defp upload_value(nil), do: ""
   defp upload_value(upload), do: to_string(upload.id)
@@ -611,34 +600,20 @@ defmodule MastheadWeb.AdminLive.PageForm do
     do: assign(socket, site_uploads: Uploads.list_uploads(socket.assigns.site.id))
 
   # The settings field schema for whatever the draft currently is: a theme
-  # page's sidecar config, or the theme's global metadata for markdown/html.
+  # page's sidecar config, or the theme's global page options for markdown/html.
   defp current_settings_fields(%{assigns: a}),
-    do: settings_fields_for(a.draft, a.theme_manifest, a.metadata_fields)
+    do: settings_fields_for(a.draft, a.theme_manifest, a.page_option_fields)
 
-  defp settings_fields_for(draft, theme_manifest, metadata_fields) do
+  defp settings_fields_for(draft, theme_manifest, page_option_fields) do
     if draft["format"] == "theme",
       do: page_settings_fields(theme_manifest, draft["template"] || ""),
-      else: metadata_fields
+      else: page_option_fields
   end
 
   # ---- schema-aware draft/params reconciliation ----
 
-  # Fold submitted form params into the draft: non-metadata params shallow-merge
-  # (title/slug/format/…); the metadata sub-map merges against the field schema
-  # so nested objects/lists keep their canonical shape and item identity.
-  defp merge_draft_params(draft, params, fields) do
-    {meta_params, rest} = Map.pop(params, "metadata")
-    draft = Map.merge(draft, rest)
-
-    if is_map(meta_params) do
-      update_metadata(draft, &SettingsFields.merge_params(&1, meta_params, fields))
-    else
-      draft
-    end
-  end
-
-  defp ensure_map(m) when is_map(m), do: m
-  defp ensure_map(_), do: %{}
+  defp merge_draft_params(draft, params, fields),
+    do: SettingsFields.merge_draft_params(draft, "page_options", params, fields)
 
   defp import_flash(entity, ok, 0), do: "Imported #{ok} #{entity}s."
 
@@ -698,7 +673,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
               template={@draft["template"]}
               editing={@page != nil}
               site_slug={@site.slug}
-              has_metadata={@has_metadata?}
+              has_page_options={@has_page_options?}
               allow_theme={@allow_theme?}
               page_templates={@page_templates}
             />
@@ -710,7 +685,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
               editing={@page != nil}
               site_slug={@site.slug}
               show_errors={@show_errors}
-              has_metadata={@has_metadata?}
+              has_page_options={@has_page_options?}
               tags={@tags}
               selected_filter_tag_ids={@draft["filter_tag_ids"] || []}
             />
@@ -730,16 +705,16 @@ defmodule MastheadWeb.AdminLive.PageForm do
                 template={@draft["template"]}
                 label={page_setting_label(@theme_manifest, @draft["template"] || "")}
                 description={page_setting_description(@theme_manifest, @draft["template"] || "")}
-                has_metadata={@has_metadata?}
+                has_page_options={@has_page_options?}
               />
             <% else %>
               <.settings_step
-                fields={@metadata_fields}
+                fields={@page_option_fields}
                 draft={@draft}
                 format={@draft["format"]}
                 site_uploads={@site_uploads}
                 open_group={@open_settings_group}
-                has_metadata={@has_metadata?}
+                has_page_options={@has_page_options?}
               />
             <% end %>
           <% 4 -> %>
@@ -753,7 +728,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
               view_path={@page && "/" <> @page.slug}
               site_slug={@site.slug}
               show_errors={@show_errors}
-              has_metadata={@has_metadata?}
+              has_page_options={@has_page_options?}
             />
         <% end %>
 
@@ -771,7 +746,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
 
   attr :step, :integer, default: 1
   attr :format, :string, default: nil
-  attr :has_metadata, :boolean, default: false
+  attr :has_page_options, :boolean, default: false
   attr :nav_locked, :boolean, default: false
 
   defp stepper(assigns) do
@@ -779,7 +754,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
       assign(
         assigns,
         :entries,
-        Enum.with_index(visible_steps(assigns.format, assigns.has_metadata), 1)
+        Enum.with_index(visible_steps(assigns.format, assigns.has_page_options), 1)
       )
 
     ~H"""
@@ -809,8 +784,8 @@ defmodule MastheadWeb.AdminLive.PageForm do
 
   # Returns [{internal_step, label}, ...] for the wizard. Theme pages end on
   # Page settings (no Content step); markdown/html pages skip Page settings
-  # when the theme declares no global metadata fields.
-  defp visible_steps("theme", _has_metadata),
+  # when the theme declares no global page options.
+  defp visible_steps("theme", _has_page_options),
     do: [{1, "Format"}, {2, "Details"}, {3, "Page settings"}]
 
   defp visible_steps(_format, true),
@@ -820,7 +795,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
     do: [{1, "Format"}, {2, "Details"}, {4, "Content"}]
 
   defp visible_steps_for(assigns),
-    do: visible_steps(assigns.draft["format"], assigns.has_metadata?)
+    do: visible_steps(assigns.draft["format"], assigns.has_page_options?)
 
   defp visible_step_nums(assigns),
     do: visible_steps_for(assigns) |> Enum.map(&elem(&1, 0))
@@ -898,7 +873,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
   attr :template, :string, default: nil
   attr :editing, :boolean, default: false
   attr :site_slug, :string, required: true
-  attr :has_metadata, :boolean, default: false
+  attr :has_page_options, :boolean, default: false
   attr :allow_theme, :boolean, default: false
   attr :page_templates, :list, default: []
 
@@ -907,7 +882,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
     <.stepper
       step={1}
       format={@format}
-      has_metadata={@has_metadata}
+      has_page_options={@has_page_options}
       nav_locked={not @locked and not format_chosen?(@format, @template)}
     />
 
@@ -963,13 +938,13 @@ defmodule MastheadWeb.AdminLive.PageForm do
   attr :editing, :boolean, default: false
   attr :site_slug, :string, required: true
   attr :show_errors, :boolean, default: false
-  attr :has_metadata, :boolean, default: false
+  attr :has_page_options, :boolean, default: false
   attr :tags, :list, default: []
   attr :selected_filter_tag_ids, :list, default: []
 
   defp meta_step(assigns) do
     ~H"""
-    <.stepper step={2} format={@format} has_metadata={@has_metadata} />
+    <.stepper step={2} format={@format} has_page_options={@has_page_options} />
 
     <form id="meta-form" phx-submit="next_meta" phx-change="validate" class="form">
       <.error_list changeset={@changeset} show={@show_errors} />
@@ -1034,24 +1009,24 @@ defmodule MastheadWeb.AdminLive.PageForm do
   attr :format, :string, default: nil
   attr :site_uploads, :list, default: []
   attr :open_group, :string, default: nil
-  attr :has_metadata, :boolean, default: true
+  attr :has_page_options, :boolean, default: true
 
   defp settings_step(assigns) do
     ~H"""
-    <.stepper step={3} format={@format} has_metadata={@has_metadata} />
+    <.stepper step={3} format={@format} has_page_options={@has_page_options} />
 
     <h2 class="wizard-heading">Page settings</h2>
 
-    <form id="settings-form" phx-submit="next_settings" phx-change="validate" class="form">
-      <.settings_fields
-        fields={@fields}
-        values={metadata(@draft)}
-        prefix={prefix()}
-        picker_target={picker_target()}
-        site_uploads={@site_uploads}
-        open={@open_group}
-      />
-    </form>
+    <.settings_form
+      id="settings-form"
+      submit="next_settings"
+      fields={@fields}
+      values={page_options(@draft)}
+      prefix={prefix()}
+      picker_target={picker_target()}
+      site_uploads={@site_uploads}
+      open={@open_group}
+    />
 
     <div class="wizard-footer">
       <button type="button" phx-click="back" class="btn">&larr; Back</button>
@@ -1073,7 +1048,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
   attr :template, :string, default: nil
   attr :label, :string, default: nil
   attr :description, :string, default: nil
-  attr :has_metadata, :boolean, default: false
+  attr :has_page_options, :boolean, default: false
 
   # The terminal step for theme pages: there is no body to edit, so the page's
   # settings (the chosen template's sidecar config) are the final step, saved
@@ -1081,7 +1056,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
   # but not editable here.
   defp theme_settings_step(assigns) do
     ~H"""
-    <.stepper step={3} format="theme" has_metadata={@has_metadata} />
+    <.stepper step={3} format="theme" has_page_options={@has_page_options} />
 
     <h2 class="wizard-heading">{@label}</h2>
     <p :if={@description} class="wizard-intro muted">{@description}</p>
@@ -1098,7 +1073,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
 
           <.settings_fields
             fields={@fields}
-            values={metadata(@draft)}
+            values={page_options(@draft)}
             prefix={prefix()}
             picker_target={picker_target()}
             site_uploads={@site_uploads}
@@ -1135,11 +1110,11 @@ defmodule MastheadWeb.AdminLive.PageForm do
   attr :view_path, :string, default: nil
   attr :site_slug, :string, required: true
   attr :show_errors, :boolean, default: false
-  attr :has_metadata, :boolean, default: false
+  attr :has_page_options, :boolean, default: false
 
   defp content_step(assigns) do
     ~H"""
-    <.stepper step={4} format={@format} has_metadata={@has_metadata} />
+    <.stepper step={4} format={@format} has_page_options={@has_page_options} />
 
     <div class="content-layout">
       <div class="content-main">

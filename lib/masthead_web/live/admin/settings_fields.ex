@@ -2,16 +2,18 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
   @moduledoc """
   The shared editor for schema-declared settings fields.
 
-  A theme declares two field lists in its manifest — `tokens` (per-site) and
-  `metadata` / a page's sidecar config (per-page) — and both use the same field
-  types (`Masthead.Themes.Manifest`). This module is the one editor for both:
+  A theme declares its field lists in its manifest — `tokens` (per-site),
+  `page_options` and `post_options` (per-page / per-post), plus a theme page's
+  sidecar config — and they all use the same field types
+  (`Masthead.Themes.Manifest`). This module is the one editor for all of them:
   the HEEx components that render a field list, plus the draft-value helpers
   that keep nested `object`/`list` values in shape across form round-trips.
 
   Callers differ only in where the values live and what the inputs are named:
 
     * `AdminLive.SiteTheme` — `site[theme_tokens][...]`, values in `@tokens`
-    * `AdminLive.PageForm`  — `page[metadata][...]`, values in `@draft["metadata"]`
+    * `AdminLive.PageForm`  — `page[page_options][...]`, values in `@draft["page_options"]`
+    * `AdminLive.PostForm`  — `post[post_options][...]`, values in `@draft["post_options"]`
 
   ## Why a draft map, and not just form params
 
@@ -157,6 +159,33 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
 
   def merge_params(values, _params, _fields) when is_map(values), do: values
 
+  @doc """
+  The options sub-map a wizard draft keeps under `draft_key` (`"page_options"`,
+  `"post_options"`), always a map.
+  """
+  def draft_values(draft, draft_key), do: ensure_map(Map.get(draft, draft_key))
+
+  @doc "Apply `fun` to the draft's options sub-map."
+  def update_draft(draft, draft_key, fun),
+    do: Map.put(draft, draft_key, fun.(draft_values(draft, draft_key)))
+
+  @doc """
+  Fold submitted form params into a wizard draft: everything but the options
+  sub-map shallow-merges (title/slug/format/…), while the sub-map merges against
+  the field schema so nested objects/lists keep their canonical shape and item
+  identity.
+  """
+  def merge_draft_params(draft, draft_key, params, fields) do
+    {option_params, rest} = Map.pop(params, draft_key)
+    draft = Map.merge(draft, rest)
+
+    if is_map(option_params) do
+      update_draft(draft, draft_key, &merge_params(&1, option_params, fields))
+    else
+      draft
+    end
+  end
+
   @doc "Set (or, when the value is blank, clear) one top-level field."
   def put_value(values, key, "" = _value), do: Map.delete(values, key)
   def put_value(values, key, value), do: Map.put(values, key, value)
@@ -283,7 +312,7 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
   expanded category (tracked by the host LiveView so a `phx-change` re-render
   doesn't collapse it).
 
-  `prefix` is the form-name prefix the values are cast from (`"page[metadata]"`,
+  `prefix` is the form-name prefix the values are cast from (`"page[page_options]"`,
   `"site[theme_tokens]"`), and `picker_target` is the DOM id of the host's
   `FilePicker` live component.
   """
@@ -334,6 +363,35 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
         />
       </div>
     <% end %>
+    """
+  end
+
+  @doc """
+  A wizard step's settings form: the shared editor wrapped in the `<form>` both
+  the page and post wizards submit it from. The caller supplies the surrounding
+  stepper, heading and footer buttons, and drives its own submit event.
+  """
+  attr :id, :string, required: true
+  attr :submit, :string, required: true
+  attr :fields, :list, required: true
+  attr :values, :map, required: true
+  attr :prefix, :string, required: true
+  attr :picker_target, :string, required: true
+  attr :site_uploads, :list, default: []
+  attr :open, :string, default: nil
+
+  def settings_form(assigns) do
+    ~H"""
+    <form id={@id} phx-submit={@submit} phx-change="validate" class="form">
+      <.settings_fields
+        fields={@fields}
+        values={@values}
+        prefix={@prefix}
+        picker_target={@picker_target}
+        site_uploads={@site_uploads}
+        open={@open}
+      />
+    </form>
     """
   end
 

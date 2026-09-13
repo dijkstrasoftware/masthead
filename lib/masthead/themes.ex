@@ -84,6 +84,20 @@ defmodule Masthead.Themes do
   def get_theme!(id), do: Repo.get!(Theme, id)
   def get_theme(id), do: Repo.get(Theme, id)
 
+  @doc """
+  The persisted manifest map of the theme a site is on, or `nil` when the site
+  has no theme or the row is gone. This is the jsonb blob the admin settings
+  forms read their field schemas out of (see `Masthead.Themes.Manifest.option_fields/2`).
+  """
+  def manifest_for_site(%{theme_id: id}) when is_integer(id) do
+    case get_theme(id) do
+      nil -> nil
+      theme -> theme.manifest
+    end
+  end
+
+  def manifest_for_site(_site), do: nil
+
   def get_built_in_by_slug(slug) when is_binary(slug) do
     Repo.one(from t in Theme, where: t.slug == ^slug and t.source == "built_in")
   end

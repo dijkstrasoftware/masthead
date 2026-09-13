@@ -53,7 +53,8 @@ defmodule Masthead.Themes.Presenter do
       "excerpt" => p.excerpt,
       "published_at" => p.published_at,
       "url" => "/posts/" <> p.slug,
-      "tags" => tags_of(p)
+      "tags" => tags_of(p),
+      "post_options" => p.post_options || %{}
     }
   end
 
@@ -74,10 +75,7 @@ defmodule Masthead.Themes.Presenter do
       # For theme pages: the chosen templates/pages/<template>.liquid name.
       "template" => pg.template,
       "url" => "/" <> pg.slug,
-      # Raw override map. The Renderer merges manifest defaults on top of
-      # this before exposing it to templates, so theme authors can read
-      # `page.metadata.<key>` and always get the effective value.
-      "metadata" => pg.metadata || %{}
+      "page_options" => pg.page_options || %{}
     }
   end
 
