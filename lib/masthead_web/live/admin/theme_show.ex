@@ -19,7 +19,10 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
   import MastheadWeb.AdminLive.Components
   alias Masthead.Sites
   alias Masthead.Themes
+  alias Masthead.Themes.Loader
+  alias Masthead.Themes.Manifest
   alias Masthead.Themes.ThemeLink
+  alias MastheadWeb.AdminLive.SettingsFields
 
   @max_image_bytes 8 * 1024 * 1024
 
@@ -39,6 +42,9 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
          link_form: to_form(Themes.change_theme_link()),
          adding_link?: false,
          author: author(theme),
+         tab: :description,
+         tokens: manifest_tokens(theme),
+         pages: theme_pages(theme),
          index: 0,
          sites: sites_for(user),
          site: nil,
@@ -139,6 +145,10 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
       _ ->
         {:noreply, socket}
     end
+  end
+
+  def handle_event("switch_tab", %{"tab" => tab}, socket) when tab in ~w(description detail) do
+    {:noreply, assign(socket, tab: String.to_existing_atom(tab))}
   end
 
   # ---- inline editing (author only) ----
@@ -445,6 +455,72 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
   defp theme_count(1), do: "1 published theme"
   defp theme_count(count), do: "#{count} published themes"
 
+  defp manifest_tokens(%{manifest: m}) do
+    SettingsFields.normalize_fields(Map.get(m, "tokens", Map.get(m, :tokens)))
+  end
+
+  defp theme_pages(%{manifest: m} = theme) do
+    configs = page_configs(m)
+    theme |> manifest_page_names() |> Enum.map(&page_entry(&1, configs))
+  end
+
+  defp manifest_page_names(%{manifest: m}), do: Loader.manifest_page_template_names(m)
+
+  defp page_configs(m) do
+    case Map.get(m, "page_configs", Map.get(m, :page_configs, %{})) do
+      %{} = configs -> configs
+      _ -> %{}
+    end
+  end
+
+  defp page_entry(name, configs) do
+    config = Map.get(configs, name) || %{}
+
+    %{
+      label: config["label"] || config[:label] || page_label(name),
+      description: config["description"] || config[:description],
+      options: SettingsFields.normalize_fields(Manifest.option_fields(config, :page_options))
+    }
+  end
+
+  defp page_label(name), do: name |> String.replace(["-", "_"], " ") |> String.capitalize()
+
+  defp render_version(%{manifest: m}) do
+    Map.get(m, "render_version", Map.get(m, :render_version)) || "beta"
+  end
+
+  attr :field, :map, required: true
+
+  defp token_field(%{field: %{type: "object"}} = assigns), do: token_container(assigns)
+  defp token_field(%{field: %{type: "list"}} = assigns), do: token_container(assigns)
+
+  defp token_field(assigns) do
+    ~H"""
+    <div class="token-readonly">
+      <span class="token-readonly-head">
+        {@field.label || @field.key}
+        <span class="chip chip-neutral">{@field.type}</span>
+      </span>
+      <small :if={@field.description}>{@field.description}</small>
+    </div>
+    """
+  end
+
+  defp token_container(assigns) do
+    ~H"""
+    <details class="settings-group-field" open>
+      <summary class="settings-group-summary">
+        {@field.label || @field.key}
+        <span class="chip chip-neutral">{@field.type}</span>
+      </summary>
+      <small :if={@field.description} class="muted">{@field.description}</small>
+      <div class="settings-fields">
+        <.token_field :for={sub <- @field.fields} field={sub} />
+      </div>
+    </details>
+    """
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -547,7 +623,72 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
             </span>
           </p>
 
-          <section class="theme-about">
+          <div class="admin-tabs">
+            <button
+              type="button"
+              phx-click="switch_tab"
+              phx-value-tab="description"
+              class={["admin-tab", @tab == :description && "is-active"]}
+            >
+              Description
+            </button>
+            <button
+              type="button"
+              phx-click="switch_tab"
+              phx-value-tab="detail"
+              class={["admin-tab", @tab == :detail && "is-active"]}
+            >
+              Detail
+            </button>
+          </div>
+
+          <section :if={@tab == :detail} class="theme-about">
+            <section class="metrics">
+              <div class="metric"><span class="num">{length(@tokens)}</span> tokens</div>
+              <div class="metric"><span class="num">{length(@pages)}</span> pages</div>
+              <div class="metric">
+                <span class="chip chip-accent metric-chip">{render_version(@theme)}</span> renderer
+              </div>
+            </section>
+
+            <h2>Tokens</h2>
+            <p class="muted">Settings you can tweak on a site once this theme is installed.</p>
+
+            <p :if={@tokens == []} class="muted">
+              This theme doesn't expose any tokens — it renders the same on every site.
+            </p>
+
+            <div class="token-groups">
+              <details
+                :for={{category, tokens} <- SettingsFields.group_fields(@tokens)}
+                class="token-group"
+              >
+                <summary class="token-group-summary">{category}</summary>
+                <div class="settings-fields">
+                  <.token_field :for={token <- tokens} field={token} />
+                </div>
+              </details>
+            </div>
+
+            <h2 class="theme-detail-heading">Pages</h2>
+            <p class="muted">Page templates you can pick from when you create a page.</p>
+
+            <p :if={@pages == []} class="muted">
+              This theme ships no page templates — pages use its standard page layout.
+            </p>
+
+            <div class="token-groups">
+              <details :for={page <- @pages} class="token-group">
+                <summary class="token-group-summary">{page.label}</summary>
+                <div class="settings-fields">
+                  <small :if={page.description} class="muted">{page.description}</small>
+                  <.token_field :for={field <- page.options} field={field} />
+                </div>
+              </details>
+            </div>
+          </section>
+
+          <section :if={@tab == :description} class="theme-about">
             <div class="theme-about-head">
               <h2>About this theme</h2>
               <button

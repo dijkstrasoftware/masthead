@@ -30,6 +30,82 @@ defmodule MastheadWeb.ThemeShowLiveTest do
     assert html =~ "preview 2"
   end
 
+  test "the detail tab shows the theme's manifest statistics", %{conn: conn, author: author} do
+    theme = published(author, "Stats Theme")
+    {:ok, theme} = Themes.update_details(theme, %{"description" => "A calm, roomy layout."})
+
+    theme =
+      with_manifest(theme, %{
+        "render_version" => "v1",
+        "page_templates" => ["blog", "landing_page"],
+        "page_configs" => %{
+          "blog" => %{
+            "label" => "Blog",
+            "description" => "Lists your published posts.",
+            "page_options" => [
+              %{"key" => "layout", "label" => "Page layout", "type" => "select"}
+            ]
+          }
+        },
+        "tokens" => [
+          %{
+            "key" => "accent",
+            "label" => "Accent color",
+            "type" => "color",
+            "category" => "Appearance"
+          },
+          %{
+            "key" => "hero",
+            "label" => "Hero",
+            "type" => "object",
+            "fields" => [
+              %{
+                "key" => "title",
+                "label" => "Hero title",
+                "type" => "string",
+                "description" => "Shown above the fold."
+              }
+            ]
+          }
+        ]
+      })
+
+    {:ok, lv, html} = live(conn, ~p"/marketplace/themes/#{theme.id}")
+
+    assert html =~ "A calm, roomy layout."
+    refute html =~ "Accent color"
+
+    html = lv |> element(~s(button[phx-value-tab="detail"])) |> render_click()
+
+    refute html =~ "A calm, roomy layout."
+    assert html =~ "v1"
+    assert html =~ "2</span> tokens"
+    assert html =~ "2</span> pages"
+    assert html =~ "Appearance"
+    assert html =~ "General"
+    assert html =~ "Accent color"
+    assert html =~ "Hero title"
+    assert html =~ "Shown above the fold."
+
+    assert html =~ "Blog"
+    assert html =~ "Lists your published posts."
+    assert html =~ "Page layout"
+    assert html =~ "Landing page"
+  end
+
+  test "a theme with no manifest still renders the detail tab", %{conn: conn, author: author} do
+    theme = published(author, "Bare Theme")
+
+    {:ok, lv, _html} = live(conn, ~p"/marketplace/themes/#{theme.id}")
+    html = lv |> element(~s(button[phx-value-tab="detail"])) |> render_click()
+
+    assert html =~ "beta"
+    assert html =~ "0</span> tokens"
+    assert html =~ "0</span> pages"
+    assert html =~ "expose any tokens"
+    assert html =~ "ships no page templates"
+  end
+
   test "arrow keys walk the gallery", %{conn: conn, author: author} do
     theme = published(author, "Gallery Keys")
     {:ok, _} = Themes.add_theme_image(theme, image_file("a.png"))
@@ -345,6 +421,11 @@ defmodule MastheadWeb.ThemeShowLiveTest do
       assert {:error, {:redirect, %{to: "/marketplace"}}} =
                live(signed_out(), ~p"/marketplace/themes/#{theme.id}")
     end
+  end
+
+  defp with_manifest(theme, manifest) do
+    {:ok, theme} = Themes.update_theme(theme, %{manifest: manifest})
+    theme
   end
 
   defp signed_out, do: build_conn() |> Plug.Test.init_test_session(%{})
