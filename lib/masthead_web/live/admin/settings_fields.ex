@@ -440,9 +440,11 @@ defmodule MastheadWeb.AdminLive.SettingsFields do
 
   defp category(f), do: if(categorized?(f), do: String.trim(f.category), else: "General")
 
-  # Group by category, preserving first-seen order of both the categories and
-  # the fields within each.
-  defp group_fields(fields) do
+  @doc """
+  Group fields by category, preserving first-seen order of both the categories
+  and the fields within each. Fields with no category fall under "General".
+  """
+  def group_fields(fields) do
     Enum.reduce(fields, [], fn f, acc ->
       cat = category(f)
 

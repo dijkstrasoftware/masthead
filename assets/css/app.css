@@ -1474,6 +1474,18 @@ button.danger:hover { filter: brightness(0.92); }
 }
 .admin-tab:hover { color: var(--fg); }
 .admin-tab.is-active { color: var(--accent); border-bottom-color: var(--accent); }
+.metric-chip { font-size: 0.95rem; padding: 0.3rem 0.75rem; letter-spacing: 0.02em; }
+.theme-about .theme-detail-heading { margin-top: 2rem; }
+.theme-about .token-groups { margin-top: 0.9rem; }
+.token-readonly { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.token-readonly-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+.token-readonly small { color: var(--muted); }
 /* Admin tables reuse the platform `.table` style; this just allows the
    wider tables to scroll on narrow viewports and lays out the row's
    action buttons in a right-aligned cluster. */
