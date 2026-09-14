@@ -40,6 +40,16 @@
     />
     <meta name="twitter:image" content={assigns[:og_image] || url(~p"/images/logo.png")} />
     <script :if={assigns[:json_ld]} type="application/ld+json" phx-no-format><%= raw(Jason.encode!(@json_ld)) %></script>
+    <script
+      :if={assigns[:analytics_id]}
+      async
+      src={"https://www.googletagmanager.com/gtag/js?id=#{@analytics_id}"}
+    >
+    </script>
+    <script :if={assigns[:analytics_id]} phx-no-format>window.dataLayer = window.dataLayer || [];
+    window.gtag = function(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', <%= raw(Jason.encode!(@analytics_id)) %>);</script>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>

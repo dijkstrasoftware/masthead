@@ -53,6 +53,12 @@ topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
+// A live navigation never reloads the page, so gtag has to be told by hand.
+// No-op on every page where the analytics snippet wasn't rendered.
+window.addEventListener("phx:navigate", ({detail}) => {
+  window.gtag && gtag("event", "page_view", {page_location: detail.href})
+})
+
 // Global clipboard handler — buttons can do
 // phx-click={JS.dispatch("masthead:copy", detail: %{text: "..."})}
 // and the button label briefly flips to "Copied!".

@@ -23,12 +23,16 @@ defmodule MastheadWeb.Router do
     plug :require_admin_user
   end
 
+  pipeline :analytics do
+    plug :put_analytics_id
+  end
+
   scope "/webhooks", MastheadWeb do
     post "/payments", WebhookController, :payments
   end
 
   scope "/", MastheadWeb do
-    pipe_through :browser
+    pipe_through [:browser, :analytics]
 
     get "/", PageController, :home
     get "/pricing", PageController, :pricing
@@ -68,7 +72,7 @@ defmodule MastheadWeb.Router do
   # and installing still need an account — the LiveViews hide that chrome from a
   # visitor. Declared before the `/:site_slug` catch-all further down.
   scope "/", MastheadWeb do
-    pipe_through :browser
+    pipe_through [:browser, :analytics]
 
     # The Themes section merged into the Marketplace hub; keep the old URL.
     get "/themes", PageController, :themes_redirect
@@ -152,5 +156,11 @@ defmodule MastheadWeb.Router do
       live_dashboard "/dashboard", metrics: MastheadWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
+  end
+
+  # Unset outside production, which keeps dev, test and any self-hosted install
+  # out of the property.
+  defp put_analytics_id(conn, _opts) do
+    assign(conn, :analytics_id, System.get_env("GOOGLE_ANALYTICS_ID"))
   end
 end

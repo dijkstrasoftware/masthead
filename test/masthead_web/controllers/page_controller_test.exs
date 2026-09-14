@@ -66,6 +66,19 @@ defmodule MastheadWeb.PageControllerTest do
     assert html =~ ~s(rel="canonical")
   end
 
+  test "the public pages carry the Google Analytics snippet when configured", %{conn: conn} do
+    System.put_env("GOOGLE_ANALYTICS_ID", "G-TEST123")
+    on_exit(fn -> System.delete_env("GOOGLE_ANALYTICS_ID") end)
+
+    assert conn |> get(~p"/") |> html_response(200) =~ "gtag/js?id=G-TEST123"
+    assert conn |> get(~p"/pricing") |> html_response(200) =~ "gtag/js?id=G-TEST123"
+    assert conn |> get(~p"/login") |> html_response(200) =~ "gtag/js?id=G-TEST123"
+  end
+
+  test "the Google Analytics snippet is absent when unconfigured", %{conn: conn} do
+    refute conn |> get(~p"/") |> html_response(200) =~ "googletagmanager"
+  end
+
   test "the homepage links to pricing", %{conn: conn} do
     html = conn |> get(~p"/") |> html_response(200)
 
