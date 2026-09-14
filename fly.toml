@@ -25,6 +25,7 @@ kill_signal = 'SIGTERM'
   # via `fly secrets`.
   MAIL_FROM = 'noreply@masthead.site'
   AWS_PUBLIC_URL_S3 = 'https://uploads.masthead.site'
+  GOOGLE_ANALYTICS_ID = 'G-935CMGXN4E'
 
 [http_service]
   internal_port = 8080

@@ -44,6 +44,15 @@ defmodule MastheadWeb.MarketplaceLiveTest do
     if opts[:verified], do: elem(Themes.verify_theme(theme), 1), else: theme
   end
 
+  test "a signed-out dead render carries the Google Analytics snippet" do
+    System.put_env("GOOGLE_ANALYTICS_ID", "G-TEST123")
+    on_exit(fn -> System.delete_env("GOOGLE_ANALYTICS_ID") end)
+
+    {:ok, _lv, html} = live(build_conn(), ~p"/marketplace")
+
+    assert html =~ "gtag/js?id=G-TEST123"
+  end
+
   test "lists published themes from others with status chips", %{conn: conn, author: author} do
     _verified = published(author, "Verified One", verified: true)
     _community = published(author, "Community One")
