@@ -17,7 +17,7 @@ defmodule MastheadWeb do
   those modules here.
   """
 
-  def static_paths, do: ~w(assets fonts images favicon.ico robots.txt sitemap.xml llms.txt)
+  def static_paths, do: ~w(assets fonts images favicon.ico)
 
   def router do
     quote do
