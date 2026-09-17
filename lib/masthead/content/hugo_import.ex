@@ -41,12 +41,12 @@ defmodule Masthead.Content.HugoImport do
   `skipped_content` list of `{relative_path, reason}` tuples. Returns
   `{:error, reason}` if the archive can't be read.
   """
-  def run(site, archive_path) do
+  def run(site, archive_path, author_id \\ nil) do
     with {:ok, tmp} <- extract(archive_path),
          {:ok, root} <- find_root(tmp) do
       try do
         {assets, asset_stats} = import_assets(site, root)
-        {posts, pages, skipped} = import_content(site, root, assets)
+        {posts, pages, skipped} = import_content(site, root, assets, author_id)
 
         {:ok,
          %{
@@ -174,7 +174,7 @@ defmodule Masthead.Content.HugoImport do
 
   # ---- content ----
 
-  defp import_content(site, root, assets) do
+  defp import_content(site, root, assets, author_id) do
     content_dir = Path.join(root, "content")
 
     content_dir
@@ -185,7 +185,7 @@ defmodule Masthead.Content.HugoImport do
     |> Enum.reduce({[], [], []}, fn abs, {posts, pages, skipped} ->
       rel = Path.relative_to(abs, content_dir)
 
-      case import_file(site, abs, rel, assets) do
+      case import_file(site, abs, rel, assets, author_id) do
         {:post, post} -> {[post | posts], pages, skipped}
         {:page, page} -> {posts, [page | pages], skipped}
         {:skip, reason} -> {posts, pages, [{rel, reason} | skipped]}
@@ -196,7 +196,7 @@ defmodule Masthead.Content.HugoImport do
     end)
   end
 
-  defp import_file(site, abs, rel, assets) do
+  defp import_file(site, abs, rel, assets, author_id) do
     basename = Path.basename(abs)
 
     if basename in @section_index_names do
@@ -215,7 +215,7 @@ defmodule Masthead.Content.HugoImport do
       }
 
       if post_path?(rel) do
-        finish(:post, Content.create_post(site.id, attrs))
+        finish(:post, Content.create_post(site.id, attrs, author_id))
       else
         # Pages follow the normal default (shown in nav). Unpublished imports
         # are drafts and stay out of the nav until published regardless.

@@ -23,6 +23,7 @@ defmodule Masthead.Themes.StructuredDataTest do
     assert data["mainEntityOfPage"] == "https://bakery.example/posts/rye"
     refute Map.has_key?(data, "datePublished")
     refute Map.has_key?(data, "description")
+    refute Map.has_key?(data, "author")
   end
 
   describe "inject/3" do

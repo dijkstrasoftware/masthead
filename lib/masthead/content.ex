@@ -189,13 +189,17 @@ defmodule Masthead.Content do
     Repo.one(
       from p in Post,
         where: p.site_id == ^site_id and p.slug == ^slug and p.published == true,
-        preload: :tags
+        preload: [:tags, :author]
     )
   end
 
-  def create_post(site_id, attrs) do
+  @doc """
+  Creates a post in `site_id`. The author is passed separately, never cast from
+  `attrs`, so a form can't attribute a post to someone else.
+  """
+  def create_post(site_id, attrs, author_id \\ nil) do
     changeset =
-      %Post{site_id: site_id}
+      %Post{site_id: site_id, author_id: author_id}
       |> Post.changeset(Map.put(attrs, "site_id", site_id))
       |> put_post_tags(site_id, attrs)
 
