@@ -54,6 +54,13 @@ defmodule Masthead.Themes.Manifest do
   the original render contract, where page options are declared under the
   legacy `"metadata"` key and reach templates as `page.metadata`. A `"v1"` theme
   declares `page_options`/`post_options` and reads them under those names.
+
+  ## Structured data
+
+  Masthead injects Schema.org JSON-LD into every canonical page's `<head>`
+  (see `Masthead.Themes.StructuredData`). A theme extends it by emitting its
+  own extra `<script type="application/ld+json">` in `layout.liquid`, or
+  replaces it by setting `"structured_data": false` and emitting its own.
   """
 
   # A "field" — a customisation token, a global page option, a post option, or
@@ -82,6 +89,7 @@ defmodule Masthead.Themes.Manifest do
     :author,
     :description,
     render_version: @default_render_version,
+    structured_data: true,
     tokens: [],
     page_options: [],
     post_options: []
@@ -123,7 +131,8 @@ defmodule Masthead.Themes.Manifest do
           render_version: String.t(),
           tokens: [token()],
           page_options: [option_field()],
-          post_options: [option_field()]
+          post_options: [option_field()],
+          structured_data: boolean()
         }
 
   @doc """
@@ -154,6 +163,7 @@ defmodule Masthead.Themes.Manifest do
       |> optional_string(map, "author", 0, 100)
       |> optional_string(map, "description", 0, 500)
       |> validate_render_version(map)
+      |> validate_structured_data(map)
       |> validate_field_list(map, "tokens")
       |> validate_page_options(map)
       |> validate_field_list(map, "post_options")
@@ -168,6 +178,7 @@ defmodule Masthead.Themes.Manifest do
           author: map["author"],
           description: map["description"],
           render_version: Map.get(map, "render_version") || @default_render_version,
+          structured_data: Map.get(map, "structured_data", true),
           tokens: normalize_fields(Map.get(map, "tokens", [])),
           page_options: normalize_fields(raw_page_options(map)),
           post_options: normalize_fields(Map.get(map, "post_options", []))
@@ -344,6 +355,13 @@ defmodule Masthead.Themes.Manifest do
       nil -> errors
       v when v in @render_versions -> errors
       _ -> ["render_version: must be one of #{Enum.join(@render_versions, ", ")}" | errors]
+    end
+  end
+
+  defp validate_structured_data(errors, map) do
+    case Map.get(map, "structured_data", true) do
+      value when is_boolean(value) -> errors
+      _ -> ["structured_data: must be true or false" | errors]
     end
   end
 

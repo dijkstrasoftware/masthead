@@ -493,6 +493,24 @@ defmodule Masthead.Themes.ManifestTest do
     end
   end
 
+  describe "structured_data" do
+    test "defaults to on and accepts an opt-out" do
+      assert {:ok, %Manifest{structured_data: true}} =
+               Manifest.parse(~s({"name":"X","slug":"x","version":"1.0.0","tokens":[]}))
+
+      assert {:ok, %Manifest{structured_data: false}} =
+               Manifest.parse(
+                 ~s({"name":"X","slug":"x","version":"1.0.0","structured_data":false,"tokens":[]})
+               )
+    end
+
+    test "rejects a non-boolean" do
+      json = ~s({"name":"X","slug":"x","version":"1.0.0","structured_data":"no","tokens":[]})
+      assert {:error, errs} = Manifest.parse(json)
+      assert Enum.any?(errs, &String.contains?(&1, "structured_data"))
+    end
+  end
+
   describe "legacy metadata key (beta themes)" do
     test "parses into page_options" do
       json =

@@ -2,6 +2,8 @@ defmodule MastheadWeb.PublicController do
   use MastheadWeb, :controller
 
   alias Masthead.Content
+  alias Masthead.Sites
+  alias Masthead.Themes.StructuredData
   alias Masthead.Themes.Renderer
 
   plug :require_site
@@ -27,13 +29,14 @@ defmodule MastheadWeb.PublicController do
             posts: posts,
             pages: pages,
             tags: tags,
-            current_tag: current_tag
+            current_tag: current_tag,
+            structured_data: structured_data(conn, :website, nil)
           })
 
         send_themed(conn, body)
 
       page ->
-        render_page_or_404(conn, page, pages)
+        render_page_or_404(conn, page, pages, structured_data(conn, :website, nil))
     end
   end
 
@@ -51,7 +54,13 @@ defmodule MastheadWeb.PublicController do
         body =
           Renderer.render_post(
             Map.merge(
-              %{site: site, post: post, pages: pages, posts: posts},
+              %{
+                site: site,
+                post: post,
+                pages: pages,
+                posts: posts,
+                structured_data: structured_data(conn, :article, post)
+              },
               body_assigns(post)
             )
           )
@@ -64,7 +73,7 @@ defmodule MastheadWeb.PublicController do
     site = conn.assigns.current_site
     pages = nav_pages(site, Content.list_published_pages(site.id))
     page = Content.get_published_page_by_slug(site.id, slug)
-    render_page_or_404(conn, page, pages)
+    render_page_or_404(conn, page, pages, page_structured_data(conn, page))
   end
 
   @doc "Public post search: `/search?q=...`."
@@ -77,14 +86,14 @@ defmodule MastheadWeb.PublicController do
     send_themed(conn, body)
   end
 
-  defp render_page_or_404(conn, nil, pages) do
+  defp render_page_or_404(conn, nil, pages, _structured_data) do
     site = conn.assigns.current_site
     posts = Content.list_published_posts(site.id)
     body = Renderer.render_not_found(%{site: site, pages: pages, posts: posts})
     conn |> put_status(:not_found) |> send_themed(body)
   end
 
-  defp render_page_or_404(conn, %{format: "theme"} = page, pages) do
+  defp render_page_or_404(conn, %{format: "theme"} = page, pages, structured_data) do
     site = conn.assigns.current_site
     page_tag_ids = Enum.map(page.filter_tags, & &1.id)
 
@@ -112,20 +121,27 @@ defmodule MastheadWeb.PublicController do
         posts: posts,
         pages: pages,
         tags: filterable,
-        current_tag: current_tag
+        current_tag: current_tag,
+        structured_data: structured_data
       })
 
     send_themed(conn, body)
   end
 
-  defp render_page_or_404(conn, page, pages) do
+  defp render_page_or_404(conn, page, pages, structured_data) do
     site = conn.assigns.current_site
     posts = Content.list_published_posts(site.id)
 
     body =
       Renderer.render_page(
         Map.merge(
-          %{site: site, page: page, pages: pages, posts: posts},
+          %{
+            site: site,
+            page: page,
+            pages: pages,
+            posts: posts,
+            structured_data: structured_data
+          },
           body_assigns(page)
         )
       )
@@ -158,6 +174,34 @@ defmodule MastheadWeb.PublicController do
         conn
     end
   end
+
+  defp page_structured_data(_conn, nil), do: nil
+
+  defp page_structured_data(%{assigns: %{current_site: %{homepage_page_id: id}}}, %{id: id}),
+    do: nil
+
+  defp page_structured_data(conn, page), do: structured_data(conn, :web_page, page)
+
+  # Only the canonical URL carries structured data: the active custom domain
+  # (not the subdomain it shadows) and never a `?tag=` variant.
+  defp structured_data(conn, kind, content) do
+    site = conn.assigns.current_site
+    base = Sites.public_url(site)
+
+    if canonical_request?(conn, base), do: build_structured_data(kind, site, content, base)
+  end
+
+  defp canonical_request?(conn, base),
+    do: conn.host == URI.parse(base).host and is_nil(conn.params["tag"])
+
+  defp build_structured_data(:website, site, _content, base),
+    do: StructuredData.website(site, base)
+
+  defp build_structured_data(:web_page, site, page, base),
+    do: StructuredData.web_page(site, page, base)
+
+  defp build_structured_data(:article, site, post, base),
+    do: StructuredData.article(site, post, base)
 
   defp send_themed(conn, body) when is_binary(body) do
     conn
