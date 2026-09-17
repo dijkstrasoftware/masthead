@@ -55,6 +55,9 @@ defmodule MastheadWeb.MarketingComponents do
           >
             Pricing
           </.link>
+          <a href="https://blog.masthead.site" target="_blank" rel="noopener" class="nav-link">
+            Blog<.external_mark />
+          </a>
           <a href="https://docs.masthead.site" target="_blank" rel="noopener" class="nav-link">
             Docs<.external_mark />
           </a>
