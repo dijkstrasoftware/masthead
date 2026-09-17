@@ -1,14 +1,16 @@
-# See https://www.robotstxt.org/robotstxt.html for documentation on how to use the robots.txt file
-
 User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /sites
 Disallow: /account
+Disallow: /verify
 Disallow: /login
 Disallow: /signup
+Disallow: /invite/
 Disallow: /reset-password
 Disallow: /confirm
+Disallow: /unsubscribe/
 Disallow: /auth
+Disallow: /marketplace/my-themes
 
 Sitemap: https://masthead.site/sitemap.xml

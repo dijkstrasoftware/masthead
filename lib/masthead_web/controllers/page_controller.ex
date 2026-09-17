@@ -58,6 +58,12 @@ defmodule MastheadWeb.PageController do
     end
   end
 
+  def seo_file(conn, _params) do
+    conn
+    |> put_resp_content_type(MIME.from_path(conn.request_path))
+    |> send_file(200, Application.app_dir(:masthead, "priv/static" <> conn.request_path))
+  end
+
   # The standalone Themes section was folded into the Marketplace hub.
   # Keep the old URL working for bookmarks.
   def themes_redirect(conn, _params) do

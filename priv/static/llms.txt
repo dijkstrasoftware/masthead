@@ -1,0 +1,27 @@
+# Masthead
+
+> Masthead is an open-source, multi-tenant publishing platform for blogs and small business sites. Each site runs on its own masthead.site subdomain or a custom domain, with content written in Markdown or HTML and rendered through uploadable themes.
+
+Masthead is free to publish on: unlimited posts and pages, marketplace themes, and a masthead.site subdomain with automatic HTTPS. A paid site license adds a custom domain and collaborators. The full source is on GitHub, so it can be self-hosted or audited.
+
+Key features:
+
+- Theme-defined editors: every theme declares its own settings, so site owners only see what matters for their site.
+- Custom domains: apex or subdomain, with ownership verification and automatic TLS.
+- Content-first publishing: posts and pages in Markdown or HTML, no page builder.
+- Multi-tenant by design: unlimited sites from one account, each with its own content, theme and domain.
+- Uploadable themes: themes are Liquid templates plus CSS, shared through the marketplace.
+
+## Pages
+
+- [Home](https://masthead.site/): overview, features and FAQ
+- [Pricing](https://masthead.site/pricing): free plan and the paid site license
+- [Theme marketplace](https://masthead.site/marketplace): browse published themes
+- [Verified themes](https://masthead.site/marketplace/verified): themes reviewed by the Masthead team
+- [Community themes](https://masthead.site/marketplace/community): themes published by users
+
+## Optional
+
+- [Blog](https://blog.masthead.site): product news and writing
+- [Docs](https://docs.masthead.site): documentation for site owners and theme authors
+- [Source code](https://github.com/dijkstrasoftware/masthead): the open-source repository

@@ -84,4 +84,14 @@ defmodule MastheadWeb.PageControllerTest do
 
     assert html =~ ~s(href="/pricing")
   end
+
+  test "serves robots.txt, sitemap.xml and llms.txt", %{conn: conn} do
+    assert conn |> get("/robots.txt") |> response(200) =~
+             "Sitemap: https://masthead.site/sitemap.xml"
+
+    assert conn |> get("/sitemap.xml") |> response(200) =~
+             "<loc>https://masthead.site/pricing</loc>"
+
+    assert conn |> get("/llms.txt") |> response(200) =~ "# Masthead"
+  end
 end

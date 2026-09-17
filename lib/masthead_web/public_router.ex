@@ -13,6 +13,12 @@ defmodule MastheadWeb.PublicRouter do
   end
 
   scope "/", MastheadWeb do
+    get "/robots.txt", PublicSeoController, :robots
+    get "/sitemap.xml", PublicSeoController, :sitemap
+    get "/llms.txt", PublicSeoController, :llms
+  end
+
+  scope "/", MastheadWeb do
     pipe_through :public
 
     get "/", PublicController, :index

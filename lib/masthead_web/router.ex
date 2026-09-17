@@ -27,6 +27,13 @@ defmodule MastheadWeb.Router do
     plug :put_analytics_id
   end
 
+  # Served here, not by Plug.Static, which would also answer on every tenant host.
+  scope "/", MastheadWeb do
+    get "/robots.txt", PageController, :seo_file
+    get "/sitemap.xml", PageController, :seo_file
+    get "/llms.txt", PageController, :seo_file
+  end
+
   scope "/webhooks", MastheadWeb do
     post "/payments", WebhookController, :payments
   end
