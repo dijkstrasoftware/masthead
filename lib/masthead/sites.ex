@@ -603,4 +603,24 @@ defmodule Masthead.Sites do
       query
     end
   end
+
+  @doc """
+  The canonical public URL of a site, without a trailing slash: its active
+  custom domain, otherwise its subdomain under `:masthead, :site_url`.
+  """
+  def public_url(%{custom_domain: domain, custom_domain_status: "active"})
+      when is_binary(domain),
+      do: "https://#{domain}"
+
+  def public_url(%{slug: slug}) do
+    cfg = Application.get_env(:masthead, :site_url, scheme: "http", host: "lvh.me", port: 4000)
+    scheme = Keyword.fetch!(cfg, :scheme)
+
+    "#{scheme}://#{slug}.#{Keyword.fetch!(cfg, :host)}#{port_segment(scheme, Keyword.get(cfg, :port))}"
+  end
+
+  defp port_segment(_scheme, nil), do: ""
+  defp port_segment("http", 80), do: ""
+  defp port_segment("https", 443), do: ""
+  defp port_segment(_scheme, port), do: ":#{port}"
 end

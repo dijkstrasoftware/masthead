@@ -124,7 +124,7 @@ defmodule MastheadWeb.AdminLive.Components do
 
             <a
               class="nav-item nav-external"
-              href={site_url(@site)}
+              href={Masthead.Sites.public_url(@site)}
               target="_blank"
               rel="noopener"
               phx-click={close_nav()}
@@ -744,7 +744,7 @@ defmodule MastheadWeb.AdminLive.Components do
           </button>
           <a
             :if={@published}
-            href={site_url(@site) <> @view_path}
+            href={Masthead.Sites.public_url(@site) <> @view_path}
             target="_blank"
             rel="noopener"
             class="btn btn-block"
@@ -924,32 +924,6 @@ defmodule MastheadWeb.AdminLive.Components do
   end
 
   defp sidebar_pill_class(_site), do: "sidebar-pill-offline"
-
-  @doc false
-  # Builds the public URL for a site based on `:masthead, :site_url`:
-  #
-  #   * `scheme: "http", host: "lvh.me", port: 4000`        -> http://slug.lvh.me:4000
-  #   * `scheme: "https", host: "yourdomain.com", port: nil` -> https://slug.yourdomain.com
-  defp site_url(%{custom_domain: domain, custom_domain_status: "active"})
-       when is_binary(domain),
-       do: "https://#{domain}"
-
-  defp site_url(site) do
-    cfg = Application.get_env(:masthead, :site_url, scheme: "http", host: "lvh.me", port: 4000)
-    scheme = Keyword.fetch!(cfg, :scheme)
-    host = Keyword.fetch!(cfg, :host)
-    port = Keyword.get(cfg, :port)
-
-    port_segment =
-      cond do
-        is_nil(port) -> ""
-        scheme == "http" and port == 80 -> ""
-        scheme == "https" and port == 443 -> ""
-        true -> ":#{port}"
-      end
-
-    "#{scheme}://#{site.slug}.#{host}#{port_segment}"
-  end
 
   # ---- Icons (heroicons outline, inlined) ----
 

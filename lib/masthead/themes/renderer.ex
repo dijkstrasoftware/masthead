@@ -19,6 +19,9 @@ defmodule Masthead.Themes.Renderer do
   new name — never editing a version that has shipped, so a site keeps
   rendering the way it did the day it was built.
 
+  An optional `structured_data` assign is injected as JSON-LD into every
+  version's output (see `Masthead.Themes.StructuredData`).
+
   All rendering is sandboxed via `Masthead.Themes.Sandbox` — templates can't
   reach Elixir, the file system, or the database.
   """
@@ -26,6 +29,7 @@ defmodule Masthead.Themes.Renderer do
   alias Masthead.Themes
   alias Masthead.Themes.Loader
   alias Masthead.Themes.Renderer.{Beta, V1}
+  alias Masthead.Themes.StructuredData
 
   @doc """
   Render the site homepage (post list).
@@ -71,7 +75,10 @@ defmodule Masthead.Themes.Renderer do
   defp dispatch(fun, %{site: site} = assigns) do
     entry = site |> resolve_theme() |> Loader.fetch!()
 
-    apply(module_for(entry.manifest.render_version), fun, [assigns, entry])
+    entry.manifest.render_version
+    |> module_for()
+    |> apply(fun, [assigns, entry])
+    |> StructuredData.inject(assigns[:structured_data], entry.manifest)
   end
 
   defp module_for("v1"), do: V1
