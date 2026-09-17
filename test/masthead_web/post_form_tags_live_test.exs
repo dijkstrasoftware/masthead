@@ -31,10 +31,15 @@ defmodule MastheadWeb.PostFormTagsLiveTest do
       |> Plug.Test.init_test_session(%{})
       |> Plug.Conn.put_session(:user_id, user.id)
 
-    %{conn: conn, site: site, tag: tag}
+    %{conn: conn, site: site, tag: tag, user: user}
   end
 
-  test "toggling a tag on a new post attaches it on save", %{conn: conn, site: site, tag: tag} do
+  test "toggling a tag on a new post attaches it on save", %{
+    conn: conn,
+    site: site,
+    tag: tag,
+    user: user
+  } do
     {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/posts/new")
 
     # Step 1: choosing a format advances to the details step.
@@ -52,6 +57,7 @@ defmodule MastheadWeb.PostFormTagsLiveTest do
     [post] = Content.list_posts(site.id)
     assert post.title == "Tagged via form"
     assert Enum.map(post.tags, & &1.slug) == ["featured"]
+    assert post.author_id == user.id
   end
 
   test "editing a post preselects its tags and can clear them", %{

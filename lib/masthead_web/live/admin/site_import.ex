@@ -27,10 +27,11 @@ defmodule MastheadWeb.AdminLive.SiteImport do
 
   def handle_event("import_site", _params, socket) do
     site = socket.assigns.site
+    author_id = socket.assigns.current_user.id
 
     [result] =
       consume_uploaded_entries(socket, :site_archive, fn %{path: path}, _entry ->
-        {:ok, HugoImport.run(site, path)}
+        {:ok, HugoImport.run(site, path, author_id)}
       end)
 
     case result do

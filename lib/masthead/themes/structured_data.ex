@@ -3,7 +3,8 @@ defmodule Masthead.Themes.StructuredData do
   Schema.org JSON-LD for public pages, built from the content model and
   injected into the rendered HTML independent of the site's theme.
 
-  The homepage is a `WebSite`, a page a `WebPage` and a post an `Article`.
+  The homepage is a `WebSite`, a page a `WebPage` and a post an `Article`
+  credited to the user who created it.
   Blank values are dropped so missing optional data never yields invalid
   output. A theme can opt out with `"structured_data": false` in its manifest.
   """
@@ -46,6 +47,7 @@ defmodule Masthead.Themes.StructuredData do
       "mainEntityOfPage" => url,
       "datePublished" => iso8601(post.published_at),
       "dateModified" => iso8601(post.updated_at),
+      "author" => author(post),
       "isPartOf" => %{"@id" => website_id(base)},
       "publisher" => publisher(site, base)
     })
@@ -72,6 +74,11 @@ defmodule Masthead.Themes.StructuredData do
 
   defp publisher(site, base),
     do: %{"@type" => "Organization", "name" => site_name(site), "url" => base <> "/"}
+
+  defp author(%{author: %{display_name: name}}) when name not in [nil, ""],
+    do: %{"@type" => "Person", "name" => name}
+
+  defp author(_post), do: nil
 
   defp website_id(base), do: base <> "/#website"
 

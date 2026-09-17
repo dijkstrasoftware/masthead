@@ -24,19 +24,28 @@ defmodule MastheadWeb.PublicStructuredDataTest do
       })
 
     {:ok, _post} =
-      Content.create_post(site.id, %{
-        "title" => "Sourdough",
-        "slug" => "sourdough",
-        "excerpt" => "A starter guide.",
-        "published" => "true"
-      })
+      Content.create_post(
+        site.id,
+        %{
+          "title" => "Sourdough",
+          "slug" => "sourdough",
+          "excerpt" => "A starter guide.",
+          "published" => "true"
+        },
+        user.id
+      )
 
     {:ok, _draft} = Content.create_post(site.id, %{"title" => "Draft", "slug" => "draft"})
 
     {:ok, _about} =
       Content.create_page(site.id, %{"title" => "About", "slug" => "about", "published" => "true"})
 
-    %{conn: %{conn | host: "#{slug}.lvh.me"}, site: site, base: "http://#{slug}.lvh.me:4000"}
+    %{
+      conn: %{conn | host: "#{slug}.lvh.me"},
+      site: site,
+      user: user,
+      base: "http://#{slug}.lvh.me:4000"
+    }
   end
 
   defp json_ld(conn, path, status \\ 200) do
@@ -54,7 +63,7 @@ defmodule MastheadWeb.PublicStructuredDataTest do
     assert data["description"] == "Notes on bread."
   end
 
-  test "a post is an Article", %{conn: conn, base: base} do
+  test "a post is an Article credited to its creator", %{conn: conn, base: base, user: user} do
     data = json_ld(conn, "/posts/sourdough")
 
     assert data["@type"] == "Article"
@@ -64,7 +73,7 @@ defmodule MastheadWeb.PublicStructuredDataTest do
     assert data["datePublished"]
     assert data["dateModified"]
     assert data["publisher"]["name"] == "Bakery"
-    refute Map.has_key?(data, "author")
+    assert data["author"] == %{"@type" => "Person", "name" => user.display_name}
   end
 
   test "a page is a WebPage", %{conn: conn, base: base} do

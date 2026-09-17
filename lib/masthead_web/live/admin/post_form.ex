@@ -190,7 +190,11 @@ defmodule MastheadWeb.AdminLive.PostForm do
           Enum.reduce(many, {0, 0}, fn {filename, body}, {ok, failed} ->
             attrs = Content.Import.attrs_from_file(filename, body)
 
-            case Content.create_post(socket.assigns.site.id, attrs) do
+            case Content.create_post(
+                   socket.assigns.site.id,
+                   attrs,
+                   socket.assigns.current_user.id
+                 ) do
               {:ok, _} -> {ok + 1, failed}
               {:error, _} -> {ok, failed + 1}
             end
@@ -286,8 +290,11 @@ defmodule MastheadWeb.AdminLive.PostForm do
 
     result =
       case socket.assigns.post do
-        nil -> Content.create_post(socket.assigns.site.id, full_params)
-        post -> Content.update_post(post, full_params)
+        nil ->
+          Content.create_post(socket.assigns.site.id, full_params, socket.assigns.current_user.id)
+
+        post ->
+          Content.update_post(post, full_params)
       end
 
     case result do
