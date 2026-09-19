@@ -523,7 +523,7 @@ defmodule Masthead.Themes do
         where: t.id != ^id and t.source == "uploaded" and t.public == true,
         group_by: t.id,
         order_by: [desc: count(tt.theme_tag_id), desc: t.verified, asc: t.name],
-        limit: 4,
+        limit: 3,
         preload: [:images]
     )
   end

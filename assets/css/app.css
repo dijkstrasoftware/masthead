@@ -4845,8 +4845,12 @@ button.danger:hover { filter: brightness(0.92); }
 .theme-tag-option.is-checked { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .theme-tag-option.is-locked { opacity: 0.45; cursor: not-allowed; }
 
-.related-themes { margin-top: 2.5rem; }
+.related-themes { margin-top: 1rem; }
 .related-themes h2 { margin-bottom: 1rem; }
+.related-themes .marketplace-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 640px) {
+  .related-themes .marketplace-grid { grid-template-columns: 1fr; }
+}
 
 .tag-add-form { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
 .tag-add-form input[type="text"] {
