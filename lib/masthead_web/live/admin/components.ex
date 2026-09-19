@@ -1250,6 +1250,27 @@ defmodule MastheadWeb.AdminLive.Components do
     """
   end
 
+  @doc "A theme card's cover: the first gallery image, or `nil`."
+  def first_image(%{images: [image | _]}), do: image
+  def first_image(_theme), do: nil
+
+  # A tasteful Unsplash placeholder for themes with no preview images, picked
+  # deterministically per theme so a card's art is stable across renders.
+  @placeholder_photos ~w(
+    photo-1508739773434-c26b3d09e071
+    photo-1618005182384-a83a8bd57fbe
+    photo-1550859492-d5da9d8e45f3
+    photo-1557683316-973673baf926
+    photo-1487017159836-4e23ece2e4cf
+    photo-1541701494587-cb58502866ab
+  )
+
+  @doc "Stand-in cover art for a theme card with no preview images."
+  def placeholder_image(%{id: id}) do
+    photo = Enum.at(@placeholder_photos, rem(id, length(@placeholder_photos)))
+    "https://images.unsplash.com/#{photo}?w=640&h=360&fit=crop&auto=format&q=60"
+  end
+
   @doc """
   Marketplace status chip. Verified themes get the green "Verified" chip;
   everything else (community / unpublished) renders nothing.

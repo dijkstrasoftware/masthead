@@ -315,4 +315,44 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     assert html =~ "between 1 and 120"
     refute Masthead.Licenses.paid?(Sites.get_site!(site.id))
   end
+
+  describe "tags tab" do
+    test "lists the seeded tags with usage counts", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/admin/tags")
+      blog = Masthead.Themes.get_theme_tag_by_slug("blog")
+
+      assert has_element?(lv, "#theme-tag-#{blog.id}", "Blog")
+    end
+
+    test "an admin adds, renames and deletes a tag", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/admin/tags")
+
+      lv |> form("#new-tag-form", %{"name" => "Brutalist"}) |> render_submit()
+      tag = Masthead.Themes.get_theme_tag_by_slug("brutalist")
+      assert has_element?(lv, "#theme-tag-#{tag.id}", "Brutalist")
+
+      open_row_menu(lv, tag)
+      lv |> element(~s(button[phx-click="edit_tag"][phx-value-id="#{tag.id}"])) |> render_click()
+      lv |> form("#rename-tag-#{tag.id}", %{"name" => "Brutal"}) |> render_submit()
+      assert has_element?(lv, "#theme-tag-#{tag.id}", "Brutal")
+      assert Masthead.Themes.get_theme_tag_by_slug("brutalist").name == "Brutal"
+
+      open_row_menu(lv, tag)
+
+      lv
+      |> element(~s(button[phx-click="delete_tag"][phx-value-id="#{tag.id}"]))
+      |> render_click()
+
+      refute has_element?(lv, "#theme-tag-#{tag.id}")
+    end
+
+    test "a duplicate tag is refused", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/admin/tags")
+
+      html =
+        lv |> form("#new-tag-form", %{"name" => "blog"}) |> render_submit()
+
+      assert html =~ "already exists"
+    end
+  end
 end

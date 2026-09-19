@@ -358,4 +358,31 @@ defmodule MastheadWeb.MarketplaceLiveTest do
       assert html =~ "Theirs One"
     end
   end
+
+  describe "tag filter" do
+    test "?tag= narrows the gallery and offers a way out", %{conn: conn, author: author} do
+      blog = Themes.get_theme_tag_by_slug("blog")
+      tagged = published(author, "Tagged One")
+      {:ok, _} = Themes.set_theme_tags(tagged, [blog.id])
+      _untagged = published(author, "Untagged One")
+
+      {:ok, lv, html} = live(conn, ~p"/marketplace?#{[tag: "blog"]}")
+
+      assert html =~ "Tagged One"
+      refute html =~ "Untagged One"
+      assert html =~ "Tagged Blog"
+
+      cleared = lv |> element(".author-chip", "Tagged Blog") |> render_click()
+      assert cleared =~ "Untagged One"
+    end
+
+    test "an unknown tag shows an empty gallery", %{conn: conn, author: author} do
+      _theme = published(author, "Some Theme")
+
+      {:ok, _lv, html} = live(conn, ~p"/marketplace?#{[tag: "no-such-tag"]}")
+
+      refute html =~ "Some Theme"
+      assert html =~ "No themes are tagged"
+    end
+  end
 end

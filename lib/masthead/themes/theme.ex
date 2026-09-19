@@ -21,6 +21,7 @@ defmodule Masthead.Themes.Theme do
 
   @sources ~w(built_in uploaded)
   @reserved_slugs ~w(default)
+  @max_tags 3
 
   schema "themes" do
     field :slug, :string
@@ -44,6 +45,11 @@ defmodule Masthead.Themes.Theme do
     has_many :links, Masthead.Themes.ThemeLink,
       foreign_key: :theme_id,
       preload_order: [asc: :position, asc: :id]
+
+    many_to_many :tags, Masthead.Themes.ThemeTag,
+      join_through: "theme_taggings",
+      on_replace: :delete,
+      preload_order: [asc: :name]
 
     timestamps(type: :utc_datetime)
   end
@@ -117,6 +123,21 @@ defmodule Masthead.Themes.Theme do
     |> cast(attrs, [:description])
     |> validate_length(:description, max: 500)
   end
+
+  @doc """
+  Changeset replacing a theme's marketplace tags. `theme` must have `:tags`
+  preloaded. A few tags keep the listing honest and related-theme matches
+  meaningful.
+  """
+  def tags_changeset(theme, tags) do
+    theme
+    |> change()
+    |> put_assoc(:tags, tags)
+    |> validate_length(:tags, max: @max_tags, message: "pick at most %{count} tags")
+  end
+
+  @doc "Most tags a theme may carry."
+  def max_tags, do: @max_tags
 
   @doc """
   Changeset setting an uploaded theme's price. Kept separate from

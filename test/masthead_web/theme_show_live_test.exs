@@ -399,6 +399,71 @@ defmodule MastheadWeb.ThemeShowLiveTest do
     end
   end
 
+  describe "tags" do
+    setup %{user: user} do
+      tags = Enum.map(~w(blog portfolio minimal dark), &Themes.get_theme_tag_by_slug/1)
+      %{own: published(user, "My Theme"), tags: tags}
+    end
+
+    test "the author picks tags, and chips link to the filtered marketplace", %{
+      conn: conn,
+      own: theme,
+      tags: [blog, portfolio | _]
+    } do
+      {:ok, lv, html} = live(conn, ~p"/marketplace/themes/#{theme.id}")
+      assert html =~ "Add tags so people can find this theme."
+
+      lv |> element(~s(button[phx-click="edit_tags"])) |> render_click()
+
+      lv
+      |> form("#theme-tags-form", %{"tag_ids" => ["", "#{blog.id}", "#{portfolio.id}"]})
+      |> render_change()
+
+      lv |> form("#theme-tags-form") |> render_submit()
+
+      assert has_element?(lv, ~s(a.theme-tag[href="/marketplace?tag=blog"]), "Blog")
+      assert has_element?(lv, ~s(a.theme-tag[href="/marketplace?tag=portfolio"]), "Portfolio")
+      refute has_element?(lv, "#theme-tags-form")
+    end
+
+    test "a fourth tag is locked once three are picked", %{
+      conn: conn,
+      own: theme,
+      tags: [a, b, c, d]
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/marketplace/themes/#{theme.id}")
+      lv |> element(~s(button[phx-click="edit_tags"])) |> render_click()
+
+      lv
+      |> form("#theme-tags-form", %{"tag_ids" => ["", "#{a.id}", "#{b.id}", "#{c.id}"]})
+      |> render_change()
+
+      assert has_element?(lv, ~s(input[value="#{d.id}"][disabled]))
+      refute has_element?(lv, ~s(input[value="#{a.id}"][disabled]))
+    end
+
+    test "someone else can't retag the theme", %{conn: conn, author: author, tags: [blog | _]} do
+      theirs = published(author, "Their Theme")
+      {:ok, lv, _html} = live(conn, ~p"/marketplace/themes/#{theirs.id}")
+      refute has_element?(lv, ~s(button[phx-click="edit_tags"]))
+
+      render_hook(lv, "pick_tags", %{"tag_ids" => ["#{blog.id}"]})
+      render_hook(lv, "save_tags", %{})
+
+      assert Masthead.Repo.preload(Themes.get_theme!(theirs.id), :tags).tags == []
+    end
+
+    test "related themes share a tag", %{conn: conn, author: author, own: own, tags: [blog | _]} do
+      related = published(author, "Sibling")
+      {:ok, _} = Themes.set_theme_tags(own, [blog.id])
+      {:ok, _} = Themes.set_theme_tags(related, [blog.id])
+
+      {:ok, lv, _html} = live(conn, ~p"/marketplace/themes/#{own.id}")
+
+      assert has_element?(lv, "#related-theme-#{related.id}", "Sibling")
+    end
+  end
+
   describe "signed out" do
     test "a published listing is readable, with a sign-up prompt in place of the install picker",
          %{author: author} do

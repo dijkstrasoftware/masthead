@@ -1,5 +1,5 @@
 defmodule MastheadWeb.AdminLive.Console do
-  @moduledoc "Platform-admin overview: manage all users, sites, and themes."
+  @moduledoc "Platform-admin overview: manage all users, sites, themes and the curated theme tags."
   use MastheadWeb, :live_view
 
   import MastheadWeb.AdminLive.Components
@@ -28,7 +28,8 @@ defmodule MastheadWeb.AdminLive.Console do
        sites_sort: nil,
        themes_filter: @default_filters.themes,
        themes_search: "",
-       themes_sort: nil
+       themes_sort: nil,
+       editing_tag_id: nil
      )}
   end
 
@@ -48,7 +49,7 @@ defmodule MastheadWeb.AdminLive.Console do
     {:noreply, load_data(socket)}
   end
 
-  defp parse_tab(%{"tab" => tab}) when tab in ~w(users sites themes),
+  defp parse_tab(%{"tab" => tab}) when tab in ~w(users sites themes tags),
     do: String.to_existing_atom(tab)
 
   defp parse_tab(_params), do: :users
@@ -64,6 +65,7 @@ defmodule MastheadWeb.AdminLive.Console do
   # Always include the filter segment: a bare `/admin/:tab` keeps whatever
   # filter is currently assigned, so e.g. "All" must link to `/users/all`
   # explicitly to reset it.
+  defp admin_path(:tags, _filter), do: ~p"/admin/tags"
   defp admin_path(tab, filter), do: ~p"/admin/#{tab}/#{filter}"
 
   # Filter buttons offered per tab. The atoms match the context
@@ -87,6 +89,8 @@ defmodule MastheadWeb.AdminLive.Console do
       {:free, "Free"}
     ]
 
+  defp filter_options(:tags), do: []
+
   defp filter_options(:themes),
     do: [
       {:public, "Public"},
@@ -107,12 +111,14 @@ defmodule MastheadWeb.AdminLive.Console do
       sites_total: Sites.count_all_sites(a.sites_filter, a.sites_search),
       themes:
         Themes.list_all_themes(a.themes_filter, a.themes_search, list_limit(), a.themes_sort),
-      themes_total: Themes.count_all_themes(a.themes_filter, a.themes_search)
+      themes_total: Themes.count_all_themes(a.themes_filter, a.themes_search),
+      theme_tags: Themes.list_theme_tags_with_counts()
     )
   end
 
   @impl true
-  def handle_event("switch_tab", %{"tab" => tab}, socket) when tab in ~w(users sites themes) do
+  def handle_event("switch_tab", %{"tab" => tab}, socket)
+      when tab in ~w(users sites themes tags) do
     tab = String.to_existing_atom(tab)
     {:noreply, push_patch(socket, to: admin_path(tab, socket.assigns[:"#{tab}_filter"]))}
   end
@@ -120,6 +126,49 @@ defmodule MastheadWeb.AdminLive.Console do
   def handle_event("sort_list", %{"scope" => scope, "field" => field}, socket) do
     sort = toggle_sort(socket.assigns[:"#{scope}_sort"], field)
     {:noreply, socket |> assign(:"#{scope}_sort", sort) |> load_data()}
+  end
+
+  # ---- theme tags ----
+
+  def handle_event("create_tag", %{"name" => name}, socket) do
+    case Themes.create_theme_tag(%{"name" => name}) do
+      {:ok, tag} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Tag \"#{tag.name}\" added.")
+         |> load_data()}
+
+      {:error, changeset} ->
+        {:noreply, put_flash(socket, :error, tag_error(changeset))}
+    end
+  end
+
+  def handle_event("edit_tag", %{"id" => id}, socket) do
+    {:noreply, assign(socket, editing_tag_id: String.to_integer(id), open_menu: nil)}
+  end
+
+  def handle_event("cancel_tag", _params, socket) do
+    {:noreply, assign(socket, editing_tag_id: nil)}
+  end
+
+  def handle_event("save_tag", %{"id" => id, "name" => name}, socket) do
+    case id |> Themes.get_theme_tag!() |> Themes.update_theme_tag(%{"name" => name}) do
+      {:ok, _tag} ->
+        {:noreply, socket |> assign(editing_tag_id: nil) |> load_data()}
+
+      {:error, changeset} ->
+        {:noreply, put_flash(socket, :error, tag_error(changeset))}
+    end
+  end
+
+  def handle_event("delete_tag", %{"id" => id}, socket) do
+    {:ok, tag} = id |> Themes.get_theme_tag!() |> Themes.delete_theme_tag()
+
+    {:noreply,
+     socket
+     |> assign(open_menu: nil)
+     |> put_flash(:info, "Tag \"#{tag.name}\" deleted.")
+     |> load_data()}
   end
 
   # ---- users ----
@@ -278,7 +327,14 @@ defmodule MastheadWeb.AdminLive.Console do
     <.shell title="Admin" current_user={@current_user} flash={@flash} active={:admin}>
       <div class="admin-tabs">
         <button
-          :for={{id, label} <- [{:users, "Users"}, {:sites, "Sites"}, {:themes, "Themes"}]}
+          :for={
+            {id, label} <- [
+              {:users, "Users"},
+              {:sites, "Sites"},
+              {:themes, "Themes"},
+              {:tags, "Tags"}
+            ]
+          }
           type="button"
           phx-click="switch_tab"
           phx-value-tab={id}
@@ -552,6 +608,72 @@ defmodule MastheadWeb.AdminLive.Console do
           </tbody>
         </table>
       </div>
+
+      <div :if={@tab == :tags} class="admin-table-wrap">
+        <div class="admin-toolbar">
+          <div class="admin-toolbar-row">
+            <p class="muted">
+              The curated list theme authors pick from — up to {Masthead.Themes.Theme.max_tags()} per theme.
+            </p>
+            <form id="new-tag-form" phx-submit="create_tag" class="tag-add-form">
+              <input
+                type="text"
+                name="name"
+                placeholder="New tag…"
+                maxlength="30"
+                autocomplete="off"
+                required
+              />
+              <button type="submit" class="btn btn-sm btn-primary">Add tag</button>
+            </form>
+          </div>
+        </div>
+        <table class="table table-menus">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Slug</th>
+              <th>Themes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr :for={{tag, count} <- @theme_tags} id={"theme-tag-#{tag.id}"}>
+              <td :if={@editing_tag_id != tag.id}>{tag.name}</td>
+              <td :if={@editing_tag_id == tag.id}>
+                <form
+                  id={"rename-tag-#{tag.id}"}
+                  phx-submit="save_tag"
+                  phx-value-id={tag.id}
+                  class="tag-add-form"
+                >
+                  <input type="text" name="name" value={tag.name} maxlength="30" required />
+                  <button type="submit" class="btn btn-sm btn-primary">Save</button>
+                  <button type="button" class="btn btn-sm" phx-click="cancel_tag">Cancel</button>
+                </form>
+              </td>
+              <td class="muted">{tag.slug}</td>
+              <td class="muted">{count}</td>
+              <td class="admin-row-actions">
+                <.row_menu id={tag.id} open?={@open_menu == tag.id} label={"Actions for #{tag.name}"}>
+                  <button type="button" role="menuitem" phx-click="edit_tag" phx-value-id={tag.id}>
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    phx-click="delete_tag"
+                    phx-value-id={tag.id}
+                    data-confirm={"Delete \"#{tag.name}\"? It comes off #{themes_word(count)}."}
+                  >
+                    Delete
+                  </button>
+                </.row_menu>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <div
         :if={@action_modal?}
         class="dialog-backdrop"
@@ -648,6 +770,12 @@ defmodule MastheadWeb.AdminLive.Console do
     </.shell>
     """
   end
+
+  defp tag_error(%{errors: [{:slug, _} | _]}), do: "A tag with that name already exists."
+  defp tag_error(_changeset), do: "A tag needs a name of up to 30 characters."
+
+  defp themes_word(1), do: "1 theme"
+  defp themes_word(count), do: "#{count} themes"
 
   defp gift_hint(nil), do: ""
 
