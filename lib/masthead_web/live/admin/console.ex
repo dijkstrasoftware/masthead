@@ -581,11 +581,12 @@ defmodule MastheadWeb.AdminLive.Console do
 
           <form phx-submit="create_action" class="dialog-form">
             <label>
-              Title <input type="text" name="title" autocomplete="off" required />
+              Title <input type="text" name="title" maxlength="80" autocomplete="off" required />
             </label>
             <label>
               Message <textarea
                 name="message"
+                maxlength="200"
                 rows="3"
                 placeholder="Optional detail shown under the title."
               ></textarea>

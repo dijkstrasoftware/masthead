@@ -409,12 +409,15 @@ defmodule MastheadWeb.AdminLive.Components do
         <h3 class="action-card-title">{Actions.title(@action)}</h3>
         <p class="action-card-message">{@action.message}</p>
       </div>
-      <.link :if={@action.path} navigate={@action.path} class="btn btn-primary btn-sm">
+      <.link :if={@action.path} {action_link(@action.path)} class="btn btn-primary btn-sm">
         {Actions.cta(@action) || "Open"}
       </.link>
     </div>
     """
   end
+
+  defp action_link("/" <> _ = path), do: [navigate: path]
+  defp action_link(url), do: [href: url, target: "_blank", rel: "noopener noreferrer"]
 
   attr :rest, :global
   attr :variant, :string, default: "primary"

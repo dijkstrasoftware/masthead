@@ -47,9 +47,11 @@ defmodule Masthead.Actions do
   end
 
   @doc """
-  Creates a custom, admin-authored action on `site` from free-text
-  `title` + `message`. Gets a unique generated key so it never collides
-  with the predefined types. Returns `{:ok, action}` or `{:error, changeset}`.
+  Creates a custom, user-authored action on `site` from free-text
+  `title` + `message` and an optional `path` link. A relative path
+  (`/settings`) is scoped to the site's admin (`/<slug>/settings`). Gets a
+  unique generated key so it never collides with the predefined types.
+  Returns `{:ok, action}` or `{:error, changeset}`.
   """
   def create_custom_action(%Site{} = site, %{} = attrs) do
     %Action{}
@@ -59,9 +61,12 @@ defmodule Masthead.Actions do
       "status" => "pending",
       "title" => attrs["title"],
       "message" => attrs["message"],
+      "path" => site_path(site, attrs["path"]),
       "priority" => 100
     })
     |> Ecto.Changeset.validate_required([:title])
+    |> Ecto.Changeset.validate_length(:title, max: 80)
+    |> Ecto.Changeset.validate_length(:message, max: 200)
     |> Repo.insert()
     |> case do
       {:ok, action} ->
@@ -187,6 +192,14 @@ defmodule Masthead.Actions do
       # same second still have a stable, creation-order ranking.
       order_by: [desc: a.priority, asc: a.inserted_at, asc: a.id]
   end
+
+  defp site_path(%Site{slug: slug}, "/" <> rest = path) do
+    if rest == slug or String.starts_with?(rest, slug <> "/"),
+      do: path,
+      else: "/#{slug}/#{rest}"
+  end
+
+  defp site_path(_site, path), do: path
 
   defp now, do: DateTime.utc_now() |> DateTime.truncate(:second)
 

@@ -2672,6 +2672,7 @@ button.danger:hover { filter: brightness(0.92); }
   border-color: var(--accent);
 }
 .dialog-form small { color: var(--muted); font-weight: 400; font-size: 0.8rem; }
+.dialog-form small.is-over { color: var(--danger); }
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
