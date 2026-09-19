@@ -838,6 +838,37 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
               </div>
             </form>
           </section>
+
+          <section :if={@related != []} class="related-themes">
+            <h2>Similar themes</h2>
+            <ul class="marketplace-grid">
+              <li :for={t <- @related} id={"related-theme-#{t.id}"}>
+                <article class="marketplace-card">
+                  <div class="marketplace-thumb">
+                    <.link
+                      navigate={~p"/marketplace/themes/#{t.id}"}
+                      class="marketplace-thumb-btn"
+                      aria-label={"View #{t.name}"}
+                    >
+                      <img :if={first_image(t)} src={Themes.image_url(first_image(t))} alt="" />
+                      <img
+                        :if={is_nil(first_image(t))}
+                        class="marketplace-thumb-placeholder"
+                        src={placeholder_image(t)}
+                        alt=""
+                        loading="lazy"
+                      />
+                    </.link>
+                  </div>
+                  <div class="marketplace-card-meta">
+                    <div class="marketplace-card-id">
+                      <h3><.link navigate={~p"/marketplace/themes/#{t.id}"}>{t.name}</.link></h3>
+                    </div>
+                  </div>
+                </article>
+              </li>
+            </ul>
+          </section>
         </div>
 
         <aside class="theme-detail-aside">
@@ -1029,37 +1060,6 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
           </section>
         </aside>
       </div>
-
-      <section :if={@related != []} class="related-themes">
-        <h2>Similar themes</h2>
-        <ul class="marketplace-grid">
-          <li :for={t <- @related} id={"related-theme-#{t.id}"}>
-            <article class="marketplace-card">
-              <div class="marketplace-thumb">
-                <.link
-                  navigate={~p"/marketplace/themes/#{t.id}"}
-                  class="marketplace-thumb-btn"
-                  aria-label={"View #{t.name}"}
-                >
-                  <img :if={first_image(t)} src={Themes.image_url(first_image(t))} alt="" />
-                  <img
-                    :if={is_nil(first_image(t))}
-                    class="marketplace-thumb-placeholder"
-                    src={placeholder_image(t)}
-                    alt=""
-                    loading="lazy"
-                  />
-                </.link>
-              </div>
-              <div class="marketplace-card-meta">
-                <div class="marketplace-card-id">
-                  <h3><.link navigate={~p"/marketplace/themes/#{t.id}"}>{t.name}</.link></h3>
-                </div>
-              </div>
-            </article>
-          </li>
-        </ul>
-      </section>
 
       <.manage_dialog :if={@managing?} theme={@theme} />
     </.marketplace_shell>
