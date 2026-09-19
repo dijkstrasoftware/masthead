@@ -17,6 +17,7 @@ defmodule Masthead.Themes do
   alias Masthead.Themes.Theme
   alias Masthead.Themes.ThemeImage
   alias Masthead.Themes.ThemeLink
+  alias Masthead.Themes.ThemeTag
   alias Masthead.Themes.ThemeInstall
 
   # Storage namespace for marketplace gallery images. Keys are scoped by
@@ -242,13 +243,14 @@ defmodule Masthead.Themes do
   `true > false`, so `desc: verified` floats verified to the top. Owner and
   gallery images are preloaded for the grid.
   """
-  def list_marketplace(user_id, filter \\ :all, search \\ nil, author_id \\ nil) do
+  def list_marketplace(user_id, filter \\ :all, search \\ nil, author_id \\ nil, tag_id \\ nil) do
     from(t in Theme,
       where: t.source == "uploaded" and t.public == true,
       order_by: [desc: t.verified, asc: t.name],
       preload: [:owner, :images]
     )
     |> by_author(author_id, user_id)
+    |> by_tag(tag_id)
     |> apply_marketplace_filter(filter)
     |> apply_search(search)
     |> Repo.all()
@@ -265,6 +267,13 @@ defmodule Masthead.Themes do
 
   defp exclude_own(query, user_id) when is_integer(user_id),
     do: from(t in query, where: t.owner_id != ^user_id)
+
+  defp by_tag(query, nil), do: query
+
+  defp by_tag(query, tag_id) do
+    tagged = from(tt in "theme_taggings", where: tt.theme_tag_id == ^tag_id, select: tt.theme_id)
+    from(t in query, where: t.id in subquery(tagged))
+  end
 
   defp apply_marketplace_filter(query, :verified), do: from(t in query, where: t.verified == true)
 
@@ -453,6 +462,80 @@ defmodule Masthead.Themes do
     |> Enum.each(&Storage.delete(&1.storage_path))
   end
 
+  # ---- tags ----
+
+  @doc "The curated tag list, alphabetical — what an author picks from."
+  def list_theme_tags, do: Repo.all(from tag in ThemeTag, order_by: tag.name)
+
+  @doc "Every tag with how many themes carry it, for the admin tags tab."
+  def list_theme_tags_with_counts do
+    Repo.all(
+      from tag in ThemeTag,
+        left_join: tt in "theme_taggings",
+        on: tt.theme_tag_id == tag.id,
+        group_by: tag.id,
+        order_by: tag.name,
+        select: {tag, count(tt.theme_id)}
+    )
+  end
+
+  def get_theme_tag!(id), do: Repo.get!(ThemeTag, id)
+
+  @doc "The tag a marketplace `?tag=<slug>` link names, or `nil`."
+  def get_theme_tag_by_slug(slug) when is_binary(slug), do: Repo.get_by(ThemeTag, slug: slug)
+  def get_theme_tag_by_slug(_slug), do: nil
+
+  def create_theme_tag(attrs), do: %ThemeTag{} |> ThemeTag.changeset(attrs) |> Repo.insert()
+
+  @doc "Rename a tag. Its slug stays, so existing `?tag=` links keep working."
+  def update_theme_tag(%ThemeTag{} = tag, attrs),
+    do: tag |> ThemeTag.changeset(attrs) |> Repo.update()
+
+  @doc "Delete a tag; the FK cascade removes it from every theme."
+  def delete_theme_tag(%ThemeTag{} = tag), do: Repo.delete(tag)
+
+  @doc """
+  Replace an uploaded theme's tags with the curated tags in `tag_ids`. Ids
+  that name no tag are ignored; more than `Theme.max_tags/0` is an error
+  changeset.
+  """
+  def set_theme_tags(%Theme{source: "uploaded"} = theme, tag_ids) when is_list(tag_ids) do
+    tags = Repo.all(from tag in ThemeTag, where: tag.id in ^tag_ids)
+
+    theme
+    |> Repo.preload(:tags)
+    |> Theme.tags_changeset(tags)
+    |> Repo.update()
+  end
+
+  @doc """
+  Published themes sharing tags with `theme`, most shared tags first (then
+  verified, then by name). A theme without tags has no related themes.
+  """
+  def related_themes(%Theme{id: id}) do
+    own_tags = from(tt in "theme_taggings", where: tt.theme_id == ^id, select: tt.theme_tag_id)
+
+    Repo.all(
+      from t in Theme,
+        join: tt in "theme_taggings",
+        on: tt.theme_id == t.id,
+        where: tt.theme_tag_id in subquery(own_tags),
+        where: t.id != ^id and t.source == "uploaded" and t.public == true,
+        group_by: t.id,
+        order_by: [desc: count(tt.theme_tag_id), desc: t.verified, asc: t.name],
+        limit: 4,
+        preload: [:images]
+    )
+  end
+
+  defp tagged_like(term) do
+    from tt in "theme_taggings",
+      join: tag in ThemeTag,
+      on: tag.id == tt.theme_tag_id,
+      where: ilike(tag.name, ^term),
+      select: tt.theme_id
+  end
+
   # ---- admin ----
 
   @doc """
@@ -495,7 +578,11 @@ defmodule Masthead.Themes do
   defp apply_search(query, search_query) do
     if search_query && search_query != "" do
       term = "%#{search_query}%"
-      from t in query, where: ilike(t.name, ^term) or ilike(t.description, ^term)
+
+      from t in query,
+        where:
+          ilike(t.name, ^term) or ilike(t.description, ^term) or
+            t.id in subquery(tagged_like(term))
     else
       query
     end

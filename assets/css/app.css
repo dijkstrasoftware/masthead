@@ -4815,6 +4815,50 @@ button.danger:hover { filter: brightness(0.92); }
 }
 .theme-about-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 
+/* Marketplace tags: chips link to the filtered marketplace; the author's
+   picker is the same pills as checkboxes, capped at three. */
+.theme-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 1.25rem; }
+.theme-tags-form { margin-top: 1.25rem; }
+.theme-tags-add {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.theme-tags-add:hover { color: var(--accent); text-decoration: underline; }
+.theme-tag { background: var(--accent-soft); color: var(--accent); text-decoration: none; }
+.theme-tag:hover { background: var(--accent); color: #fff; }
+.theme-tag-options { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.theme-tag-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.theme-tag-option input { margin: 0; }
+.theme-tag-option.is-checked { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.theme-tag-option.is-locked { opacity: 0.45; cursor: not-allowed; }
+
+.related-themes { margin-top: 2.5rem; }
+.related-themes h2 { margin-bottom: 1rem; }
+
+.tag-add-form { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
+.tag-add-form input[type="text"] {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.9rem;
+  background: var(--card);
+  color: var(--fg);
+}
+
 .theme-about {
   background: var(--card);
   border: 1px solid var(--rule);

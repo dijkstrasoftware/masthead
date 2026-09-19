@@ -41,6 +41,8 @@ defmodule MastheadWeb.AdminLive.Marketplace do
        search: "",
        author: nil,
        author_name: nil,
+       tag: nil,
+       tag_slug: nil,
        visibility: :all,
        installed: MapSet.new(),
        install_site: nil,
@@ -76,7 +78,9 @@ defmodule MastheadWeb.AdminLive.Marketplace do
          install_site: site,
          installed: installed,
          author_name: params["author"],
-         author: load_author(params["author"])
+         author: load_author(params["author"]),
+         tag_slug: params["tag"],
+         tag: Themes.get_theme_tag_by_slug(params["tag"])
        )
        |> load_themes()}
     end
@@ -122,15 +126,19 @@ defmodule MastheadWeb.AdminLive.Marketplace do
   # A shared link naming an author who no longer exists shows an empty shelf
   # rather than quietly falling back to the whole gallery.
   defp browse_themes(%{author_name: name, author: nil}) when is_binary(name), do: []
+  defp browse_themes(%{tag_slug: slug, tag: nil}) when is_binary(slug), do: []
 
   defp browse_themes(a),
-    do: Themes.list_marketplace(viewer_id(a), a.filter, a.search, author_id(a))
+    do: Themes.list_marketplace(viewer_id(a), a.filter, a.search, author_id(a), tag_id(a))
 
   defp viewer_id(%{current_user: nil}), do: nil
   defp viewer_id(%{current_user: user}), do: user.id
 
   defp author_id(%{author: %{id: id}}), do: id
   defp author_id(_assigns), do: nil
+
+  defp tag_id(%{tag: %{id: id}}), do: id
+  defp tag_id(_assigns), do: nil
 
   # The author filter travels as `?author=<display name>` — names are unique,
   # so the URL stays readable and shareable.
@@ -271,25 +279,6 @@ defmodule MastheadWeb.AdminLive.Marketplace do
   defp to_visibility("public"), do: :public
   defp to_visibility("private"), do: :private
   defp to_visibility(_all), do: :all
-
-  defp first_image(%{images: [image | _]}), do: image
-  defp first_image(_), do: nil
-
-  # A tasteful Unsplash placeholder for themes with no preview images, picked
-  # deterministically per theme so a card's art is stable across renders.
-  @placeholder_photos ~w(
-    photo-1508739773434-c26b3d09e071
-    photo-1618005182384-a83a8bd57fbe
-    photo-1550859492-d5da9d8e45f3
-    photo-1557683316-973673baf926
-    photo-1487017159836-4e23ece2e4cf
-    photo-1541701494587-cb58502866ab
-  )
-
-  defp placeholder_image(%{id: id}) do
-    photo = Enum.at(@placeholder_photos, rem(id, length(@placeholder_photos)))
-    "https://images.unsplash.com/#{photo}?w=640&h=360&fit=crop&auto=format&q=60"
-  end
 
   # ---- my themes helpers ----
 
@@ -516,7 +505,7 @@ defmodule MastheadWeb.AdminLive.Marketplace do
           <div class="admin-filters">
             <.link
               :for={{value, label} <- filter_options(@current_user)}
-              :if={is_nil(@author_name)}
+              :if={is_nil(@author_name) and is_nil(@tag_slug)}
               patch={filter_path(value, @install_site)}
               class={["btn btn-sm", @filter == value && "btn-primary"]}
             >
@@ -533,6 +522,14 @@ defmodule MastheadWeb.AdminLive.Marketplace do
             >
               <.user_avatar :if={@author} user={@author} class="author-chip-avatar" />
               By {@author_name} <span aria-hidden="true">&times;</span>
+            </.link>
+            <.link
+              :if={@tag_slug}
+              patch={filter_path(@filter, @install_site)}
+              class="author-chip"
+              title="Clear the tag filter"
+            >
+              Tagged {if @tag, do: @tag.name, else: @tag_slug} <span aria-hidden="true">&times;</span>
             </.link>
           </div>
           <div class="admin-toolbar-controls">
@@ -580,6 +577,7 @@ defmodule MastheadWeb.AdminLive.Marketplace do
         <p>
           {cond do
             @search != "" -> "No themes match \"#{@search}\"."
+            @tag_slug -> "No themes are tagged \"#{if @tag, do: @tag.name, else: @tag_slug}\" yet."
             @author_name -> "#{@author_name} hasn't published any themes here."
             @filter == :verified -> "No verified themes yet."
             @filter == :community -> "No community themes yet."

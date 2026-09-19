@@ -10,9 +10,11 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
   `?for=<site-slug>` context when there is one.
 
   The author edits the listing in place on this same page: a pencil on the
-  description, an "add" tile at the end of the preview strip, and drag to
-  reorder. Every editing event re-checks ownership — the markup is hidden
-  for everyone else, but hidden markup isn't a permission check.
+  description and on its tag row (tags come from the admin-curated list),
+  an "add" tile at the end of the preview strip, and drag to reorder.
+  Related themes (sharing tags) sit below the listing. Every editing event
+  re-checks ownership — the markup is hidden for everyone else, but hidden
+  markup isn't a permission check.
   """
   use MastheadWeb, :live_view
 
@@ -21,6 +23,7 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
   alias Masthead.Themes
   alias Masthead.Themes.Loader
   alias Masthead.Themes.Manifest
+  alias Masthead.Themes.Theme
   alias Masthead.Themes.ThemeLink
   alias MastheadWeb.AdminLive.SettingsFields
 
@@ -28,7 +31,7 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
 
   @impl true
   def mount(%{"theme_id" => id}, _session, socket) do
-    theme = Themes.get_theme!(id) |> Masthead.Repo.preload(:owner)
+    theme = Themes.get_theme!(id) |> Masthead.Repo.preload([:owner, :tags])
     user = socket.assigns.current_user
 
     if visible?(theme, user) do
@@ -55,6 +58,10 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
          editing?: false,
          managing?: false,
          description_form: to_form(Themes.change_details(theme)),
+         tags_editing?: false,
+         all_tags: [],
+         picked: [],
+         related: Themes.related_themes(theme),
          upload_error: nil
        )
        |> allow_upload(:preview,
@@ -180,6 +187,34 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
 
       {:error, changeset} ->
         {:noreply, assign(socket, description_form: to_form(changeset, action: :validate))}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("edit_tags", _params, socket) do
+    {:noreply,
+     assign(socket,
+       tags_editing?: socket.assigns.editable?,
+       all_tags: Themes.list_theme_tags(),
+       picked: Enum.map(socket.assigns.theme.tags, & &1.id)
+     )}
+  end
+
+  def handle_event("cancel_tags", _params, socket) do
+    {:noreply, assign(socket, tags_editing?: false)}
+  end
+
+  def handle_event("pick_tags", %{"tag_ids" => ids}, socket) do
+    {:noreply, assign(socket, picked: tag_ids(ids))}
+  end
+
+  def handle_event("save_tags", _params, socket) do
+    case editable(socket) && Themes.set_theme_tags(socket.assigns.theme, socket.assigns.picked) do
+      {:ok, theme} ->
+        {:noreply,
+         assign(socket, theme: theme, tags_editing?: false, related: Themes.related_themes(theme))}
 
       _ ->
         {:noreply, socket}
@@ -393,6 +428,12 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
   defp stepped(%{index: index}, _key), do: index
 
   defp editable(%{assigns: %{editable?: editable?}}), do: editable?
+
+  # The hidden "" input keeps `tag_ids` in the params when every box is off.
+  defp tag_ids(ids), do: for(id <- ids, id != "", do: String.to_integer(id))
+
+  defp tag_locked?(tag, picked),
+    do: length(picked) >= Theme.max_tags() and tag.id not in picked
 
   # A published listing is public — that's the point of the marketplace. An
   # unpublished one is only its author's (or a platform admin's) to see.
@@ -731,6 +772,71 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
                 do: "No description yet — add one so people know what this theme is for.",
                 else: "This theme doesn't have a description yet."}
             </p>
+
+            <div
+              :if={not @tags_editing? and (@theme.tags != [] or @editable?)}
+              class="theme-tags"
+            >
+              <.link
+                :for={tag <- @theme.tags}
+                navigate={~p"/marketplace?#{[tag: tag.slug]}"}
+                class="chip theme-tag"
+              >
+                {tag.name}
+              </.link>
+              <button
+                :if={@editable? and @theme.tags == []}
+                type="button"
+                class="theme-tags-add"
+                phx-click="edit_tags"
+              >
+                Add tags so people can find this theme.
+              </button>
+              <button
+                :if={@editable? and @theme.tags != []}
+                type="button"
+                class="card-icon-btn"
+                phx-click="edit_tags"
+                title="Edit tags"
+                aria-label="Edit tags"
+              >
+                <.pencil_icon />
+              </button>
+            </div>
+
+            <form
+              :if={@tags_editing?}
+              id="theme-tags-form"
+              phx-change="pick_tags"
+              phx-submit="save_tags"
+              class="theme-about-form theme-tags-form"
+            >
+              <input type="hidden" name="tag_ids[]" value="" />
+              <p class="muted">Pick up to {Theme.max_tags()} — {length(@picked)} chosen.</p>
+              <div class="theme-tag-options">
+                <label
+                  :for={tag <- @all_tags}
+                  class={[
+                    "theme-tag-option",
+                    tag.id in @picked && "is-checked",
+                    tag_locked?(tag, @picked) && "is-locked"
+                  ]}
+                >
+                  <input
+                    type="checkbox"
+                    name="tag_ids[]"
+                    value={tag.id}
+                    checked={tag.id in @picked}
+                    disabled={tag_locked?(tag, @picked)}
+                  />
+                  {tag.name}
+                </label>
+              </div>
+              <div class="theme-about-actions">
+                <button type="button" class="btn btn-sm" phx-click="cancel_tags">Cancel</button>
+                <button type="submit" class="btn btn-sm btn-primary">Save tags</button>
+              </div>
+            </form>
           </section>
         </div>
 
@@ -923,6 +1029,37 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
           </section>
         </aside>
       </div>
+
+      <section :if={@related != []} class="related-themes">
+        <h2>Similar themes</h2>
+        <ul class="marketplace-grid">
+          <li :for={t <- @related} id={"related-theme-#{t.id}"}>
+            <article class="marketplace-card">
+              <div class="marketplace-thumb">
+                <.link
+                  navigate={~p"/marketplace/themes/#{t.id}"}
+                  class="marketplace-thumb-btn"
+                  aria-label={"View #{t.name}"}
+                >
+                  <img :if={first_image(t)} src={Themes.image_url(first_image(t))} alt="" />
+                  <img
+                    :if={is_nil(first_image(t))}
+                    class="marketplace-thumb-placeholder"
+                    src={placeholder_image(t)}
+                    alt=""
+                    loading="lazy"
+                  />
+                </.link>
+              </div>
+              <div class="marketplace-card-meta">
+                <div class="marketplace-card-id">
+                  <h3><.link navigate={~p"/marketplace/themes/#{t.id}"}>{t.name}</.link></h3>
+                </div>
+              </div>
+            </article>
+          </li>
+        </ul>
+      </section>
 
       <.manage_dialog :if={@managing?} theme={@theme} />
     </.marketplace_shell>
