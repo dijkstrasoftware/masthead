@@ -39,6 +39,9 @@ defmodule Masthead.Actions.Action do
     |> cast(attrs, [:key, :status, :title, :message, :priority, :path, :site_id])
     |> validate_required([:key, :status, :site_id])
     |> validate_inclusion(:status, @statuses)
+    |> validate_format(:path, ~r{\A(/|https?://)},
+      message: "must start with /, http:// or https://"
+    )
     |> assoc_constraint(:site)
     |> unique_constraint([:site_id, :key], name: :actions_site_id_key_index)
   end
