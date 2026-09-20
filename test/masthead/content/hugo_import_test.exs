@@ -2,7 +2,7 @@ defmodule Masthead.Content.HugoImportTest do
   use Masthead.DataCase, async: true
 
   alias Masthead.{Accounts, Content, Sites, Themes, Uploads}
-  alias Masthead.Content.HugoImport
+  alias Masthead.Content.SiteArchive
 
   setup do
     Themes.Seed.run()
@@ -89,7 +89,7 @@ defmodule Masthead.Content.HugoImportTest do
   end
 
   test "imports posts, pages and assets, ignoring theme and section index", %{site: site} do
-    {:ok, summary} = HugoImport.run(site, build_zip(sample_files()))
+    {:ok, summary} = SiteArchive.import(site, build_zip(sample_files()))
 
     assert length(summary.posts) == 2
     assert length(summary.pages) == 1
@@ -113,7 +113,7 @@ defmodule Masthead.Content.HugoImportTest do
   end
 
   test "rewrites asset URLs, figure shortcodes and trailing slashes", %{site: site} do
-    {:ok, _summary} = HugoImport.run(site, build_zip(sample_files()))
+    {:ok, _summary} = SiteArchive.import(site, build_zip(sample_files()))
 
     body =
       Content.list_posts(site.id) |> Enum.find(&(&1.title == "My First Post")) |> Map.get(:body)
@@ -136,7 +136,7 @@ defmodule Masthead.Content.HugoImportTest do
 
   test "errors when the archive has no content directory", %{site: site} do
     zip = build_zip(%{"static/x.png" => "bytes", "config.toml" => "x = 1"})
-    assert {:error, :no_content_dir} = HugoImport.run(site, zip)
+    assert {:error, :unrecognized_site} = SiteArchive.import(site, zip)
   end
 
   test "finds the Hugo root when nested one directory down", %{site: site} do
@@ -145,7 +145,7 @@ defmodule Masthead.Content.HugoImportTest do
       "my-site/config.toml" => "x = 1"
     }
 
-    {:ok, summary} = HugoImport.run(site, build_zip(files))
+    {:ok, summary} = SiteArchive.import(site, build_zip(files))
     assert length(summary.posts) == 1
   end
 end

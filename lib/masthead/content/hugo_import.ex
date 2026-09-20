@@ -1,6 +1,7 @@
 defmodule Masthead.Content.HugoImport do
   @moduledoc """
-  Imports a Hugo site (uploaded as a `.zip`) into a Masthead site.
+  Imports an extracted Hugo site into a Masthead site (see
+  `Masthead.Content.SiteArchive` for the upload side).
 
   Translates the Hugo source into Masthead content:
 
@@ -23,120 +24,32 @@ defmodule Masthead.Content.HugoImport do
   internal links resolve when the Hugo slug matches Masthead's slugified one.
   """
 
-  alias Masthead.{Content, Uploads}
-  alias Masthead.Content.{Frontmatter, Import}
+  alias Masthead.Content
+  alias Masthead.Content.{Frontmatter, Import, SiteArchive}
 
-  @max_files 10_000
-  @max_uncompressed_bytes 300_000_000
   @post_sections ~w(post posts blog articles article news)
   @content_exts ~w(.md .markdown .html .htm)
   @index_names ~w(index.md index.html)
   @section_index_names ~w(_index.md _index.html)
 
   @doc """
-  Import the Hugo archive at `archive_path` into `site`.
+  Import the extracted Hugo site at `root` into `site`. Called by
+  `Masthead.Content.SiteArchive`, which handles the archive and detection.
 
-  Returns `{:ok, summary}` where `summary` is a map of created `posts`/`pages`
-  records, the count of `uploads` and `skipped_assets`, and a
-  `skipped_content` list of `{relative_path, reason}` tuples. Returns
-  `{:error, reason}` if the archive can't be read.
+  Returns `{:ok, summary}` — see `SiteArchive.import/3`.
   """
-  def run(site, archive_path, author_id \\ nil) do
-    with {:ok, tmp} <- extract(archive_path),
-         {:ok, root} <- find_root(tmp) do
-      try do
-        {assets, asset_stats} = import_assets(site, root)
-        {posts, pages, skipped} = import_content(site, root, assets, author_id)
+  def run(site, root, author_id \\ nil) do
+    {assets, asset_stats} = import_assets(site, root)
+    {posts, pages, skipped} = import_content(site, root, assets, author_id)
 
-        {:ok,
-         %{
-           posts: posts,
-           pages: pages,
-           uploads: asset_stats.uploaded,
-           skipped_assets: asset_stats.skipped,
-           skipped_content: skipped
-         }}
-      after
-        File.rm_rf(tmp)
-      end
-    end
-  end
-
-  # ---- archive extraction (mirrors the safety caps in Themes.Package) ----
-
-  defp extract(archive_path) do
-    charlist = String.to_charlist(archive_path)
-
-    with {:ok, entries} <- safe_list(charlist),
-         :ok <- check_caps(entries) do
-      tmp = Path.join(System.tmp_dir!(), "masthead-hugo-" <> random_id())
-      File.mkdir_p!(tmp)
-
-      case :zip.unzip(charlist, [{:cwd, String.to_charlist(tmp)}]) do
-        {:ok, _} ->
-          {:ok, tmp}
-
-        {:error, reason} ->
-          _ = File.rm_rf(tmp)
-          {:error, {:unzip_failed, reason}}
-      end
-    end
-  end
-
-  defp safe_list(charlist) do
-    case :zip.list_dir(charlist) do
-      {:ok, [_comment | files]} -> {:ok, files}
-      {:ok, files} -> {:ok, files}
-      {:error, reason} -> {:error, {:archive_invalid, reason}}
-    end
-  rescue
-    e -> {:error, {:archive_invalid, Exception.message(e)}}
-  end
-
-  defp check_caps(entries) do
-    files = Enum.filter(entries, &match?({:zip_file, _, _, _, _, _}, &1))
-
-    total =
-      Enum.reduce(files, 0, fn {:zip_file, _, info, _, _, _}, acc -> acc + file_size(info) end)
-
-    cond do
-      length(files) > @max_files -> {:error, :too_many_files}
-      total > @max_uncompressed_bytes -> {:error, :archive_too_large}
-      true -> validate_paths(files)
-    end
-  end
-
-  defp validate_paths(files) do
-    Enum.reduce_while(files, :ok, fn {:zip_file, name, _, _, _, _}, _ ->
-      name = List.to_string(name)
-
-      cond do
-        String.starts_with?(name, "/") -> {:halt, {:error, {:absolute_path, name}}}
-        String.contains?(name, "..") -> {:halt, {:error, {:traversal, name}}}
-        String.contains?(name, "\\") -> {:halt, {:error, {:backslash, name}}}
-        true -> {:cont, :ok}
-      end
-    end)
-  end
-
-  defp file_size({:file_info, size, _, _, _, _, _, _, _, _, _, _, _, _}), do: size
-  defp file_size(_), do: 0
-
-  defp random_id, do: :crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)
-
-  # The Hugo root is wherever `content/` lives — at the archive root or one
-  # directory down (a zip of the project folder).
-  defp find_root(tmp) do
-    cond do
-      File.dir?(Path.join(tmp, "content")) ->
-        {:ok, tmp}
-
-      true ->
-        case Path.wildcard(Path.join(tmp, "*/content")) |> Enum.filter(&File.dir?/1) do
-          [content | _] -> {:ok, Path.dirname(content)}
-          [] -> {:error, :no_content_dir}
-        end
-    end
+    {:ok,
+     %{
+       posts: posts,
+       pages: pages,
+       uploads: asset_stats.uploaded,
+       skipped_assets: asset_stats.skipped,
+       skipped_content: skipped
+     }}
   end
 
   # ---- assets ----
@@ -145,32 +58,14 @@ defmodule Masthead.Content.HugoImport do
     static = Path.join(root, "static")
 
     if File.dir?(static) do
-      static
-      |> Path.join("**")
-      |> Path.wildcard()
-      |> Enum.filter(&File.regular?/1)
-      |> Enum.reduce({%{}, %{uploaded: 0, skipped: 0}}, fn abs, {map, stats} ->
-        rel = Path.relative_to(abs, static)
-
-        case Uploads.store_image(site, %{
-               filename: Path.basename(abs),
-               content_type: nil,
-               path: abs
-             }) do
-          {:ok, upload} ->
-            url = Uploads.url(upload)
-            {Map.merge(map, %{("/" <> rel) => url, rel => url}), bump(stats, :uploaded)}
-
-          {:error, _} ->
-            {map, bump(stats, :skipped)}
-        end
-      end)
+      {assets, stats} = SiteArchive.import_assets(site, static, "/")
+      {Map.merge(assets, Map.new(assets, &bare_path/1)), stats}
     else
       {%{}, %{uploaded: 0, skipped: 0}}
     end
   end
 
-  defp bump(stats, key), do: Map.update!(stats, key, &(&1 + 1))
+  defp bare_path({"/" <> rel, upload}), do: {rel, upload}
 
   # ---- content ----
 
@@ -225,7 +120,9 @@ defmodule Masthead.Content.HugoImport do
   end
 
   defp finish(kind, {:ok, record}), do: {kind, record}
-  defp finish(_kind, {:error, changeset}), do: {:skip, {:invalid, changeset_error(changeset)}}
+
+  defp finish(_kind, {:error, changeset}),
+    do: {:skip, {:invalid, SiteArchive.changeset_error(changeset)}}
 
   defp post_path?(rel) do
     case Path.split(rel) do
@@ -263,12 +160,6 @@ defmodule Masthead.Content.HugoImport do
 
   defp present(_), do: nil
 
-  defp changeset_error(changeset) do
-    changeset
-    |> Ecto.Changeset.traverse_errors(fn {msg, _opts} -> msg end)
-    |> Enum.map_join("; ", fn {field, msgs} -> "#{field} #{Enum.join(msgs, ", ")}" end)
-  end
-
   # ---- URL / shortcode rewriting ----
 
   @figure ~r/\{\{[<%]\s*figure\s+(.*?)\s*[%>]\}\}/s
@@ -277,7 +168,7 @@ defmodule Masthead.Content.HugoImport do
   defp rewrite(body, assets) do
     body
     |> rewrite_shortcodes()
-    |> rewrite_assets(assets)
+    |> SiteArchive.rewrite_assets(assets)
     |> strip_trailing_slashes()
   end
 
@@ -302,13 +193,6 @@ defmodule Masthead.Content.HugoImport do
       [_, value] -> value
       _ -> nil
     end
-  end
-
-  defp rewrite_assets(body, assets) do
-    assets
-    |> Map.keys()
-    |> Enum.sort_by(&byte_size/1, :desc)
-    |> Enum.reduce(body, fn path, acc -> String.replace(acc, path, Map.fetch!(assets, path)) end)
   end
 
   defp strip_trailing_slashes(body) do

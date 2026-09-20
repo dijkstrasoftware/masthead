@@ -4,7 +4,7 @@ defmodule MastheadWeb.AdminLive.SiteImport do
 
   import MastheadWeb.AdminLive.Components
   alias Masthead.Actions
-  alias Masthead.Content.HugoImport
+  alias Masthead.Content.SiteArchive
 
   @impl true
   def mount(_params, _session, socket) do
@@ -31,7 +31,7 @@ defmodule MastheadWeb.AdminLive.SiteImport do
 
     [result] =
       consume_uploaded_entries(socket, :site_archive, fn %{path: path}, _entry ->
-        {:ok, HugoImport.run(site, path, author_id)}
+        {:ok, SiteArchive.import(site, path, author_id)}
       end)
 
     case result do
@@ -61,8 +61,16 @@ defmodule MastheadWeb.AdminLive.SiteImport do
     end
   end
 
-  defp import_error(:no_content_dir),
-    do: "That archive doesn't look like a site we can import (no content/ folder)."
+  defp import_error(:unrecognized_site),
+    do: "That archive doesn't look like a Hugo site or a Masthead theme preview."
+
+  defp import_error({:theme_mismatch, installed, nil}),
+    do: "That preview doesn't say which theme it's for. This site runs #{installed}."
+
+  defp import_error({:theme_mismatch, installed, preview}),
+    do:
+      "That preview is built for #{preview}, but this site runs #{installed}. " <>
+        "Install that theme and version first, then import."
 
   defp import_error(:too_many_files), do: "That archive has too many files."
   defp import_error(:archive_too_large), do: "That archive is too large."
@@ -97,7 +105,9 @@ defmodule MastheadWeb.AdminLive.SiteImport do
         <h2 class="wizard-heading">Import a site</h2>
         <p class="wizard-intro muted">
           Upload a site export as a <code>.zip</code>. Posts, pages, and images
-          are imported; your theme is left untouched. Hugo sites are supported today.
+          are imported; your theme is left untouched. Hugo sites and Masthead theme
+          previews are supported — zip your theme folder to bring its preview content,
+          page settings, tokens and assets along.
         </p>
 
         <%= if @import_summary do %>

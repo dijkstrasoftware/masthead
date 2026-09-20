@@ -438,7 +438,9 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
 
             <div class="settings-fields">
               <div class="domain-summary">
-                <span class="muted">Hugo exports (.zip) are supported.</span>
+                <span class="muted">
+                  Hugo exports and Masthead theme previews (.zip) are supported.
+                </span>
                 <.link navigate={~p"/#{@site.slug}/import"} class="btn btn-primary">
                   Import a site
                 </.link>
