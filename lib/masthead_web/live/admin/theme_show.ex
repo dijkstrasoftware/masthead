@@ -49,6 +49,7 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
          tokens: manifest_tokens(theme),
          pages: theme_pages(theme),
          index: 0,
+         zoomed?: false,
          sites: sites_for(user),
          site: nil,
          installed?: false,
@@ -91,8 +92,16 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
     {:noreply, assign(socket, index: String.to_integer(index))}
   end
 
+  def handle_event("gallery_key", %{"key" => "Escape"}, socket) do
+    {:noreply, assign(socket, zoomed?: false)}
+  end
+
   def handle_event("gallery_key", %{"key" => key}, socket) do
     {:noreply, assign(socket, index: step_index(socket.assigns, key))}
+  end
+
+  def handle_event("zoom_image", %{"zoom" => zoom}, socket) do
+    {:noreply, assign(socket, zoomed?: zoom == "1" and socket.assigns.images != [])}
   end
 
   # ---- install ----
@@ -590,14 +599,87 @@ defmodule MastheadWeb.AdminLive.ThemeShow do
               </span>
             </figcaption>
             <div class={["theme-preview-stage", @images == [] && "is-empty"]}>
-              <img
+              <button
                 :if={@images != []}
-                src={Themes.image_url(Enum.at(@images, @index))}
-                alt={"#{@theme.name} preview #{@index + 1}"}
-              />
+                type="button"
+                class="theme-preview-zoom"
+                phx-click="zoom_image"
+                phx-value-zoom="1"
+                aria-label="Enlarge preview"
+              >
+                <img
+                  src={Themes.image_url(Enum.at(@images, @index))}
+                  alt={"#{@theme.name} preview #{@index + 1}"}
+                />
+              </button>
               <p :if={@images == []} class="theme-preview-empty">No preview images yet.</p>
             </div>
           </figure>
+
+          <div
+            :if={@zoomed?}
+            class="theme-lightbox"
+            role="dialog"
+            aria-modal="true"
+            aria-label={"#{@theme.name} previews"}
+          >
+            <button
+              type="button"
+              class="theme-lightbox-backdrop"
+              phx-click="zoom_image"
+              phx-value-zoom="0"
+              aria-label="Close preview"
+            >
+            </button>
+            <div class="theme-lightbox-frame">
+              <img
+                class="theme-lightbox-image"
+                src={Themes.image_url(Enum.at(@images, @index))}
+                alt={"#{@theme.name} preview #{@index + 1}"}
+              />
+              <button
+                type="button"
+                class="theme-lightbox-close"
+                phx-click="zoom_image"
+                phx-value-zoom="0"
+                aria-label="Close preview"
+              >
+                &times;
+              </button>
+              <div :if={length(@images) > 1}>
+                <button
+                  type="button"
+                  class="theme-lightbox-arrow is-prev"
+                  phx-click="gallery_key"
+                  phx-value-key="ArrowLeft"
+                  aria-label="Previous preview"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  class="theme-lightbox-arrow is-next"
+                  phx-click="gallery_key"
+                  phx-value-key="ArrowRight"
+                  aria-label="Next preview"
+                >
+                  ›
+                </button>
+                <div class="theme-lightbox-dots">
+                  <button
+                    :for={{_image, i} <- Enum.with_index(@images)}
+                    type="button"
+                    class={["theme-lightbox-dot", i == @index && "is-active"]}
+                    phx-click="show_image"
+                    phx-value-index={i}
+                    aria-label={"Show preview #{i + 1}"}
+                    aria-current={i == @index && "true"}
+                  >
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div :if={length(@images) > 1 or @editable?} class="theme-thumbs">
             <div
