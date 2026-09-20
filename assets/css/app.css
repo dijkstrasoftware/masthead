@@ -4683,6 +4683,109 @@ button.danger:hover { filter: brightness(0.92); }
   color: var(--muted);
   font-size: 0.9rem;
 }
+.theme-preview-zoom {
+  all: unset;
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: zoom-in;
+}
+
+/* Full-screen look at one preview: the backdrop is a button so a click
+   anywhere off the image closes it without swallowing the arrows' clicks. */
+.theme-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2vmin;
+  animation: dialog-fade 0.16s ease-out;
+}
+.theme-lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.82);
+  cursor: zoom-out;
+}
+/* The frame hugs the image so the controls hover over the picture itself
+   rather than floating in the backdrop. */
+.theme-lightbox-frame {
+  position: relative;
+  display: flex;
+  max-width: 100%;
+  max-height: 100%;
+  animation: dialog-pop 0.18s ease-out;
+}
+.theme-lightbox-image {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 4vmin);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+}
+.theme-lightbox-close,
+.theme-lightbox-arrow {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  cursor: pointer;
+  /* ×, ‹ and › all sit below the centre of their em box, so flex centring
+     alone leaves them low — the padding lifts the glyph back onto it. */
+  line-height: 0;
+  padding-bottom: 0.12em;
+}
+.theme-lightbox-close:hover,
+.theme-lightbox-arrow:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+.theme-lightbox-close {
+  top: 1rem;
+  right: 1rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: 1.4rem;
+}
+.theme-lightbox-arrow {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.75rem;
+  height: 2.75rem;
+  font-size: 2rem;
+}
+.theme-lightbox-arrow.is-prev { left: 1rem; }
+.theme-lightbox-arrow.is-next { right: 1rem; }
+/* A pill behind the dots: over a light screenshot the bare dots vanish. */
+.theme-lightbox-dots {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+}
+.theme-lightbox-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+}
+.theme-lightbox-dot.is-active { background: #fff; }
 
 /* `overflow-x: auto` clips the vertical axis too, so the padding has to be
    deep enough to hold a thumbnail's remove button where it overhangs the
