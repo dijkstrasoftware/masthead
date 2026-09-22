@@ -12,24 +12,24 @@ defmodule MastheadWeb.Layouts do
   embed_templates "layouts/*"
 
   @doc """
-  The Tawk.to visitor for a signed-in user, or `undefined` when signed out.
+  The Chatwoot user for a signed-in user, or `null` when signed out.
   """
-  def tawk_visitor(nil), do: "undefined"
+  def chatwoot_user(nil), do: "null"
 
-  def tawk_visitor(user) do
+  def chatwoot_user(user) do
     %{name: user.display_name || user.email, email: user.email}
-    |> put_tawk_hash(System.get_env("TAWK_API_KEY"))
+    |> put_chatwoot_hash(System.get_env("CHATWOOT_HMAC_TOKEN"))
     |> Jason.encode!(escape: :html_safe)
   end
 
-  # Tawk's secure mode only trusts a visitor whose email is HMAC-signed with the property API key.
-  defp put_tawk_hash(visitor, nil), do: visitor
+  # Chatwoot's identity validation only trusts a user whose identifier is HMAC-signed with the inbox token.
+  defp put_chatwoot_hash(user, nil), do: user
 
-  defp put_tawk_hash(visitor, key) do
+  defp put_chatwoot_hash(user, token) do
     Map.put(
-      visitor,
-      :hash,
-      Base.encode16(:crypto.mac(:hmac, :sha256, key, visitor.email), case: :lower)
+      user,
+      :identifier_hash,
+      Base.encode16(:crypto.mac(:hmac, :sha256, token, user.email), case: :lower)
     )
   end
 
