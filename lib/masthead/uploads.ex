@@ -44,9 +44,9 @@ defmodule Masthead.Uploads do
   def image?(_), do: false
 
   @doc """
-  URL of something we can show in an `<img>` for this upload: the file itself
-  when it's an image, its generated thumbnail when it has one, otherwise
-  `nil` — callers fall back to the filename/extension badge.
+  URL of something small we can show in an `<img>` for this upload: its
+  generated thumbnail when it has one, else the file itself when it's an
+  image, otherwise `nil` — callers fall back to the filename/extension badge.
 
   This is the single question the grid, the picker and the detail page ask.
   Note it is deliberately *not* the same question as `image?/1`, which asks
@@ -55,8 +55,8 @@ defmodule Masthead.Uploads do
   """
   def preview_url(%Upload{} = upload) do
     cond do
-      image?(upload) -> url(upload)
       is_binary(upload.thumbnail_path) -> Storage.url(upload.thumbnail_path)
+      image?(upload) -> url(upload)
       true -> nil
     end
   end
@@ -67,8 +67,9 @@ defmodule Masthead.Uploads do
   Options:
 
     * `:search` — case-insensitive match on the filename
-    * `:filter` — `:all` (default), `:images` (renders in an `<img>`) or
-      `:documents` (everything else — today that means PDFs)
+    * `:filter` — `:all` (default), `:images` (renders in an `<img>`),
+      `:documents` (everything else — today that means PDFs) or `:heavy`
+      (images large enough to earn the "Heavy" warning, see `too_large?/1`)
     * `:limit` — cap the number of rows returned
 
   Uploads are mostly images, and a grid of them is expensive to load, so
@@ -111,10 +112,16 @@ defmodule Masthead.Uploads do
   defp filter_type(query, :documents),
     do: from(u in query, where: u.content_type not in @image_content_types)
 
+  defp filter_type(query, :heavy) do
+    from u in query,
+      where: u.content_type in @compressible_types and u.byte_size > @large_image_bytes
+  end
+
   defp filter_type(query, _all), do: query
 
   @doc "The filter values `list_uploads/2` accepts, as `{value, label}` pairs."
-  def filter_options, do: [{:all, "All"}, {:images, "Images"}, {:documents, "Documents"}]
+  def filter_options,
+    do: [{:all, "All"}, {:images, "Images"}, {:documents, "Documents"}, {:heavy, "Heavy"}]
 
   defp cap(query, limit) when is_integer(limit), do: limit(query, ^limit)
   defp cap(query, _limit), do: query
@@ -257,7 +264,7 @@ defmodule Masthead.Uploads do
   def enqueue_missing_thumbnails do
     Repo.all(
       from u in Upload,
-        where: u.content_type == "application/pdf" and is_nil(u.thumbnail_path),
+        where: u.content_type in ^Thumbnail.types() and is_nil(u.thumbnail_path),
         select: u.id
     )
     |> Enum.map(&%{upload_id: &1})

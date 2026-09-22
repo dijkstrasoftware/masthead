@@ -327,9 +327,9 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
 
     assert render(lv) =~ "0 B of 1.0 GB used"
 
-    html = lv |> form(~s(form[phx-submit="set_storage_limit"]), %{gb: "2.5"}) |> render_submit()
+    html = lv |> form(~s(form[phx-submit="set_storage_limit"]), %{mb: "2560"}) |> render_submit()
     assert html =~ "can now store 2.5 GB"
-    assert Sites.get_site!(site.id).storage_limit_bytes == round(2.5 * 1024 * 1024 * 1024)
+    assert Sites.get_site!(site.id).storage_limit_bytes == 2560 * 1024 * 1024
 
     open_row_menu(lv, site)
 
@@ -337,7 +337,7 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     |> element(~s(button[phx-click="open_storage_modal"][phx-value-site_id="#{site.id}"]))
     |> render_click()
 
-    lv |> form(~s(form[phx-submit="set_storage_limit"]), %{gb: ""}) |> render_submit()
+    lv |> form(~s(form[phx-submit="set_storage_limit"]), %{mb: ""}) |> render_submit()
     assert Sites.get_site!(site.id).storage_limit_bytes == nil
   end
 
@@ -350,7 +350,7 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     |> element(~s(button[phx-click="open_storage_modal"][phx-value-site_id="#{site.id}"]))
     |> render_click()
 
-    html = lv |> form(~s(form[phx-submit="set_storage_limit"]), %{gb: "0"}) |> render_submit()
+    html = lv |> form(~s(form[phx-submit="set_storage_limit"]), %{mb: "0"}) |> render_submit()
     assert html =~ "above 0"
     assert Sites.get_site!(site.id).storage_limit_bytes == nil
   end

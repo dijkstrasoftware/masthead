@@ -1,7 +1,9 @@
 defmodule Masthead.Uploads.Thumbnail do
   @moduledoc """
-  Rasterizes page 1 of a PDF upload into a PNG preview, so the uploads grid
-  and the picker can show the document instead of a bare file badge.
+  Renders a small preview of an upload, so the uploads grid and the picker
+  never load the full file: page 1 of a PDF as a PNG (instead of a bare file
+  badge), or a photo downscaled to a WebP (instead of the multi-megabyte
+  original). Photos are resized with libvips (`Vix`), in-process.
 
   Rendering happens out of band (`Masthead.Workers.PdfThumbnail`), never in
   the upload request: `pdftoppm` is a subprocess on user-supplied bytes and
@@ -24,14 +26,19 @@ defmodule Masthead.Uploads.Thumbnail do
 
   alias Masthead.Storage
   alias Masthead.Uploads.Upload
+  alias Vix.Vips.Operation
 
   # Wide enough for the 220px grid card on a 2x display, small enough that a
   # page of dense text stays a cheap thumbnail.
   @width 600
 
-  @doc "True when this upload is a type we know how to rasterize."
-  def thumbnailable?(%Upload{content_type: "application/pdf"}), do: true
-  def thumbnailable?(_upload), do: false
+  @image_types ~w(image/jpeg image/png image/webp image/gif)
+
+  @doc "Content types `generate/2` can preview."
+  def types, do: ["application/pdf" | @image_types]
+
+  @doc "True when this upload is a type we know how to preview."
+  def thumbnailable?(%Upload{content_type: type}), do: type in types()
 
   @doc "True when `pdftoppm` is installed. False in dev boxes without poppler."
   def available?, do: System.find_executable("pdftoppm") != nil
@@ -47,8 +54,17 @@ defmodule Masthead.Uploads.Thumbnail do
   def generate(%Upload{} = upload, site_slug) do
     cond do
       not thumbnailable?(upload) -> {:error, :unsupported_type}
+      upload.content_type in @image_types -> render_image(upload, site_slug)
       not available?() -> {:error, :pdftoppm_missing}
       true -> render(upload, site_slug)
+    end
+  end
+
+  defp render_image(upload, site_slug) do
+    with {:ok, bytes} <- Storage.read(upload.path),
+         {:ok, image} <- Operation.thumbnail_buffer(bytes, @width, size: :VIPS_SIZE_DOWN),
+         {:ok, webp} <- Vix.Vips.Image.write_to_buffer(image, ".webp[Q=80]") do
+      Storage.put(site_slug, thumbnail_key(upload), webp)
     end
   end
 
@@ -98,7 +114,8 @@ defmodule Masthead.Uploads.Thumbnail do
   end
 
   @doc "Storage key for an upload's thumbnail, stable across renames."
-  def thumbnail_key(%Upload{id: id}), do: "thumbs/#{id}.png"
+  def thumbnail_key(%Upload{id: id, content_type: "application/pdf"}), do: "thumbs/#{id}.png"
+  def thumbnail_key(%Upload{id: id}), do: "thumbs/#{id}.webp"
 
   defp in_tmp_dir(fun) do
     dir =

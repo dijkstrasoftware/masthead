@@ -6,7 +6,7 @@ defmodule MastheadWeb.AdminLive.Console do
 
   alias Masthead.{Accounts, Actions, Licenses, Sites, Themes, Uploads}
 
-  @gigabyte 1024 * 1024 * 1024
+  @megabyte 1024 * 1024
 
   @default_filters %{users: :all, sites: :enabled, themes: :public}
 
@@ -256,13 +256,14 @@ defmodule MastheadWeb.AdminLive.Console do
     {:noreply, assign(socket, storage_site: nil)}
   end
 
-  def handle_event("set_storage_limit", %{"gb" => gb}, socket) do
-    case parse_gigabytes(gb) do
+  def handle_event("set_storage_limit", %{"mb" => mb}, socket) do
+    case parse_megabytes(mb) do
       {:ok, bytes} ->
         {:noreply, save_storage_limit(socket, bytes)}
 
       :error ->
-        {:noreply, put_flash(socket, :error, "Enter a size in GB above 0, or leave it empty.")}
+        {:noreply,
+         put_flash(socket, :error, "Enter a whole number of MB above 0, or leave it empty.")}
     end
   end
 
@@ -829,17 +830,19 @@ defmodule MastheadWeb.AdminLive.Console do
               limit={Uploads.storage_limit(@storage_site)}
             />
             <label>
-              Limit in GB
+              Limit in MB
               <input
                 type="number"
-                name="gb"
-                value={limit_gigabytes(@storage_site)}
-                placeholder="1"
-                min="0.1"
-                step="0.1"
+                name="mb"
+                value={limit_megabytes(@storage_site)}
+                placeholder="1024"
+                min="1"
+                step="1"
                 autocomplete="off"
               />
-              <small>Leave empty for the default of 1 GB. Uploads past the limit are refused.</small>
+              <small>
+                Leave empty for the default of 1024 MB (1 GB). Uploads past the limit are refused.
+              </small>
             </label>
             <div class="dialog-footer">
               <button type="button" phx-click="close_storage_modal" class="btn">Cancel</button>
@@ -858,11 +861,11 @@ defmodule MastheadWeb.AdminLive.Console do
   defp themes_word(1), do: "1 theme"
   defp themes_word(count), do: "#{count} themes"
 
-  defp parse_gigabytes(""), do: {:ok, nil}
+  defp parse_megabytes(""), do: {:ok, nil}
 
-  defp parse_gigabytes(gb) do
-    case Float.parse(gb) do
-      {value, ""} when value > 0 -> {:ok, round(value * @gigabyte)}
+  defp parse_megabytes(mb) do
+    case Integer.parse(mb) do
+      {value, ""} when value > 0 -> {:ok, value * @megabyte}
       _ -> :error
     end
   end
@@ -879,7 +882,8 @@ defmodule MastheadWeb.AdminLive.Console do
     |> load_data()
   end
 
-  defp limit_gigabytes(site), do: site.storage_limit_bytes && site.storage_limit_bytes / @gigabyte
+  defp limit_megabytes(site),
+    do: site.storage_limit_bytes && div(site.storage_limit_bytes, @megabyte)
 
   defp gift_hint(nil), do: ""
 

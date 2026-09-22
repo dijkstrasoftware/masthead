@@ -142,6 +142,7 @@ defmodule MastheadWeb.AdminLive.UploadIndex do
 
   defp parse_filter(%{"type" => "images"}), do: :images
   defp parse_filter(%{"type" => "documents"}), do: :documents
+  defp parse_filter(%{"type" => "heavy"}), do: :heavy
   defp parse_filter(_params), do: :all
 
   defp filtering?(filter, search), do: filter != :all or search != ""

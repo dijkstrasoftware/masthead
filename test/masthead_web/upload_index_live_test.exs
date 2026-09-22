@@ -274,6 +274,20 @@ defmodule MastheadWeb.UploadIndexLiveTest do
       assert Uploads.storage_used(site.id) == 0
     end
 
+    test "the Heavy filter shows only images worth compressing", %{conn: conn, site: site} do
+      site |> create_upload("big.jpg", "image/jpeg") |> make_large()
+      create_upload(site, "small.png")
+      site |> create_upload("big.pdf", "application/pdf") |> make_large()
+
+      {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/uploads")
+      switch_filter(lv, "heavy")
+      assert_patch(lv, ~p"/#{site.slug}/uploads?type=heavy")
+
+      assert has_element?(lv, ".upload-card", "big.jpg")
+      refute has_element?(lv, ".upload-card", "small.png")
+      refute has_element?(lv, ".upload-card", "big.pdf")
+    end
+
     test "a large image gets a warning that compresses it in place", %{conn: conn, site: site} do
       upload = site |> create_upload("photo.jpg", "image/jpeg") |> make_large()
       small = create_upload(site, "small.png")

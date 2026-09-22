@@ -51,12 +51,35 @@ defmodule Masthead.Uploads.ThumbnailTest do
     upload
   end
 
+  defp store_svg(site) do
+    tmp = Path.join(System.tmp_dir!(), "th-#{System.unique_integer([:positive])}.svg")
+    File.write!(tmp, "<svg xmlns=\"http://www.w3.org/2000/svg\"/>")
+
+    {:ok, upload} =
+      Uploads.store_image(site, %{filename: "logo.svg", content_type: "image/svg+xml", path: tmp})
+
+    File.rm(tmp)
+    upload
+  end
+
+  defp store_photo(site) do
+    tmp = Path.join(System.tmp_dir!(), "th-#{System.unique_integer([:positive])}.png")
+    :ok = Vix.Vips.Operation.black!(1600, 1200) |> Vix.Vips.Image.write_to_file(tmp)
+
+    {:ok, upload} =
+      Uploads.store_image(site, %{filename: "photo.png", content_type: "image/png", path: tmp})
+
+    File.rm(tmp)
+    upload
+  end
+
   defp absolute(rel), do: Path.join(Storage.root_path(), rel)
 
   describe "thumbnailable?/1" do
-    test "only PDFs are", %{site: site} do
+    test "PDFs and photos are, SVGs are not", %{site: site} do
       assert Thumbnail.thumbnailable?(store_pdf(site))
-      refute Thumbnail.thumbnailable?(store_png(site))
+      assert Thumbnail.thumbnailable?(store_png(site))
+      refute Thumbnail.thumbnailable?(store_svg(site))
     end
   end
 
@@ -77,7 +100,22 @@ defmodule Masthead.Uploads.ThumbnailTest do
     end
 
     test "refuses a type it cannot rasterize", %{site: site} do
-      assert {:error, :unsupported_type} = Thumbnail.generate(store_png(site), site.slug)
+      assert {:error, :unsupported_type} = Thumbnail.generate(store_svg(site), site.slug)
+    end
+
+    test "downscales a photo into a small WebP", %{site: site} do
+      upload = store_photo(site)
+
+      assert {:ok, thumb_path} = Thumbnail.generate(upload, site.slug)
+      assert thumb_path == Path.join(site.slug, "thumbs/#{upload.id}.webp")
+
+      {:ok, thumb} = Vix.Vips.Image.new_from_file(absolute(thumb_path))
+      assert Vix.Vips.Image.width(thumb) == 600
+      assert Vix.Vips.Image.height(thumb) == 450
+    end
+
+    test "reports a failure instead of raising on bytes that are not an image", %{site: site} do
+      assert {:error, _reason} = Thumbnail.generate(store_png(site), site.slug)
     end
 
     @tag :requires_poppler
@@ -105,8 +143,14 @@ defmodule Masthead.Uploads.ThumbnailTest do
       assert_enqueued(worker: PdfThumbnail, args: %{upload_id: upload.id})
     end
 
-    test "an image upload queues nothing", %{site: site} do
-      store_png(site)
+    test "a photo upload queues a thumbnail job", %{site: site} do
+      upload = store_png(site)
+
+      assert_enqueued(worker: PdfThumbnail, args: %{upload_id: upload.id})
+    end
+
+    test "an SVG upload queues nothing", %{site: site} do
+      store_svg(site)
 
       refute_enqueued(worker: PdfThumbnail)
     end
@@ -122,9 +166,17 @@ defmodule Masthead.Uploads.ThumbnailTest do
   end
 
   describe "preview_url/1" do
-    test "an image previews as itself", %{site: site} do
+    test "an image previews as itself until its thumbnail exists", %{site: site} do
       upload = store_png(site)
       assert Uploads.preview_url(upload) == Uploads.url(upload)
+    end
+
+    test "a photo previews as its thumbnail once generated", %{site: site} do
+      upload = store_photo(site)
+      {:ok, upload} = Uploads.generate_thumbnail(Uploads.get_upload(upload.id))
+
+      assert Uploads.preview_url(upload) == Storage.url(upload.thumbnail_path)
+      refute Uploads.preview_url(upload) == Uploads.url(upload)
     end
 
     test "a PDF has no preview until one is generated", %{site: site} do
@@ -193,16 +245,18 @@ defmodule Masthead.Uploads.ThumbnailTest do
   end
 
   describe "enqueue_missing_thumbnails/0" do
-    test "queues PDFs without a thumbnail and skips the rest", %{site: site} do
+    test "queues PDFs and photos without a thumbnail and skips the rest", %{site: site} do
       pdf = store_pdf(site, "one.pdf")
-      store_png(site)
+      png = store_png(site)
+      store_svg(site)
 
       # Oban.Testing leaves the store_image jobs in the table; count only the
       # ones this call adds by draining the table first.
       Masthead.Repo.delete_all(Oban.Job)
 
-      assert Uploads.enqueue_missing_thumbnails() == 1
+      assert Uploads.enqueue_missing_thumbnails() == 2
       assert_enqueued(worker: PdfThumbnail, args: %{upload_id: pdf.id})
+      assert_enqueued(worker: PdfThumbnail, args: %{upload_id: png.id})
     end
 
     @tag :requires_poppler
