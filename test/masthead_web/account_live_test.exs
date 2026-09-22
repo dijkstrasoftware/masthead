@@ -32,6 +32,15 @@ defmodule MastheadWeb.AccountLiveTest do
     %{conn: log_in(user), user: user}
   end
 
+  test "a signed-in dead render carries the Google Analytics snippet", %{conn: conn} do
+    System.put_env("GOOGLE_ANALYTICS_ID", "G-TEST123")
+    on_exit(fn -> System.delete_env("GOOGLE_ANALYTICS_ID") end)
+
+    {:ok, _lv, html} = live(conn, ~p"/account")
+
+    assert html =~ "gtag/js?id=G-TEST123"
+  end
+
   test "shows the profile and hides the password dialog until asked", %{conn: conn, user: user} do
     {:ok, lv, html} = live(conn, ~p"/account")
 
