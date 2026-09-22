@@ -23,6 +23,7 @@ defmodule MastheadWeb.PublicRouter do
 
     get "/", PublicController, :index
     get "/search", PublicController, :search
+    get "/_masthead/no-track", PublicController, :no_track
     get "/posts/:slug", PublicController, :show_post
     get "/:slug", PublicController, :show_page
   end

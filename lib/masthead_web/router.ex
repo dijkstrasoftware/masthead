@@ -132,6 +132,7 @@ defmodule MastheadWeb.Router do
       live "/account", AdminLive.Account, :show
 
       live "/:site_slug", AdminLive.SiteDashboard, :show
+      live "/:site_slug/stats", AdminLive.SiteStats, :index
       live "/:site_slug/settings", AdminLive.SiteSettings, :edit
       live "/:site_slug/import", AdminLive.SiteImport, :index
       live "/:site_slug/theme", AdminLive.SiteTheme, :edit

@@ -7,6 +7,7 @@ defmodule MastheadWeb.PublicController do
   alias Masthead.Themes.Renderer
 
   plug :require_site
+  plug MastheadWeb.ViewTracker when action in [:index, :show_post, :show_page]
 
   def index(conn, _params) do
     site = conn.assigns.current_site
@@ -74,6 +75,13 @@ defmodule MastheadWeb.PublicController do
     pages = nav_pages(site, Content.list_published_pages(site.id))
     page = Content.get_published_page_by_slug(site.id, slug)
     render_page_or_404(conn, page, pages, page_structured_data(conn, page))
+  end
+
+  @doc "Sets the member opt-out cookie for a valid `t` token, then shows the site."
+  def no_track(conn, params) do
+    conn
+    |> MastheadWeb.ViewTracker.opt_out(conn.assigns.current_site, params["t"] || "")
+    |> redirect(to: "/")
   end
 
   @doc "Public post search: `/search?q=...`."

@@ -18,7 +18,7 @@ defmodule MastheadWeb.AdminLive.Components do
   attr :active, :atom,
     default: nil,
     doc:
-      ":overview | :posts | :pages | :uploads | :theme | :users | :settings | :checklist | :sites | :marketplace | :themes"
+      ":overview | :stats | :posts| :posts | :pages | :uploads | :theme | :users | :settings | :checklist | :sites | :marketplace | :themes"
 
   attr :action_count, :integer,
     default: nil,
@@ -90,6 +90,14 @@ defmodule MastheadWeb.AdminLive.Components do
               <.icon_home />
             </.nav_link>
             <.nav_link
+              href={~p"/#{@site.slug}/stats"}
+              label="Statistics"
+              active={@active == :stats}
+              data-feature="stats"
+            >
+              <.icon_chart />
+            </.nav_link>
+            <.nav_link
               href={~p"/#{@site.slug}/checklist"}
               label="Checklist"
               active={@active == :checklist}
@@ -124,7 +132,7 @@ defmodule MastheadWeb.AdminLive.Components do
 
             <a
               class="nav-item nav-external"
-              href={Masthead.Sites.public_url(@site)}
+              href={MastheadWeb.ViewTracker.opt_out_url(@site)}
               target="_blank"
               rel="noopener"
               phx-click={close_nav()}
@@ -355,6 +363,7 @@ defmodule MastheadWeb.AdminLive.Components do
   attr :label, :string, required: true
   attr :active, :boolean, default: false
   attr :badge, :integer, default: nil
+  attr :rest, :global
   slot :inner_block, required: true
 
   defp nav_link(assigns) do
@@ -363,6 +372,7 @@ defmodule MastheadWeb.AdminLive.Components do
       navigate={@href}
       class={"nav-item" <> if(@active, do: " active", else: "")}
       phx-click={close_nav()}
+      {@rest}
     >
       {render_slot(@inner_block)}
       <span>{@label}</span>
@@ -929,6 +939,25 @@ defmodule MastheadWeb.AdminLive.Components do
   defp sidebar_pill_class(_site), do: "sidebar-pill-offline"
 
   # ---- Icons (heroicons outline, inlined) ----
+
+  defp icon_chart(assigns) do
+    ~H"""
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke-width="1.5"
+      stroke="currentColor"
+      class="icon"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"
+      />
+    </svg>
+    """
+  end
 
   defp icon_home(assigns) do
     ~H"""

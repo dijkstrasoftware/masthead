@@ -32,6 +32,10 @@ import {SortableList} from "./hooks/sortable_list"
 import {ImageCompress} from "./hooks/image_compress"
 import {CommandPalette} from "./hooks/command_palette"
 
+try {
+  if (localStorage.getItem("masthead:feature:stats") === "1") document.documentElement.classList.add("feature-stats")
+} catch (_error) {}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,

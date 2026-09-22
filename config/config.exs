@@ -114,6 +114,7 @@ config :masthead, Oban,
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
     {Oban.Plugins.Cron,
      crontab: [
+       {"30 2 * * *", Masthead.Workers.PruneStats},
        # Daily 03:00 UTC: suspend accounts unconfirmed for 30+ days.
        {"0 3 * * *", Masthead.Workers.SuspendUnconfirmed},
        # Daily 03:30 UTC: staged lifecycle emails (day 14 nudge, day 16/23 warnings).
