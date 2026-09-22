@@ -12,6 +12,28 @@ defmodule MastheadWeb.Layouts do
   embed_templates "layouts/*"
 
   @doc """
+  The Tawk.to visitor for a signed-in user, or `undefined` when signed out.
+  """
+  def tawk_visitor(nil), do: "undefined"
+
+  def tawk_visitor(user) do
+    %{name: user.display_name || user.email, email: user.email}
+    |> put_tawk_hash(System.get_env("TAWK_API_KEY"))
+    |> Jason.encode!(escape: :html_safe)
+  end
+
+  # Tawk's secure mode only trusts a visitor whose email is HMAC-signed with the property API key.
+  defp put_tawk_hash(visitor, nil), do: visitor
+
+  defp put_tawk_hash(visitor, key) do
+    Map.put(
+      visitor,
+      :hash,
+      Base.encode16(:crypto.mac(:hmac, :sha256, key, visitor.email), case: :lower)
+    )
+  end
+
+  @doc """
   Renders your app layout.
 
   This function is typically invoked from every template,
