@@ -47,9 +47,9 @@
     >
     </script>
     <script :if={assigns[:analytics_id]} phx-no-format>window.dataLayer = window.dataLayer || [];
-            window.gtag = function(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', <%= raw(Jason.encode!(@analytics_id)) %>);</script>
+                window.gtag = function(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', <%= raw(Jason.encode!(@analytics_id)) %>);</script>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
@@ -76,14 +76,20 @@
   <body>
     {@inner_content}
     <script>
-      var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
-      Tawk_API.visitor = <%= raw(tawk_visitor(assigns[:current_user])) %>;
+      window.chatwootSettings = { position: "right", type: "standard", launcherTitle: "" };
+      window.addEventListener("chatwoot:ready", () => {
+        const user = <%= raw(chatwoot_user(assigns[:current_user])) %>;
+        if (user) window.$chatwoot.setUser(user.email, user);
+      });
       (() => {
         const s = document.createElement("script");
         s.async = true;
-        s.src = "https://embed.tawk.to/6ab26bf48e0d11344de4f969/1k34fbcj9";
-        s.charset = "UTF-8";
-        s.setAttribute("crossorigin", "*");
+        s.src = "https://app.chatwoot.com/packs/js/sdk.js";
+        s.onload = () =>
+          window.chatwootSDK.run({
+            websiteToken: "tpHGEvTBiRiSH3pLyGFdWnCk",
+            baseUrl: "https://app.chatwoot.com",
+          });
         document.body.appendChild(s);
       })();
     </script>
