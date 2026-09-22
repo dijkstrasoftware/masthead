@@ -102,7 +102,7 @@ defmodule MastheadWeb.Router do
   end
 
   scope "/", MastheadWeb do
-    pipe_through [:browser, :require_authenticated_user, :require_verified_user]
+    pipe_through [:browser, :analytics, :require_authenticated_user, :require_verified_user]
 
     # The forced-verify screen for suspended accounts. Must sit inside the
     # verified-user pipeline (it exempts "/verify") so it's the one authenticated
