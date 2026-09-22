@@ -30,6 +30,7 @@ import {BadgePulse} from "./hooks/badge_pulse"
 import {SaveShortcut} from "./hooks/save_shortcut"
 import {SortableList} from "./hooks/sortable_list"
 import {ImageCompress} from "./hooks/image_compress"
+import {CompressUpload} from "./hooks/compress_upload"
 import {CommandPalette} from "./hooks/command_palette"
 
 try {
@@ -48,6 +49,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
     SaveShortcut,
     SortableList,
     ImageCompress,
+    CompressUpload,
     CommandPalette,
   },
 })

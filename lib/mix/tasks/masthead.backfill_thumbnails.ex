@@ -1,9 +1,9 @@
 defmodule Mix.Tasks.Masthead.BackfillThumbnails do
-  @shortdoc "Queues preview generation for PDFs uploaded before thumbnails existed"
+  @shortdoc "Queues preview generation for uploads that have no thumbnail yet"
 
   @moduledoc """
-  Queues a `Masthead.Workers.PdfThumbnail` job for every PDF upload that has
-  no thumbnail yet, and reports how many were queued.
+  Queues a `Masthead.Workers.PdfThumbnail` job for every PDF or photo upload
+  that has no thumbnail yet, and reports how many were queued.
 
       mix masthead.backfill_thumbnails
 

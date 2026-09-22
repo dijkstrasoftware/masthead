@@ -94,6 +94,9 @@ defmodule MastheadWeb.AdminLive.UploadShow do
   end
 
   @impl true
+  def handle_info({:upload_replaced, upload}, socket),
+    do: {:noreply, assign(socket, upload: upload)}
+
   def handle_info(_message, socket), do: {:noreply, socket}
 
   @impl true
@@ -114,7 +117,10 @@ defmodule MastheadWeb.AdminLive.UploadShow do
 
       <div class="upload-show">
         <div class="upload-preview">
-          <img :if={Uploads.image?(@upload)} src={@url} alt={@upload.filename} />
+          <span :if={Uploads.image?(@upload)} class="upload-preview-image">
+            <img src={@url} alt={@upload.filename} />
+            <.size_warning upload={@upload} dialog="compress-dialog" />
+          </span>
           <%!-- <object>, not <iframe>: browsers without a built-in PDF viewer
                (notably iOS Safari, which renders only page 1 in a frame) fall
                back to the child content instead of showing a blank box. --%>
@@ -249,13 +255,15 @@ defmodule MastheadWeb.AdminLive.UploadShow do
           </form>
         </div>
       </div>
+      <.live_component
+        module={MastheadWeb.AdminLive.CompressDialog}
+        id="compress-dialog"
+        site={@site}
+        notify
+      />
     </.shell>
     """
   end
-
-  defp format_bytes(b) when b < 1024, do: "#{b} B"
-  defp format_bytes(b) when b < 1024 * 1024, do: "#{Float.round(b / 1024, 1)} KB"
-  defp format_bytes(b), do: "#{Float.round(b / 1024 / 1024, 1)} MB"
 
   defp pdf?(%{content_type: "application/pdf"}), do: true
   defp pdf?(_upload), do: false

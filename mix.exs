@@ -4,7 +4,7 @@ defmodule Masthead.MixProject do
   def project do
     [
       app: :masthead,
-      version: "2.28.0",
+      version: "2.29.0",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -76,6 +76,7 @@ defmodule Masthead.MixProject do
       {:solid, "~> 1.3"},
       {:swoosh, "~> 1.16"},
       {:oban, "~> 2.18"},
+      {:vix, "~> 0.41.0"},
       {:ueberauth, "~> 0.10"},
       {:ueberauth_google, "~> 0.12"},
       {:ueberauth_github, "~> 0.8"}

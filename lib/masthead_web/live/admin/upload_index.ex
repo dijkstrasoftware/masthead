@@ -75,6 +75,7 @@ defmodule MastheadWeb.AdminLive.UploadIndex do
 
         case Uploads.store_image(socket.assigns.site, attrs) do
           {:ok, _upload} -> {:ok, :stored}
+          {:error, :storage_full} -> {:ok, :storage_full}
           {:error, reason} -> {:postpone, reason}
         end
       end)
@@ -92,12 +93,18 @@ defmodule MastheadWeb.AdminLive.UploadIndex do
      |> put_flash(:info, flash_msg)
      |> assign(modal_open?: stored > 0, renamed_names: %{})
      |> reload_uploads()
-     |> maybe_close_modal(stored)}
+     |> maybe_close_modal(stored)
+     |> flash_storage_full(:storage_full in results)}
   end
 
   def handle_event("cancel", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :image, ref)}
   end
+
+  defp flash_storage_full(socket, false), do: socket
+
+  defp flash_storage_full(socket, true),
+    do: put_flash(socket, :error, storage_full_message(socket.assigns.site))
 
   defp reload_uploads(socket) do
     uploads =
@@ -108,6 +115,7 @@ defmodule MastheadWeb.AdminLive.UploadIndex do
       )
 
     assign(socket,
+      storage_used: Uploads.storage_used(socket.assigns.site.id),
       uploads_list: uploads,
       uploads_total:
         Uploads.count_uploads(socket.assigns.site.id,
@@ -134,6 +142,7 @@ defmodule MastheadWeb.AdminLive.UploadIndex do
 
   defp parse_filter(%{"type" => "images"}), do: :images
   defp parse_filter(%{"type" => "documents"}), do: :documents
+  defp parse_filter(%{"type" => "heavy"}), do: :heavy
   defp parse_filter(_params), do: :all
 
   defp filtering?(filter, search), do: filter != :all or search != ""
@@ -153,6 +162,7 @@ defmodule MastheadWeb.AdminLive.UploadIndex do
   end
 
   @impl true
+  def handle_info({:upload_replaced, _upload}, socket), do: {:noreply, reload_uploads(socket)}
   def handle_info(_message, socket), do: {:noreply, socket}
 
   @impl true
@@ -189,7 +199,11 @@ defmodule MastheadWeb.AdminLive.UploadIndex do
         limit={list_limit()}
         truncated?={length(@uploads_list) == list_limit()}
         total={@uploads_total}
-      />
+      >
+        <:controls>
+          <.storage_meter used={@storage_used} limit={Uploads.storage_limit(@site)} compact />
+        </:controls>
+      </.list_toolbar>
 
       <div
         :if={@uploads_list == [] and not filtering?(@type_filter, @search)}
@@ -212,7 +226,8 @@ defmodule MastheadWeb.AdminLive.UploadIndex do
       </div>
 
       <ul :if={@uploads_list != []} class="upload-grid">
-        <li :for={u <- @uploads_list}>
+        <li :for={u <- @uploads_list} class="upload-grid-item">
+          <.size_warning upload={u} dialog="compress-dialog" />
           <.link navigate={~p"/#{@site.slug}/uploads/#{u.id}"} class="upload-card">
             <div class="upload-thumb">
               <img :if={Uploads.preview_url(u)} src={Uploads.preview_url(u)} alt={u.filename} />
@@ -227,6 +242,13 @@ defmodule MastheadWeb.AdminLive.UploadIndex do
           </.link>
         </li>
       </ul>
+
+      <.live_component
+        module={MastheadWeb.AdminLive.CompressDialog}
+        id="compress-dialog"
+        site={@site}
+        notify
+      />
 
       <div
         :if={@modal_open?}
@@ -311,10 +333,6 @@ defmodule MastheadWeb.AdminLive.UploadIndex do
   defp error_to_string(:too_many_files), do: "Too many files"
   defp error_to_string(:not_accepted), do: "Unsupported file type"
   defp error_to_string(other), do: inspect(other)
-
-  defp format_bytes(b) when b < 1024, do: "#{b} B"
-  defp format_bytes(b) when b < 1024 * 1024, do: "#{Float.round(b / 1024, 1)} KB"
-  defp format_bytes(b), do: "#{Float.round(b / 1024 / 1024, 1)} MB"
 
   defp file_ext(filename) do
     filename |> Path.extname() |> String.trim_leading(".") |> String.upcase()

@@ -24,12 +24,7 @@ defmodule MastheadWeb.AdminLive.Hooks do
   def on_mount(:load_site, %{"site_slug" => slug}, _session, socket) do
     user = socket.assigns.current_user
 
-    # Admins can enter any site; everyone else is scoped to sites they're a
-    # member of.
-    site =
-      if user.admin,
-        do: Sites.get_site_for_admin_by_slug!(slug),
-        else: Sites.get_user_site_by_slug!(user.id, slug)
+    site = Sites.get_site_for_user_by_slug!(user, slug)
 
     if LiveView.connected?(socket) do
       Realtime.subscribe(Realtime.actions_topic(site.id))

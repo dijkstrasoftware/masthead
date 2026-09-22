@@ -4,7 +4,9 @@ defmodule MastheadWeb.AdminLive.Console do
 
   import MastheadWeb.AdminLive.Components
 
-  alias Masthead.{Accounts, Actions, Licenses, Sites, Themes}
+  alias Masthead.{Accounts, Actions, Licenses, Sites, Themes, Uploads}
+
+  @megabyte 1024 * 1024
 
   @default_filters %{users: :all, sites: :enabled, themes: :public}
 
@@ -19,6 +21,7 @@ defmodule MastheadWeb.AdminLive.Console do
        action_site: nil,
        gift_modal?: false,
        gift_site: nil,
+       storage_site: nil,
        open_menu: nil,
        users_filter: @default_filters.users,
        users_search: "",
@@ -243,6 +246,25 @@ defmodule MastheadWeb.AdminLive.Console do
 
   def handle_event("close_gift_modal", _params, socket) do
     {:noreply, assign(socket, gift_modal?: false, gift_site: nil)}
+  end
+
+  def handle_event("open_storage_modal", %{"site_id" => id}, socket) do
+    {:noreply, assign(socket, storage_site: Sites.get_site!(id), open_menu: nil)}
+  end
+
+  def handle_event("close_storage_modal", _params, socket) do
+    {:noreply, assign(socket, storage_site: nil)}
+  end
+
+  def handle_event("set_storage_limit", %{"mb" => mb}, socket) do
+    case parse_megabytes(mb) do
+      {:ok, bytes} ->
+        {:noreply, save_storage_limit(socket, bytes)}
+
+      :error ->
+        {:noreply,
+         put_flash(socket, :error, "Enter a whole number of MB above 0, or leave it empty.")}
+    end
   end
 
   def handle_event("gift_pro", %{"months" => months}, socket) do
@@ -481,6 +503,14 @@ defmodule MastheadWeb.AdminLive.Console do
                     phx-value-site_id={s.id}
                   >
                     Gift Pro…
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    phx-click="open_storage_modal"
+                    phx-value-site_id={s.id}
+                  >
+                    Storage limit…
                   </button>
 
                   <hr />
@@ -767,6 +797,60 @@ defmodule MastheadWeb.AdminLive.Console do
           </form>
         </div>
       </div>
+      <div
+        :if={@storage_site}
+        class="dialog-backdrop"
+        phx-window-keydown="close_storage_modal"
+        phx-key="Escape"
+      >
+        <button
+          type="button"
+          phx-click="close_storage_modal"
+          class="dialog-close-overlay"
+          aria-label="Close"
+          tabindex="-1"
+        >
+        </button>
+        <div class="dialog">
+          <header class="dialog-header">
+            <h2>Storage limit — {@storage_site.name}</h2>
+            <button
+              type="button"
+              phx-click="close_storage_modal"
+              class="dialog-close"
+              aria-label="Close"
+            >
+              &times;
+            </button>
+          </header>
+
+          <form phx-submit="set_storage_limit" class="dialog-form">
+            <.storage_meter
+              used={Uploads.storage_used(@storage_site.id)}
+              limit={Uploads.storage_limit(@storage_site)}
+            />
+            <label>
+              Limit in MB
+              <input
+                type="number"
+                name="mb"
+                value={limit_megabytes(@storage_site)}
+                placeholder="1024"
+                min="1"
+                step="1"
+                autocomplete="off"
+              />
+              <small>
+                Leave empty for the default of 1024 MB (1 GB). Uploads past the limit are refused.
+              </small>
+            </label>
+            <div class="dialog-footer">
+              <button type="button" phx-click="close_storage_modal" class="btn">Cancel</button>
+              <button type="submit" class="btn btn-primary">Save limit</button>
+            </div>
+          </form>
+        </div>
+      </div>
     </.shell>
     """
   end
@@ -776,6 +860,30 @@ defmodule MastheadWeb.AdminLive.Console do
 
   defp themes_word(1), do: "1 theme"
   defp themes_word(count), do: "#{count} themes"
+
+  defp parse_megabytes(""), do: {:ok, nil}
+
+  defp parse_megabytes(mb) do
+    case Integer.parse(mb) do
+      {value, ""} when value > 0 -> {:ok, value * @megabyte}
+      _ -> :error
+    end
+  end
+
+  defp save_storage_limit(socket, bytes) do
+    {:ok, site} = Sites.set_storage_limit(socket.assigns.storage_site, bytes)
+
+    socket
+    |> assign(storage_site: nil)
+    |> put_flash(
+      :info,
+      "#{site.name} can now store #{format_bytes(Uploads.storage_limit(site))}."
+    )
+    |> load_data()
+  end
+
+  defp limit_megabytes(site),
+    do: site.storage_limit_bytes && div(site.storage_limit_bytes, @megabyte)
 
   defp gift_hint(nil), do: ""
 

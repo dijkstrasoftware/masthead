@@ -116,6 +116,20 @@ defmodule Masthead.Sites do
   end
 
   @doc """
+  The site a user may manage by slug: admins can enter any site; everyone
+  else is scoped to sites they're a member of.
+  """
+  def get_site_for_user_by_slug!(%User{admin: true}, slug), do: get_site_for_admin_by_slug!(slug)
+  def get_site_for_user_by_slug!(user, slug), do: get_user_site_by_slug!(user.id, slug)
+
+  @doc "Sets the site's upload storage limit in bytes; `nil` restores the default."
+  def set_storage_limit(%Site{} = site, bytes) do
+    site
+    |> Site.storage_limit_changeset(%{storage_limit_bytes: bytes})
+    |> Repo.update()
+  end
+
+  @doc """
   Pauses a site manually from the console (stops resolving). Tagged
   `disabled_reason: "admin"` so the member-availability cascade never
   re-enables it. Reversible via `enable_site/1`.

@@ -110,6 +110,7 @@ defmodule MastheadWeb.Router do
     get "/verify", VerifyController, :show
 
     post "/account/disable", AccountController, :disable
+    get "/:site_slug/uploads/:id/file", UploadFileController, :show
 
     # Admin overview — defined before the `/:site_slug` catch-all so "admin"
     # isn't resolved as a site slug.
