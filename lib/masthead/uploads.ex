@@ -34,6 +34,10 @@ defmodule Masthead.Uploads do
     image/x-icon image/vnd.microsoft.icon
   )
 
+  @default_storage_limit 1024 * 1024 * 1024
+  @large_image_bytes 1024 * 1024
+  @compressible_types ~w(image/jpeg image/png image/webp)
+
   @doc "True when the upload renders directly in an `<img>` tag."
   def image?(%Upload{content_type: content_type}), do: image?(content_type)
   def image?(content_type) when is_binary(content_type), do: content_type in @image_content_types
@@ -141,6 +145,9 @@ defmodule Masthead.Uploads do
       not allowed_upload?(content_type, filename) ->
         {:error, :unsupported_type}
 
+      not fits?(site, File.stat!(path).size) ->
+        {:error, :storage_full}
+
       true ->
         ext = Path.extname(filename) |> String.downcase()
         key = "#{System.system_time(:millisecond)}-#{:rand.uniform(1_000_000)}#{ext}"
@@ -168,6 +175,45 @@ defmodule Masthead.Uploads do
         end
     end
   end
+
+  @doc """
+  Overwrites the upload's file in place with `source_path`, keeping its path
+  and URL so content that embeds it keeps working.
+  """
+  def replace_file(site, %Upload{} = upload, source_path) do
+    %{size: byte_size} = File.stat!(source_path)
+
+    if fits?(site, byte_size, upload.byte_size),
+      do: overwrite(upload, source_path, byte_size),
+      else: {:error, :storage_full}
+  end
+
+  defp overwrite(upload, source_path, byte_size) do
+    case Storage.stream_into(Path.dirname(upload.path), Path.basename(upload.path), source_path) do
+      {:ok, _rel} -> upload |> Upload.changeset(%{byte_size: byte_size}) |> Repo.update()
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc "The site's storage limit in bytes: its own override, else the default."
+  def storage_limit(site), do: site.storage_limit_bytes || @default_storage_limit
+
+  @doc "Bytes of uploads the site currently stores."
+  def storage_used(site_id) do
+    Repo.one(
+      from u in Upload,
+        where: u.site_id == ^site_id,
+        select: type(coalesce(sum(u.byte_size), 0), :integer)
+    )
+  end
+
+  defp fits?(site, byte_size, freed \\ 0) do
+    storage_used(site.id) - freed + byte_size <= storage_limit(site)
+  end
+
+  @doc "True for a web-compressible image over the size worth warning about."
+  def too_large?(%Upload{content_type: type, byte_size: size}),
+    do: type in @compressible_types and size > @large_image_bytes
 
   def delete_upload(%Upload{} = upload) do
     _ = Storage.delete(upload.path)

@@ -33,6 +33,7 @@ defmodule Masthead.Sites.Site do
     field :license_expires_at, :utc_datetime
     field :payment_customer_id, :string
     field :payment_subscription_id, :string
+    field :storage_limit_bytes, :integer
     belongs_to :theme_ref, Masthead.Themes.Theme, foreign_key: :theme_id
     belongs_to :homepage_page, Masthead.Content.Page, foreign_key: :homepage_page_id
     has_many :posts, Masthead.Content.Post
@@ -120,6 +121,12 @@ defmodule Masthead.Sites.Site do
   Internal changeset for lifecycle transitions driven by the
   `Masthead.CustomDomains` context (status, token, timestamps, errors).
   """
+  def storage_limit_changeset(site, attrs) do
+    site
+    |> cast(attrs, [:storage_limit_bytes])
+    |> validate_number(:storage_limit_bytes, greater_than: 0)
+  end
+
   def custom_domain_state_changeset(site, attrs) do
     cast(site, attrs, [
       :custom_domain,

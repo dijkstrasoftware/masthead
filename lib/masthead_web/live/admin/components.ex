@@ -510,6 +510,7 @@ defmodule MastheadWeb.AdminLive.Components do
   attr :limit, :integer, required: true, doc: "the row cap applied to the list"
   attr :truncated?, :boolean, default: false, doc: "true when the list hit the cap"
   attr :total, :integer, default: nil, doc: "total rows matching the filter + search"
+  slot :controls, doc: "extra controls shown beside the search box"
 
   def list_toolbar(assigns) do
     ~H"""
@@ -527,18 +528,21 @@ defmodule MastheadWeb.AdminLive.Components do
             {label}
           </button>
         </div>
-        <form phx-change="search_list" phx-submit="search_list" class="admin-search">
-          <input type="hidden" name="scope" value={@scope} />
-          <input
-            type="search"
-            name="query"
-            value={@search}
-            placeholder={@placeholder}
-            phx-debounce="300"
-            autocomplete="off"
-            data-shortcut="search"
-          />
-        </form>
+        <div class="admin-toolbar-controls">
+          {render_slot(@controls)}
+          <form phx-change="search_list" phx-submit="search_list" class="admin-search">
+            <input type="hidden" name="scope" value={@scope} />
+            <input
+              type="search"
+              name="query"
+              value={@search}
+              placeholder={@placeholder}
+              phx-debounce="300"
+              autocomplete="off"
+              data-shortcut="search"
+            />
+          </form>
+        </div>
       </div>
       <div :if={@truncated?} class="admin-toolbar-hint">
         <span>Showing the first {@limit}. Refine with search or a filter to find more.</span>
@@ -705,6 +709,74 @@ defmodule MastheadWeb.AdminLive.Components do
       selected == key && "format-card-selected",
       locked && selected != key && "format-card-disabled"
     ]
+  end
+
+  @doc "Human-readable byte count: `512 B`, `3.4 KB`, `12.5 MB`, `1.0 GB`."
+  def format_bytes(b) when b < 1024, do: "#{b} B"
+  def format_bytes(b) when b < 1024 * 1024, do: "#{Float.round(b / 1024, 1)} KB"
+  def format_bytes(b) when b < 1024 * 1024 * 1024, do: "#{Float.round(b / 1024 / 1024, 1)} MB"
+  def format_bytes(b), do: "#{Float.round(b / 1024 / 1024 / 1024, 1)} GB"
+
+  @doc "Flash text for an upload rejected because the site's storage is full."
+  def storage_full_message(site) do
+    "Not enough storage: this site uses #{format_bytes(Masthead.Uploads.storage_used(site.id))} " <>
+      "of #{format_bytes(Masthead.Uploads.storage_limit(site))}."
+  end
+
+  attr :used, :integer, required: true
+  attr :limit, :integer, required: true
+  attr :compact, :boolean, default: false
+
+  @doc "The site's upload storage use as a labelled bar."
+  def storage_meter(assigns) do
+    assigns = assign(assigns, :percent, min(100, round(assigns.used / assigns.limit * 100)))
+
+    ~H"""
+    <div
+      class={["storage-meter", @compact && "storage-meter-compact", storage_level(@percent)]}
+      tabindex={@compact && "0"}
+    >
+      <div :if={not @compact} class="storage-meter-label">
+        <span>Storage</span>
+        <span>{format_bytes(@used)} of {format_bytes(@limit)} used</span>
+      </div>
+      <div
+        class="storage-meter-track"
+        role="progressbar"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow={@percent}
+      >
+        <div class="storage-meter-fill" style={"width: #{@percent}%"}></div>
+      </div>
+      <span :if={@compact} class="storage-meter-tip" role="tooltip">
+        <strong>Storage</strong>
+        <span>{format_bytes(@used)} of {format_bytes(@limit)} used</span>
+      </span>
+    </div>
+    """
+  end
+
+  defp storage_level(percent) when percent >= 100, do: "storage-full"
+  defp storage_level(percent) when percent >= 90, do: "storage-high"
+  defp storage_level(_percent), do: nil
+
+  attr :upload, :map, required: true
+  attr :dialog, :string, required: true, doc: "DOM id of the `CompressDialog` to open."
+
+  @doc "A warning badge on a large image that opens the compress dialog."
+  def size_warning(assigns) do
+    ~H"""
+    <button
+      :if={Masthead.Uploads.too_large?(@upload)}
+      type="button"
+      class="pill pill-warn size-warning"
+      aria-label={"#{@upload.filename} is very large for the web"}
+      phx-click={JS.push("open", target: "##{@dialog}", value: %{id: @upload.id})}
+    >
+      Heavy
+    </button>
+    """
   end
 
   attr :changeset, :map, required: true

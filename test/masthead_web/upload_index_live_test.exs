@@ -244,4 +244,66 @@ defmodule MastheadWeb.UploadIndexLiveTest do
       assert html =~ "Refine with search or a filter to find more."
     end
   end
+
+  describe "storage" do
+    defp make_large(upload) do
+      upload |> Ecto.Changeset.change(byte_size: 2 * 1024 * 1024) |> Masthead.Repo.update!()
+    end
+
+    test "the meter shows how much of the limit is used", %{conn: conn, site: site} do
+      create_upload(site, "a.png")
+      {:ok, _lv, html} = live(conn, ~p"/#{site.slug}/uploads")
+
+      assert html =~ "storage-meter"
+      assert html =~ "5 B of 1.0 GB used"
+    end
+
+    test "an upload past the limit is refused with a message", %{conn: conn, site: site} do
+      {:ok, _} = Sites.set_storage_limit(site, 3)
+      {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/uploads?new=1")
+
+      input =
+        file_input(lv, "#upload-form", :image, [
+          %{name: "big.png", content: "12345", type: "image/png"}
+        ])
+
+      render_upload(input, "big.png")
+      html = lv |> form("#upload-form") |> render_submit()
+
+      assert html =~ "Not enough storage"
+      assert Uploads.storage_used(site.id) == 0
+    end
+
+    test "a large image gets a warning that compresses it in place", %{conn: conn, site: site} do
+      upload = site |> create_upload("photo.jpg", "image/jpeg") |> make_large()
+      small = create_upload(site, "small.png")
+
+      {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/uploads")
+      assert has_element?(lv, ".size-warning")
+      refute has_element?(lv, ~s(.size-warning[aria-label^="#{small.filename}"]))
+
+      lv |> element(".size-warning") |> render_click()
+      assert has_element?(lv, "#compress-dialog", "Very large image")
+
+      lv
+      |> element("#compress-dialog-work-#{upload.id}")
+      |> render_hook("compressed", %{"before" => upload.byte_size, "after" => 3})
+
+      input =
+        file_input(lv, "#compress-dialog-form", :replacement, [
+          %{name: "photo.jpg", content: "abc", type: "image/jpeg"}
+        ])
+
+      render_upload(input, "photo.jpg")
+      assert has_element?(lv, "#compress-dialog", "2.0 MB")
+
+      lv |> form("#compress-dialog-form") |> render_submit()
+
+      replaced = Uploads.get_upload!(site.id, upload.id)
+      assert replaced.path == upload.path
+      assert replaced.byte_size == 3
+      refute has_element?(lv, "#compress-dialog", "Very large image")
+      refute has_element?(lv, ".size-warning")
+    end
+  end
 end

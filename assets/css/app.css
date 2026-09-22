@@ -5410,3 +5410,81 @@ html:not(.feature-stats) [data-feature="stats"] { display: none !important; }
 .site-stats .table td:first-child { overflow-wrap: anywhere; }
 .site-stats .table .num-cell { text-align: right; font-variant-numeric: tabular-nums; }
 .site-stats .table tr.active td { background: var(--accent-soft); }
+
+.storage-meter { margin-bottom: 1.25rem; }
+.storage-meter-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.storage-meter-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--rule);
+  overflow: hidden;
+}
+.storage-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+.storage-high .storage-meter-fill { background: var(--amber); }
+.storage-full .storage-meter-fill { background: var(--danger); }
+.storage-full .storage-meter-label span:last-child { color: var(--danger); font-weight: 600; }
+
+.upload-grid-item,
+.picker-item { position: relative; }
+.size-warning {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 2;
+  border: 0;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.size-warning:hover { filter: brightness(0.95); }
+.size-warning::before { display: none; }
+.upload-preview-image { position: relative; display: inline-flex; max-width: 100%; }
+
+.compress-backdrop { z-index: 1001; }
+.compress-result {
+  margin: 0.75rem 0;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: var(--accent-soft);
+}
+.compress-result p { margin: 0; }
+.compress-sizes { font-size: 1.05rem; }
+.storage-meter-compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0.5rem 0 0;
+  padding: 0.5rem 0;
+  position: relative;
+}
+.storage-meter-tip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  right: 0;
+  z-index: 5;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  background: var(--fg);
+  color: var(--card);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow-sm);
+}
+.storage-meter-compact:hover .storage-meter-tip,
+.storage-meter-compact:focus-visible .storage-meter-tip { display: flex; }
+.storage-meter-compact .storage-meter-track { width: 5rem; height: 6px; }

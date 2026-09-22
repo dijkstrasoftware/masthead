@@ -316,6 +316,45 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     refute Masthead.Licenses.paid?(Sites.get_site!(site.id))
   end
 
+  test "the row menu sets and resets a site's storage limit", %{conn: conn, site: site} do
+    {:ok, lv, _} = live(conn, ~p"/admin")
+    lv |> element(~s(button[phx-value-tab="sites"])) |> render_click()
+    open_row_menu(lv, site)
+
+    lv
+    |> element(~s(button[phx-click="open_storage_modal"][phx-value-site_id="#{site.id}"]))
+    |> render_click()
+
+    assert render(lv) =~ "0 B of 1.0 GB used"
+
+    html = lv |> form(~s(form[phx-submit="set_storage_limit"]), %{gb: "2.5"}) |> render_submit()
+    assert html =~ "can now store 2.5 GB"
+    assert Sites.get_site!(site.id).storage_limit_bytes == round(2.5 * 1024 * 1024 * 1024)
+
+    open_row_menu(lv, site)
+
+    lv
+    |> element(~s(button[phx-click="open_storage_modal"][phx-value-site_id="#{site.id}"]))
+    |> render_click()
+
+    lv |> form(~s(form[phx-submit="set_storage_limit"]), %{gb: ""}) |> render_submit()
+    assert Sites.get_site!(site.id).storage_limit_bytes == nil
+  end
+
+  test "a storage limit of zero is rejected", %{conn: conn, site: site} do
+    {:ok, lv, _} = live(conn, ~p"/admin")
+    lv |> element(~s(button[phx-value-tab="sites"])) |> render_click()
+    open_row_menu(lv, site)
+
+    lv
+    |> element(~s(button[phx-click="open_storage_modal"][phx-value-site_id="#{site.id}"]))
+    |> render_click()
+
+    html = lv |> form(~s(form[phx-submit="set_storage_limit"]), %{gb: "0"}) |> render_submit()
+    assert html =~ "above 0"
+    assert Sites.get_site!(site.id).storage_limit_bytes == nil
+  end
+
   describe "tags tab" do
     test "lists the seeded tags with usage counts", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/admin/tags")

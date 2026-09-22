@@ -28,6 +28,8 @@ defmodule MastheadWeb.AdminLive.FilePicker do
   """
   use MastheadWeb, :live_component
 
+  import MastheadWeb.AdminLive.Components, only: [size_warning: 1, storage_full_message: 1]
+
   alias Masthead.Uploads
 
   # The grid is a fixed 3x3. The "Upload new" card always takes a slot, and
@@ -44,6 +46,7 @@ defmodule MastheadWeb.AdminLive.FilePicker do
        files: [],
        search: "",
        context: %{},
+       store_error: nil,
        ready?: false
      )}
   end
@@ -87,7 +90,9 @@ defmodule MastheadWeb.AdminLive.FilePicker do
   end
 
   def handle_event("close", _params, socket), do: {:noreply, close(socket)}
-  def handle_event("show_upload", _params, socket), do: {:noreply, assign(socket, view: :upload)}
+
+  def handle_event("show_upload", _params, socket),
+    do: {:noreply, assign(socket, view: :upload, store_error: nil)}
 
   def handle_event("show_grid", _params, socket),
     do: {:noreply, socket |> cancel_all() |> assign(view: :grid)}
@@ -110,6 +115,7 @@ defmodule MastheadWeb.AdminLive.FilePicker do
 
         case Uploads.store_image(socket.assigns.site, attrs) do
           {:ok, upload} -> {:ok, upload}
+          {:error, :storage_full} -> {:ok, :storage_full}
           {:error, reason} -> {:postpone, reason}
         end
       end)
@@ -120,6 +126,9 @@ defmodule MastheadWeb.AdminLive.FilePicker do
         # without cancelling — cancel_all/1 would call a dead process.
         send(self(), {:file_picked, upload, socket.assigns.context})
         {:noreply, assign(socket, open?: false, view: :grid)}
+
+      [:storage_full] ->
+        {:noreply, assign(socket, store_error: storage_full_message(socket.assigns.site))}
 
       _ ->
         {:noreply, socket}
@@ -237,7 +246,8 @@ defmodule MastheadWeb.AdminLive.FilePicker do
                   <span class="picker-name">No file</span>
                 </button>
               </li>
-              <li :for={u <- @files}>
+              <li :for={u <- @files} class="picker-item">
+                <.size_warning upload={u} dialog={@id <> "-compress"} />
                 <button
                   type="button"
                   class={"picker-card" <> selected_class(current(@context), to_string(u.id))}
@@ -311,6 +321,7 @@ defmodule MastheadWeb.AdminLive.FilePicker do
             </ul>
 
             <p :for={err <- upload_errors(@uploads.file)} class="error">{error_to_string(err)}</p>
+            <p :if={@store_error} class="error">{@store_error}</p>
 
             <div class="dialog-footer">
               <button type="button" phx-click="show_grid" phx-target={@myself} class="btn">
@@ -323,6 +334,12 @@ defmodule MastheadWeb.AdminLive.FilePicker do
           </form>
         </div>
       </div>
+
+      <.live_component
+        module={MastheadWeb.AdminLive.CompressDialog}
+        id={@id <> "-compress"}
+        site={@site}
+      />
     </div>
     """
   end

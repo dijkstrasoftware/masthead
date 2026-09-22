@@ -40,17 +40,21 @@ export const ImageCompress = {
     }
 
     // Feed the compressed files to LiveView's own file input and let it upload.
-    const dt = new DataTransfer()
-    out.forEach((f) => dt.items.add(f))
-    this.liveInput.files = dt.files
-    this.liveInput.dispatchEvent(new Event("input", {bubbles: true}))
-    this.liveInput.dispatchEvent(new Event("change", {bubbles: true}))
+    feedInput(this.liveInput, out)
 
     if (this.picker) this.picker.value = "" // allow re-selecting the same file
   },
 }
 
-async function compress(file, maxDim, quality) {
+export function feedInput(input, files) {
+  const dt = new DataTransfer()
+  files.forEach((f) => dt.items.add(f))
+  input.files = dt.files
+  input.dispatchEvent(new Event("input", {bubbles: true}))
+  input.dispatchEvent(new Event("change", {bubbles: true}))
+}
+
+export async function compress(file, maxDim, quality, type = "image/jpeg") {
   // Only re-encode raster photos; leave GIFs (animation) and non-images alone.
   if (!file.type.startsWith("image/") || file.type === "image/gif") return file
 
@@ -66,14 +70,14 @@ async function compress(file, maxDim, quality) {
     canvas.getContext("2d").drawImage(bitmap, 0, 0, width, height)
 
     const blob = await new Promise((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", quality)
+      canvas.toBlob(resolve, type, quality)
     )
 
     // Keep the original if compression didn't actually shrink it.
     if (!blob || blob.size >= file.size) return file
 
-    const name = file.name.replace(/\.[^.]+$/, "") + ".jpg"
-    return new File([blob], name, {type: "image/jpeg", lastModified: Date.now()})
+    const name = type === file.type ? file.name : file.name.replace(/\.[^.]+$/, "") + ".jpg"
+    return new File([blob], name, {type, lastModified: Date.now()})
   } catch (_err) {
     return file
   }
