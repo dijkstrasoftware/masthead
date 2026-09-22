@@ -129,6 +129,32 @@ defmodule MastheadWeb.ThemeShowLiveTest do
     assert html =~ "preview 2"
   end
 
+  test "clicking the preview opens a lightbox that arrows and keys still walk", %{
+    conn: conn,
+    author: author
+  } do
+    theme = published(author, "Gallery Zoom")
+    {:ok, _} = Themes.add_theme_image(theme, image_file("a.png"))
+    {:ok, _} = Themes.add_theme_image(theme, image_file("b.png"))
+
+    {:ok, lv, html} = live(conn, ~p"/marketplace/themes/#{theme.id}")
+    refute html =~ "theme-lightbox"
+
+    html = lv |> element("button.theme-preview-zoom") |> render_click()
+    assert html =~ "theme-lightbox"
+    assert html =~ "preview 1"
+
+    html = lv |> element("button.theme-lightbox-arrow.is-next") |> render_click()
+    assert html =~ "preview 2"
+
+    html = render_keydown(lv, "gallery_key", %{"key" => "ArrowRight"})
+    assert html =~ "theme-lightbox"
+    assert html =~ "preview 1"
+
+    html = render_keydown(lv, "gallery_key", %{"key" => "Escape"})
+    refute html =~ "theme-lightbox"
+  end
+
   test "picking a site in the sidebar installs the theme onto it", %{
     conn: conn,
     user: user,
