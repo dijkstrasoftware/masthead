@@ -34,7 +34,10 @@ import {CompressUpload} from "./hooks/compress_upload"
 import {CommandPalette} from "./hooks/command_palette"
 
 try {
-  if (localStorage.getItem("masthead:feature:stats") === "1") document.documentElement.classList.add("feature-stats")
+  for (let i = 0; i < localStorage.length; i++) {
+    const flag = localStorage.key(i).match(/^masthead:feature:(.+)$/)
+    if (flag && localStorage.getItem(flag[0]) === "1") document.documentElement.classList.add(`feature-${flag[1]}`)
+  }
 } catch (_error) {}
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")

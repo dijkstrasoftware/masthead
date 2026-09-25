@@ -131,10 +131,17 @@ defmodule MastheadWeb.AdminLive.Account do
   defp first_error(%Ecto.Changeset{errors: [{field, {msg, _}} | _]}), do: "#{field} #{msg}"
   defp first_error(_changeset), do: "That password couldn't be saved."
 
+  defp beta_features do
+    [
+      {"stats", "Site stats",
+       "Visitor analytics for your sites, under Statistics in the site sidebar."}
+    ]
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
-    <.shell title="Account" current_user={@current_user} flash={@flash}>
+    <.shell title="Account" current_user={@current_user} flash={@flash} active={:account}>
       <div class="wizard">
         <div class="form settings-form">
           <section class="settings-section">
@@ -222,6 +229,53 @@ defmodule MastheadWeb.AdminLive.Account do
                 <button type="submit" class="btn">Resend confirmation email</button>
               </form>
             </div>
+          </section>
+
+          <section class="settings-section">
+            <header class="settings-section-head">
+              <h2>Beta features</h2>
+              <p>Try things we're still working on. Saved in this browser only.</p>
+            </header>
+
+            <div
+              id="beta-features"
+              class="settings-fields account-fields"
+              phx-hook=".BetaFeatures"
+              phx-update="ignore"
+            >
+              <div :for={{key, name, hint} <- beta_features()} class="account-row">
+                <div>
+                  <div id={"beta-#{key}-label"} class="account-row-label">{name}</div>
+                  <p id={"beta-#{key}-hint"} class="muted account-hint">{hint}</p>
+                </div>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  class="switch"
+                  id={"beta-#{key}"}
+                  data-feature-flag={key}
+                  aria-labelledby={"beta-#{key}-label"}
+                  aria-describedby={"beta-#{key}-hint"}
+                />
+              </div>
+            </div>
+            <script :type={Phoenix.LiveView.ColocatedHook} name=".BetaFeatures">
+              export default {
+                mounted() {
+                  this.el.querySelectorAll("[data-feature-flag]").forEach(input => {
+                    const flag = input.dataset.featureFlag
+                    const key = `masthead:feature:${flag}`
+                    try { input.checked = localStorage.getItem(key) === "1" } catch (_error) {}
+                    input.addEventListener("change", () => {
+                      try {
+                        input.checked ? localStorage.setItem(key, "1") : localStorage.removeItem(key)
+                      } catch (_error) {}
+                      document.documentElement.classList.toggle(`feature-${flag}`, input.checked)
+                    })
+                  })
+                }
+              }
+            </script>
           </section>
 
           <section class="settings-section">
