@@ -108,7 +108,7 @@ defmodule MastheadWeb.MarketingComponents do
     """
   end
 
-  defp external_mark(assigns) do
+  def external_mark(assigns) do
     ~H"""
     <svg
       xmlns="http://www.w3.org/2000/svg"

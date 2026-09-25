@@ -444,14 +444,35 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; background
   background: var(--sidebar-border);
   margin: 0.6rem 0.4rem;
 }
+.sidebar-external {
+  margin-top: auto;
+}
 
 .sidebar-user {
-  padding: 0.85rem 0.9rem;
+  padding: 0.5rem 0.6rem;
   border-top: 1px solid var(--sidebar-border);
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.25rem;
 }
+.sidebar-account {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.3rem;
+  border-radius: 6px;
+  color: var(--sidebar-fg-muted);
+  transition: background 0.15s, color 0.15s;
+}
+.sidebar-account:hover,
+.sidebar-account.active {
+  background: var(--sidebar-bg-hover);
+  color: var(--sidebar-fg-active);
+  text-decoration: none;
+}
+.sidebar-account .icon { width: 16px; height: 16px; flex-shrink: 0; }
 .user-avatar {
   width: 28px;
   height: 28px;
@@ -475,7 +496,6 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; background
 .user-email {
   flex: 1;
   font-size: 0.78rem;
-  color: var(--sidebar-fg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -746,6 +766,34 @@ button.danger:hover { filter: brightness(0.92); }
 .account-row-value { font-size: 0.95rem; }
 .account-hint { font-size: 0.85rem; line-height: 1.55; margin: 0.3rem 0 0; max-width: 48ch; }
 .account-divider { border: 0; border-top: 1px solid var(--rule); margin: 0.4rem 0; }
+
+.switch {
+  appearance: none;
+  flex: none;
+  position: relative;
+  width: 2.25rem;
+  height: 1.25rem;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--rule);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(1.25rem - 4px);
+  height: calc(1.25rem - 4px);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  transition: transform 0.15s;
+}
+.switch:checked { background: var(--accent); }
+.switch:checked::after { transform: translateX(1rem); }
+.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Account profile: the avatar is the picker — hover it for the camera
    overlay — and the display name is edited in place beside it. */
