@@ -747,6 +747,10 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; background
 }
 .danger-row p { margin: 0.3rem 0 0; max-width: 52ch; font-size: 0.85rem; line-height: 1.55; }
 .danger-row .btn-danger { flex: 0 0 auto; }
+@media (max-width: 640px) {
+  .danger-row,
+  .account-row:not(:has(> .switch)) { flex-direction: column; gap: 0.75rem; }
+}
 button.danger {
   background: var(--danger);
   color: #fff;
@@ -762,6 +766,7 @@ button.danger:hover { filter: brightness(0.92); }
   justify-content: space-between;
   gap: 1.5rem;
 }
+.account-row > :last-child { flex: none; }
 .account-row-label { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.2rem; }
 .account-row-value { font-size: 0.95rem; }
 .account-hint { font-size: 0.85rem; line-height: 1.55; margin: 0.3rem 0 0; max-width: 48ch; }
@@ -851,7 +856,7 @@ button.danger:hover { filter: brightness(0.92); }
   align-items: center;
   gap: 0.35rem;
 }
-.profile-name { font-size: 1.15rem; font-weight: 600; }
+.profile-name { font-size: 1.15rem; font-weight: 600; overflow-wrap: anywhere; }
 .profile-name-form {
   display: flex;
   align-items: center;
@@ -859,8 +864,13 @@ button.danger:hover { filter: brightness(0.92); }
   flex-wrap: wrap;
 }
 .profile-name-form input { width: 15rem; max-width: 100%; }
-.profile-email { font-size: 0.88rem; color: var(--muted); }
+.profile-email { font-size: 0.88rem; color: var(--muted); overflow-wrap: anywhere; }
 .profile-pill { margin-left: auto; flex-shrink: 0; }
+@media (max-width: 640px) {
+  .profile-identity { flex-wrap: wrap; row-gap: 0.6rem; }
+  .profile-lines { flex: 1 1 10rem; }
+  .profile-pill { margin-left: calc(76px + 1.1rem); }
+}
 .account-form {
   display: flex;
   flex-direction: column;
@@ -1396,7 +1406,30 @@ button.danger:hover { filter: brightness(0.92); }
     background: transparent;
     overflow: visible;
   }
-  .table-cards thead { display: none; }
+  .table-cards thead { display: block; }
+  .table-cards thead:not(:has(.th-sort)),
+  .table-cards thead th:not(.th-sort) { display: none; }
+  .table-cards thead tr {
+    display: flex;
+    gap: 0.4rem;
+    padding: 2px 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .table-cards thead tr::-webkit-scrollbar { display: none; }
+  .table-cards thead th { border: 0; background: none; }
+  .table-cards th.th-sort button {
+    padding: 0.3rem 0.75rem;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    background: var(--card);
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+  }
+  .table-cards th.th-sort.is-sorted button { border-color: var(--accent); color: var(--accent); }
   .table-cards tbody { display: block; }
   .table-cards tr {
     display: block;
@@ -1442,6 +1475,17 @@ button.danger:hover { filter: brightness(0.92); }
     margin-top: 0.4rem;
     border-top: 1px solid var(--rule);
   }
+  .table-cards .rel-time::after { left: auto; right: 0; transform: none; }
+  .table-cards.table-menus tr { position: relative; }
+  .table-cards.table-menus td:first-child { padding-right: 2.5rem; overflow-wrap: anywhere; }
+  .table-cards td.admin-row-actions {
+    position: absolute;
+    top: 0.55rem;
+    right: 0.6rem;
+    width: auto;
+    padding: 0;
+  }
+  .table-cards tbody tr:last-child td:first-child { border-radius: 0; }
 }
 
 /* Section heading inside a page */
@@ -1534,16 +1578,6 @@ button.danger:hover { filter: brightness(0.92); }
   font-weight: 500;
 }
 .token-readonly small { color: var(--muted); }
-/* Admin tables reuse the platform `.table` style; this just allows the
-   wider tables to scroll on narrow viewports and lays out the row's
-   action buttons in a right-aligned cluster. */
-.admin-table-wrap { overflow-x: auto; }
-/* The row menu is absolutely positioned inside this box, and overflow-x on
-   one axis forces the other to clip too. Wide screens do not need the
-   horizontal scroll, so drop it there and let the menu escape. */
-@media (min-width: 1024px) {
-  .admin-table-wrap { overflow: visible; }
-}
 /* Right-aligned actions cell. Keep it a table-cell: `display: flex` here
    takes the cell out of the row's layout and its bottom border stops
    lining up with the rest of the row. */
@@ -1643,7 +1677,16 @@ button.danger:hover { filter: brightness(0.92); }
   font-size: 0.8rem;
   color: var(--muted);
 }
-.admin-filters { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.admin-filters {
+  display: flex;
+  gap: 0.4rem;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-block: 2px;
+}
+.admin-filters > * { flex: none; }
+.admin-filters::-webkit-scrollbar { display: none; }
 /* Active author filter, sat alongside the filter buttons. Clicking it drops
    back to the unfiltered gallery. */
 .author-chip {
@@ -5004,7 +5047,7 @@ button.danger:hover { filter: brightness(0.92); }
   .related-themes .marketplace-grid { grid-template-columns: 1fr; }
 }
 
-.tag-add-form { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
+.tag-add-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0; }
 .tag-add-form input[type="text"] {
   padding: 0.45rem 0.7rem;
   border: 1px solid var(--rule);
@@ -5342,7 +5385,8 @@ a.author-name:hover { text-decoration: underline; }
 
 /* Below the desktop breakpoint the table still scrolls, so the row menu
    cannot rely on absolute positioning: fixed escapes the clip entirely. */
-@media (max-width: 1023px) {
+@media (min-width: 641px) and (max-width: 1023px) {
+  .admin-table-wrap { overflow-x: auto; }
   .row-menu-panel {
     position: fixed;
     top: auto;

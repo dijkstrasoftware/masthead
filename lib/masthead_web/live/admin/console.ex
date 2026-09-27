@@ -377,7 +377,7 @@ defmodule MastheadWeb.AdminLive.Console do
           truncated?={length(@users) == list_limit()}
           total={@users_total}
         />
-        <table class="table table-menus">
+        <table class="table table-menus table-cards">
           <thead>
             <tr>
               <.sort_th scope={:users} field={:email} sort={@users_sort}>Email</.sort_th>
@@ -391,15 +391,17 @@ defmodule MastheadWeb.AdminLive.Console do
           <tbody>
             <tr :for={u <- @users}>
               <td>{u.email}</td>
-              <td>
-                <span class={"pill " <> if(Accounts.User.confirmed?(u), do: "pill-ok", else: "pill-warn")}>
-                  {if Accounts.User.confirmed?(u), do: "verified", else: "unverified"}
+              <td data-label="Status">
+                <span>
+                  <span class={"pill " <> if(Accounts.User.confirmed?(u), do: "pill-ok", else: "pill-warn")}>
+                    {if Accounts.User.confirmed?(u), do: "verified", else: "unverified"}
+                  </span>
+                  <span :if={Accounts.User.disabled?(u)} class="pill pill-danger">disabled</span>
                 </span>
-                <span :if={Accounts.User.disabled?(u)} class="pill pill-danger">disabled</span>
               </td>
-              <td>{if u.admin, do: "admin", else: "—"}</td>
-              <td class="muted"><.relative_time at={u.inserted_at} /></td>
-              <td class="muted">
+              <td data-label="Role">{if u.admin, do: "admin", else: "—"}</td>
+              <td data-label="Joined" class="muted"><.relative_time at={u.inserted_at} /></td>
+              <td data-label="Last login" class="muted">
                 <.relative_time :if={u.last_login_at} at={u.last_login_at} />
                 <span :if={is_nil(u.last_login_at)}>—</span>
               </td>
@@ -452,7 +454,7 @@ defmodule MastheadWeb.AdminLive.Console do
           truncated?={length(@sites) == list_limit()}
           total={@sites_total}
         />
-        <table class="table table-menus">
+        <table class="table table-menus table-cards">
           <thead>
             <tr>
               <.sort_th scope={:sites} field={:name} sort={@sites_sort}>Name</.sort_th>
@@ -466,9 +468,9 @@ defmodule MastheadWeb.AdminLive.Console do
           <tbody>
             <tr :for={s <- @sites}>
               <td>{s.name}</td>
-              <td class="muted">{s.slug}</td>
-              <td class="muted"><.relative_time at={s.inserted_at} /></td>
-              <td>
+              <td data-label="Slug" class="muted">{s.slug}</td>
+              <td data-label="Created" class="muted"><.relative_time at={s.inserted_at} /></td>
+              <td data-label="Status">
                 <span :if={not is_nil(s.deleted_at)} class="pill pill-danger">deleted</span>
                 <span
                   :if={is_nil(s.deleted_at) and not is_nil(s.disabled_at)}
@@ -480,7 +482,7 @@ defmodule MastheadWeb.AdminLive.Console do
                   active
                 </span>
               </td>
-              <td>
+              <td data-label="License">
                 <span class={["pill", Licenses.pill_class(s)]}>{Licenses.label(s)}</span>
               </td>
               <td class="admin-row-actions">
@@ -571,7 +573,7 @@ defmodule MastheadWeb.AdminLive.Console do
           truncated?={length(@themes) == list_limit()}
           total={@themes_total}
         />
-        <table class="table table-menus">
+        <table class="table table-menus table-cards">
           <thead>
             <tr>
               <.sort_th scope={:themes} field={:name} sort={@themes_sort}>Name</.sort_th>
@@ -586,16 +588,16 @@ defmodule MastheadWeb.AdminLive.Console do
           <tbody>
             <tr :for={t <- @themes}>
               <td>{t.name}</td>
-              <td class="muted">{t.slug}</td>
-              <td class="muted">{t.version}</td>
-              <td>{t.source}</td>
-              <td>
+              <td data-label="Slug" class="muted">{t.slug}</td>
+              <td data-label="Version" class="muted">{t.version}</td>
+              <td data-label="Source">{t.source}</td>
+              <td data-label="Status">
                 <span :if={t.verified} class="chip chip-verified">Verified</span>
                 <span :if={t.public and not t.verified} class="muted">community</span>
                 <span :if={t.source == "uploaded" and not t.public} class="muted">private</span>
                 <span :if={t.source == "built_in"} class="muted">—</span>
               </td>
-              <td class="muted">{(t.owner && t.owner.email) || "—"}</td>
+              <td data-label="Owner" class="muted">{(t.owner && t.owner.email) || "—"}</td>
               <td class="admin-row-actions">
                 <.row_menu id={t.id} open?={@open_menu == t.id} label={"Actions for #{t.name}"}>
                   <button
@@ -658,7 +660,7 @@ defmodule MastheadWeb.AdminLive.Console do
             </form>
           </div>
         </div>
-        <table class="table table-menus">
+        <table class="table table-menus table-cards">
           <thead>
             <tr>
               <th>Name</th>
@@ -682,8 +684,8 @@ defmodule MastheadWeb.AdminLive.Console do
                   <button type="button" class="btn btn-sm" phx-click="cancel_tag">Cancel</button>
                 </form>
               </td>
-              <td class="muted">{tag.slug}</td>
-              <td class="muted">{count}</td>
+              <td data-label="Slug" class="muted">{tag.slug}</td>
+              <td data-label="Themes" class="muted">{count}</td>
               <td class="admin-row-actions">
                 <.row_menu id={tag.id} open?={@open_menu == tag.id} label={"Actions for #{tag.name}"}>
                   <button type="button" role="menuitem" phx-click="edit_tag" phx-value-id={tag.id}>
