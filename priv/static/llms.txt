@@ -1,20 +1,21 @@
 # Masthead
 
-> Masthead is an open-source, multi-tenant publishing platform for blogs and small business sites. Each site runs on its own masthead.site subdomain or a custom domain, with content written in Markdown or HTML and rendered through uploadable themes.
+> Masthead is the layer between a website and the person who manages it. A website's theme declares what its owner can change; Masthead builds the site's admin from that declaration and runs the site: hosting, custom domains with automatic TLS, content storage and publishing. It is open source.
 
-Masthead is free to publish on: unlimited posts and pages, marketplace themes, and a masthead.site subdomain with automatic HTTPS. A paid site license adds a custom domain and collaborators. The full source is on GitHub, so it can be self-hosted or audited.
+Masthead reverses the usual CMS relationship. Instead of one generic admin that every website must fit inside, each theme's manifest.json declares site-wide settings, the fields every post and page carries, and page templates with their own fields. Masthead turns that into the management interface for that one website. The builder controls design, structure and the editing experience; the owner gets content and only the settings that matter.
 
-Key features:
+Masthead is free to publish on: unlimited posts and pages, marketplace themes, and a masthead.site subdomain with automatic HTTPS. A paid site license adds a custom domain, collaborators and statistics. The full source is on GitHub, so it can be self-hosted or audited.
 
-- Theme-defined editors: every theme declares its own settings, so site owners only see what matters for their site.
-- Custom domains: apex or subdomain, with ownership verification and automatic TLS.
-- Content-first publishing: posts and pages in Markdown or HTML, no page builder.
-- Multi-tenant by design: unlimited sites from one account, each with its own content, theme and domain.
-- Uploadable themes: themes are Liquid templates plus CSS, shared through the marketplace.
+Key ideas:
+
+- Theme-defined admin: settings, post and page fields, and page types come from the theme, so owners see only what their website needs.
+- Themes are Liquid templates, a stylesheet and a manifest, packaged as a zip and shared through the marketplace.
+- Platform around the theme: hosting, custom domains with automatic TLS, media uploads, multiple sites per account, collaboration, cookieless statistics, and generated sitemap.xml, robots.txt, llms.txt and structured data.
+- Deliberately not a page builder, a plugin platform or an application framework.
 
 ## Pages
 
-- [Home](https://masthead.site/): overview, features and FAQ
+- [Home](https://masthead.site/): how Masthead works, examples and FAQ
 - [Pricing](https://masthead.site/pricing): free plan and the paid site license
 - [Theme marketplace](https://masthead.site/marketplace): browse published themes
 - [Verified themes](https://masthead.site/marketplace/verified): themes reviewed by the Masthead team

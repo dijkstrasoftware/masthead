@@ -1,29 +1,31 @@
 defmodule MastheadWeb.PageController do
   use MastheadWeb, :controller
 
-  alias Masthead.Licenses
+  alias Masthead.{Features, Licenses}
 
-  @meta_description "Masthead is an open-source, multi-tenant publishing platform for blogs and small business sites. Custom domains, Markdown or HTML, themes, and automatic HTTPS."
+  @meta_description "Masthead is the layer between a website and its owner. A theme declares what can be managed; Masthead builds the admin from it and hosts the site. Open source."
 
-  @github_url "https://github.com/JoeriDijkstra/masthead"
+  @github_url "https://github.com/dijkstrasoftware/masthead"
 
   # Visible FAQ on the homepage and the FAQPage structured data are generated
   # from this single source so they always stay in sync (a requirement for
   # Google's FAQ rich results and a strong signal for AI answer engines).
   @faqs [
     {"What is Masthead?",
-     "Masthead is an open-source, multi-tenant publishing platform for blogs and small business websites. Each site runs on its own subdomain or custom domain, with content written in Markdown or HTML."},
-    {"Is Masthead free and open source?",
-     "Yes. Masthead is open source and the full source is available on GitHub, so you can self-host it or audit exactly how it works."},
-    {"Can I use my own domain?",
-     "Yes. You can point any custom domain — apex or subdomain — at a Masthead site. TLS certificates are provisioned automatically and your site is served over HTTPS as soon as DNS resolves."},
+     "Masthead is the layer between a website and the person who manages it. A website's theme declares what its owner can change; Masthead turns that declaration into the site's admin and runs the site: hosting, domains, content storage and publishing."},
+    {"How is Masthead different from WordPress?",
+     "A WordPress theme changes how a site looks inside an admin that stays the same, and new capabilities arrive as plugins. A Masthead theme also defines the admin: which settings exist, which fields posts and pages carry, and which page types can be created. There are no plugins, so the owner sees what the theme exposes and nothing else."},
+    {"Can I build my own theme?",
+     "Yes. Start from the starter template, write the templates in Liquid, describe the settings in manifest.json and upload the zip. Keep it for your own sites or publish it to the marketplace."},
     {"Do I need to know how to code?",
-     "No. You can write posts and pages in Markdown without any coding. If you want full control over design, you can also write raw HTML and upload custom themes."},
-    {"Can I run more than one site?",
-     "Yes. You can run unlimited sites from a single account, each with its own content, theme, and domain, all managed from one dashboard."}
+     "Not to manage a site: owners write in Markdown, or HTML if they prefer, and fill in the fields their theme provides. Building a theme takes HTML, CSS and Liquid."},
+    {"Can an agency use Masthead for client websites?",
+     "That is one of the cases it's designed for. Build the theme, decide exactly what the client can change, connect their domain and invite them to the site. The client gets an admin that contains their website and nothing else. Custom domains, collaborators and statistics come with a site license."},
+    {"Can I use my own domain?",
+     "Yes, with a site license. Point the domain at Masthead and it verifies ownership and provisions the TLS certificate. Every site also gets a free masthead.site subdomain with HTTPS."}
   ]
 
-  @pricing_description "Masthead is free to publish on: unlimited posts and pages, marketplace themes, and a masthead.site subdomain with automatic HTTPS. A paid site license adds your own custom domain and collaborators."
+  @pricing_description "Masthead is free to publish on: unlimited posts and pages, marketplace themes, and a masthead.site subdomain with automatic HTTPS. A paid site license adds your own custom domain, collaborators and visitor statistics."
 
   def pricing(conn, _params) do
     conn
@@ -41,20 +43,23 @@ defmodule MastheadWeb.PageController do
   end
 
   def home(conn, _params) do
-    case conn.assigns[:current_user] do
-      nil ->
+    cond do
+      conn.assigns[:current_user] ->
+        redirect(conn, to: "/sites")
+
+      not Features.enabled?("homepage") ->
+        redirect(conn, to: ~p"/login")
+
+      true ->
         conn
-        |> assign(:page_title, "Open-source publishing for blogs & small business sites")
-        |> assign(:og_title, "Masthead — open-source publishing for blogs & small business sites")
+        |> assign(:page_title, "The website defines its own CMS")
+        |> assign(:og_title, "Masthead — the website defines its own CMS")
         |> assign(:meta_description, @meta_description)
         |> assign(:canonical_url, url(~p"/"))
         |> assign(:og_image, url(~p"/images/logo.png"))
         |> assign(:faqs, @faqs)
         |> assign(:json_ld, home_json_ld())
         |> render(:home)
-
-      _user ->
-        redirect(conn, to: "/sites")
     end
   end
 
