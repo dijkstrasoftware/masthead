@@ -78,6 +78,12 @@ All prod config is read from environment variables (see
 | `PHX_HOST` | The canonical hostname (e.g. `masthead.site`) |
 | `APP_HOSTS` | Comma-separated hostnames treated as the bare app surface. Subdomains of any of these are routed as sites. Defaults to `PHX_HOST`. |
 
+### Optional — features
+
+| Var | Purpose |
+|---|---|
+| `FEATURES` | Comma-separated optional features. `homepage` shows the marketing homepage at `/`; without it, `/` redirects to the login screen. Unset by default. |
+
 ### Optional — object storage (S3-compatible)
 
 If `BUCKET_NAME` is set, the S3 storage adapter takes over. Files go to

@@ -1,224 +1,517 @@
-<div class="landing">
-  <.marketing_nav current_user={assigns[:current_user]} />
+<div class="landing landing-home">
+  <div class="home-top">
+    <.marketing_nav current_user={assigns[:current_user]} />
 
-  <section class="landing-hero">
-    <div class="hero-inner">
-      <span class="hero-eyebrow">Open-source publishing engine</span>
-      <h1>A publishing engine for content-driven websites.</h1>
-      <p class="hero-lede">
-        Masthead is an open-source publishing engine where themes define both
-        the website and the editing experience. Write in Markdown or HTML,
-        publish to your own domain, and focus on content instead of your CMS.
-      </p>
-      <div class="hero-cta">
-        <%= if assigns[:current_user] do %>
-          <.link navigate={~p"/sites"} class="btn btn-primary btn-lg">
-            Open dashboard &rarr;
-          </.link>
-        <% else %>
-          <.link navigate={~p"/signup"} class="btn btn-primary btn-lg">Create your site</.link>
-          <a
-            href="https://docs.masthead.site"
-            target="_blank"
-            rel="noopener"
-            class="btn btn-ghost btn-lg"
-          >
-            Read the docs
-          </a>
-        <% end %>
-      </div>
-    </div>
-
-    <div class="hero-mock">
-      <div class="mock-window">
-        <div class="mock-chrome">
-          <span class="dot dot-r"></span>
-          <span class="dot dot-y"></span>
-          <span class="dot dot-g"></span>
-          <span class="mock-url">your-site.masthead.site</span>
-        </div>
-        <div class="mock-body">
-          <span class="mock-eyebrow">Engineering · Jul 15, 2026</span>
-          <h3>Why Masthead doesn't have a page builder</h3>
-          <p>
-            The best editing experience isn't one with unlimited options. It's one designed specifically for the website you're publishing.
+    <section class="home-hero">
+      <div class="home-wrap">
+        <p class="home-eyebrow">The layer between a website and its owner</p>
+        <h1>The website defines its own CMS.</h1>
+        <div class="home-hero-row">
+          <p class="home-lede">
+            On Masthead, whoever builds a website also decides how it gets managed.
+            The theme declares what its owner can change. Masthead turns that into
+            the site's admin, then hosts, publishes and serves the site.
           </p>
-          <span class="mock-link">Read &rarr;</span>
+          <div class="home-actions">
+            <%= if assigns[:current_user] do %>
+              <.link navigate={~p"/sites"} class="btn btn-primary btn-lg">
+                Open dashboard &rarr;
+              </.link>
+            <% else %>
+              <.link navigate={~p"/signup"} class="btn btn-primary btn-lg">
+                Create a free site
+              </.link>
+              <a
+                href="https://docs.masthead.site/posts/creating-a-custom-theme"
+                target="_blank"
+                rel="noopener"
+                class="btn btn-ghost btn-lg"
+              >
+                Build a theme
+              </a>
+            <% end %>
+          </div>
+        </div>
+
+        <ol class="home-flow" aria-label="How Masthead sits between a website and its owner">
+          <li>
+            <strong>Theme</strong>
+            <span>Declares what its owner can change, in its manifest.</span>
+            <i class="home-flow-line" aria-hidden="true"></i>
+          </li>
+          <li class="home-flow-accent">
+            <strong>Masthead</strong>
+            <span>Builds the admin from that declaration, and runs the site.</span>
+            <i class="home-flow-line" aria-hidden="true"></i>
+          </li>
+          <li>
+            <strong>Owner</strong>
+            <span>Manages the content and the settings that matter. Nothing else.</span>
+          </li>
+        </ol>
+      </div>
+    </section>
+  </div>
+
+  <section class="home-band" aria-labelledby="inversion-title">
+    <div class="home-wrap">
+      <h2 id="inversion-title">Most CMSs come first.<br />On Masthead, the website does.</h2>
+
+      <div class="home-compare">
+        <div class="home-compare-col">
+          <h3>A typical CMS</h3>
+          <ol>
+            <li class="home-compare-node">A generic CMS</li>
+            <li class="home-compare-step">ships the same admin to every site</li>
+            <li class="home-compare-node">A generic editor</li>
+            <li class="home-compare-step">the website is fitted inside it</li>
+            <li class="home-compare-node">The website</li>
+          </ol>
+        </div>
+        <div class="home-compare-col home-compare-new">
+          <h3>Masthead</h3>
+          <ol>
+            <li class="home-compare-node">The website and its theme</li>
+            <li class="home-compare-step">declares what needs managing</li>
+            <li class="home-compare-node home-compare-accent">Masthead</li>
+            <li class="home-compare-step">builds the admin for that site</li>
+            <li class="home-compare-node">A management experience made for this website</li>
+          </ol>
+        </div>
+      </div>
+
+      <p class="home-note">
+        A typical CMS is a finished product, and every website has to fit inside it.
+        Masthead reverses the order. The website comes first and tells Masthead what
+        its owner should be able to manage. The admin follows from the website.
+      </p>
+    </div>
+  </section>
+
+  <section class="home-band home-band-ink" aria-labelledby="theme-title">
+    <div class="home-wrap">
+      <div class="home-head">
+        <h2 id="theme-title">A theme is a website and the admin that goes with it.</h2>
+        <p>
+          A Masthead theme has Liquid templates, a stylesheet and a <code>manifest.json</code>.
+          The manifest is where the website says what can be managed. This is the theme
+          every site starts with, next to the admin Masthead builds from it.
+        </p>
+      </div>
+
+      <div class="home-declare">
+        <figure class="home-code">
+          <figcaption>manifest.json · Default theme (abridged)</figcaption>
+          <pre phx-no-curly-interpolation><code>"tokens": [
+  { "key": "accent", "type": "color",
+    "label": "Accent color", "category": "Appearance" },
+  { "key": "favicon", "type": "file",
+    "label": "Favicon", "category": "Appearance" },
+  { "key": "show_search", "type": "boolean",
+    "label": "Show post search", "category": "Posts" }
+],
+"post_options": [
+  { "key": "featured_image", "type": "file",
+    "label": "Featured image" },
+  { "key": "seo_description", "type": "text",
+    "label": "Search description" }
+],
+"page_options": [
+  { "key": "layout", "type": "select",
+    "options": ["contained", "wide"] }
+]</code></pre>
+        </figure>
+
+        <div class="home-admin" aria-label="The admin Masthead builds from this manifest">
+          <div class="home-admin-bar">Admin · generated from the manifest</div>
+          <div class="home-admin-section">
+            <span class="home-admin-title">Theme customization</span>
+            <span class="home-admin-group">Appearance</span>
+            <div class="home-admin-field">
+              <span>Accent color</span><span class="home-admin-swatch"></span>
+            </div>
+            <div class="home-admin-field">
+              <span>Favicon</span><span class="home-admin-input">Choose file</span>
+            </div>
+            <span class="home-admin-group">Posts</span>
+            <div class="home-admin-field">
+              <span>Show post search</span><span class="home-admin-toggle"></span>
+            </div>
+          </div>
+          <div class="home-admin-section">
+            <span class="home-admin-title">New post · Post options</span>
+            <div class="home-admin-field">
+              <span>Featured image</span><span class="home-admin-input">Choose file</span>
+            </div>
+            <div class="home-admin-field home-admin-field-text">
+              <span>Search description</span>
+            </div>
+          </div>
+          <div class="home-admin-section">
+            <span class="home-admin-title">New page · Page settings</span>
+            <div class="home-admin-field">
+              <span>Page layout</span><span class="home-admin-input home-admin-select">contained</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ul class="home-columns">
+        <li>
+          <h3>Settings</h3>
+          <p>
+            <code>tokens</code>
+            declare site-wide settings like colours, sizes, images, switches and text.
+            They come with labels, defaults and descriptions written by whoever built the theme.
+          </p>
+        </li>
+        <li>
+          <h3>Content structure</h3>
+          <p>
+            <code>post_options</code>
+            and <code>page_options</code>
+            add fields to every post and page. If the theme declares none, that step of the
+            editor doesn't exist.
+          </p>
+        </li>
+        <li>
+          <h3>Page types</h3>
+          <p>
+            Page templates such as a gallery, a front page or a changelog each bring their own
+            fields. The owner fills them in, and the template handles the layout.
+          </p>
+        </li>
+      </ul>
+
+      <p class="home-note">
+        In most CMSs, a new theme changes how the site looks while the admin around it stays
+        the same. On Masthead the admin changes with the theme, because it is built from the theme.
+      </p>
+    </div>
+  </section>
+
+  <section class="home-split" aria-labelledby="sides-title">
+    <h2 id="sides-title" class="home-split-title">
+      <span class="home-wrap">
+        The builder gets the complexity. The owner gets the simplicity.
+      </span>
+    </h2>
+    <div class="home-split-halves">
+      <div class="home-split-half home-split-builder">
+        <div class="home-split-inner">
+          <span class="home-split-role">The builder</span>
+          <h3>Controls how it works</h3>
+          <ul>
+            <li><strong>Design</strong> in CSS and Liquid templates</li>
+            <li><strong>Structure</strong>: which page types exist and what goes in them</li>
+            <li><strong>Settings</strong>: what can change, with defaults and explanations</li>
+            <li>
+              <strong>The editing experience</strong>: the fields each post and page carries
+            </li>
+            <li>
+              <strong>Behaviour</strong>: search, tags and navigation, if the theme exposes them
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="home-split-half home-split-owner">
+        <div class="home-split-inner">
+          <span class="home-split-role">The owner</span>
+          <h3>Gets what it takes to run it</h3>
+          <ul>
+            <li><strong>Content</strong>: posts and pages in Markdown or HTML</li>
+            <li>
+              <strong>Relevant settings</strong>, with the builder's explanations next to them
+            </li>
+            <li>
+              <strong>Media</strong>: uploads, picked straight into the fields that use them
+            </li>
+            <li><strong>Their domain</strong>, with HTTPS taken care of</li>
+            <li><strong>Their finished website</strong>, live when they publish</li>
+          </ul>
+          <p>
+            Owners can handle more. They just shouldn't have to understand how their website
+            was built in order to manage it.
+          </p>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="landing-features">
-    <h2 class="section-title">Built for publishing</h2>
-
-    <ul class="feature-grid">
-      <li class="feature-card">
-        <div class="feature-icon">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"
-            />
-          </svg>
-        </div>
-        <h3>Theme-defined editors</h3>
+  <section class="home-band" aria-labelledby="platform-title">
+    <div class="home-wrap">
+      <div class="home-head">
+        <h2 id="platform-title">Everything around the definition.</h2>
         <p>
-          Every theme defines its own editing experience. Site owners only see the settings relevant to the website they're managing.
+          A theme describes a website. Running that website takes more than templates.
+          Masthead provides the rest, so a theme never has to.
         </p>
-      </li>
+      </div>
 
-      <li class="feature-card">
-        <div class="feature-icon">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z"
-            />
-          </svg>
-        </div>
-        <h3>Custom domains</h3>
-        <p>
-          Connect your own domain in minutes. Masthead verifies ownership, provisions TLS automatically, and serves every site securely over HTTPS.
-        </p>
-      </li>
-
-      <li class="feature-card">
-        <div class="feature-icon">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M16.862 4.487 18.549 2.8a2.121 2.121 0 1 1 3 3L19.862 7.487m-3-3L6.34 15.013a4.5 4.5 0 0 0-1.13 1.897l-.943 3.18 3.18-.943a4.5 4.5 0 0 0 1.897-1.13L19.862 7.487m-3-3 3 3"
-            />
-          </svg>
-        </div>
-        <h3>Content-first publishing</h3>
-        <p>
-          Write pages and posts in Markdown or HTML. Themes decide how content is presented, allowing the same content to power many different websites.
-        </p>
-      </li>
-
-      <li class="feature-card">
-        <div class="feature-icon">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z"
-            />
-          </svg>
-        </div>
-        <h3>Multi-tenant by design</h3>
-        <p>
-          Manage multiple websites from a single account. Every site has its own content, theme, and domain while sharing the same dashboard.
-        </p>
-      </li>
-
-      <li class="feature-card">
-        <div class="feature-icon">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
-            />
-          </svg>
-        </div>
-        <h3>Uploadable themes</h3>
-        <p>
-          Install themes from the marketplace or upload your own. Every theme includes templates, styling, and a generated editor tailored to that website.
-        </p>
-      </li>
-
-      <li class="feature-card">
-        <div class="feature-icon">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M4.098 19.902a3.75 3.75 0 0 0 5.304 0l6.401-6.402M6.75 21A3.75 3.75 0 0 1 3 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 0 0 3.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008Z"
-            />
-          </svg>
-        </div>
-        <h3>Open source</h3>
-        <p>
-          Self-host Masthead or use the hosted version. The source code, CLI, and theme system are fully open source and designed for developers.
-        </p>
-      </li>
-    </ul>
-  </section>
-
-  <section class="landing-faq" aria-labelledby="faq-title">
-    <h2 class="section-title" id="faq-title">Frequently asked questions</h2>
-
-    <div class="faq-list">
-      <details :for={{question, answer} <- @faqs} class="faq-item">
-        <summary>
-          <h3>{question}</h3>
-          <span class="faq-marker" aria-hidden="true"></span>
-        </summary>
-        <p>{answer}</p>
-      </details>
+      <ul class="home-platform">
+        <li :for={
+          {title, body, licensed?} <- [
+            {"Hosting",
+             "Every site is live on its own subdomain from the moment it is created, served over HTTPS.",
+             false},
+            {"Custom domains",
+             "Point a domain at Masthead. It verifies ownership and provisions the TLS certificate.",
+             true},
+            {"Content storage",
+             "Posts, pages, tags and drafts are stored once and rendered by whichever theme is active.",
+             false},
+            {"Media",
+             "Uploads get thumbnails, can be compressed in the browser, and drop straight into theme fields.",
+             false},
+            {"Publishing",
+             "Drafts, publish dates, search, tag-filtered pages and a homepage of your choosing.",
+             false},
+            {"Many sites, one account",
+             "Each site has its own theme, content and domain, all from one dashboard.", false},
+            {"Collaboration",
+             "Invite people to a site and see who else is working in the admin, in real time.",
+             true},
+            {"Statistics",
+             "Views and visitors per page, counted on the server with no cookies and no tracking script.",
+             true},
+            {"Discoverability",
+             "sitemap.xml, robots.txt, llms.txt and structured data are generated for every site.",
+             false},
+            {"Stable rendering",
+             "Renderers are versioned, so a site keeps rendering the way it did when it was built.",
+             false},
+            {"Imports",
+             "Bring in a Hugo site, or single Markdown and HTML files with their frontmatter.",
+             false},
+            {"Site license",
+             "Marked items come with a paid site license. Everything else is free on every site.",
+             false}
+          ]
+        }>
+          <h3>{title}<sup :if={licensed?} title="Requires a site license">*</sup></h3>
+          <p>{body}</p>
+        </li>
+      </ul>
     </div>
   </section>
 
-  <section class="landing-cta">
-    <div class="cta-card">
-      <h2>Start publishing.</h2>
-      <p>
-        Create your first site in minutes, or explore the documentation and build your own theme from scratch.
+  <section class="home-band home-band-paper" aria-labelledby="proof-title">
+    <div class="home-wrap">
+      <h2 id="proof-title">Same platform.<br />Different websites. Different admins.</h2>
+
+      <div class="home-pair">
+        <a class="home-pair-site" href="https://docs.masthead.site" target="_blank" rel="noopener">
+          <img
+            src={~p"/images/home/docs-site.webp"}
+            alt="docs.masthead.site, a documentation site with a searchable sidebar"
+            width="1280"
+            height="760"
+            loading="lazy"
+          />
+        </a>
+        <div class="home-pair-admin">
+          <p class="home-pair-label">docs.masthead.site</p>
+          <p>
+            Our documentation runs on Masthead with the Documentation theme. The theme
+            declares 35 settings in six groups, plus one page type. A few of them:
+          </p>
+          <dl>
+            <div>
+              <dt>Brand</dt>
+              <dd>Logo, Sidebar title, Version badge</dd>
+            </div>
+            <div>
+              <dt>Sidebar</dt>
+              <dd>Show search box, Post list, Custom list</dd>
+            </div>
+            <div>
+              <dt>Content</dt>
+              <dd>Show "on this page", Show previous / next links</dd>
+            </div>
+            <div>
+              <dt>Page types</dt>
+              <dd>Documentation index</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+      <ul class="home-gallery">
+        <li :for={
+          {name, kind, image, url, summary, sample} <- [
+            {"Studio", "Long-form writing", "studio.webp",
+             "https://masthead.site/marketplace/themes/111", "5 settings, no page types",
+             "Accent color, Content width"},
+            {"Halide", "Photography portfolio", "halide.webp",
+             "https://masthead.site/marketplace/themes/115", "7 settings, 3 page types",
+             "A Gallery page with a list of photos, each with caption and alt text"},
+            {"Broadsheet", "Newspaper", "broadsheet.webp",
+             "https://masthead.site/marketplace/themes/119", "30 settings, 4 page types",
+             "Edition line, Drop cap on articles, Front page"},
+            {"Launch", "Software launch site", "launch.webp",
+             "https://masthead.site/marketplace/themes/120", "43 settings, 8 page types",
+             "Announcement bar, Changelog, Feature deep-dive"}
+          ]
+        }>
+          <a href={url} target="_blank" rel="noopener">
+            <img
+              src={~p"/images/home/#{image}"}
+              alt={"#{name} theme preview"}
+              width="1200"
+              height="680"
+              loading="lazy"
+            />
+            <span class="home-gallery-name">{name} <em>{kind}</em></span>
+            <span class="home-gallery-summary">{summary}</span>
+            <span class="home-gallery-sample">{sample}</span>
+          </a>
+        </li>
+      </ul>
+
+      <p class="home-note">
+        Five settings or forty-three: the theme decides.
+        <.link navigate={~p"/marketplace"}>Browse the marketplace &rarr;</.link>
       </p>
-      <div class="hero-cta">
-        <%= if assigns[:current_user] do %>
-          <.link navigate={~p"/sites"} class="btn btn-primary btn-lg">Open dashboard</.link>
-        <% else %>
-          <.link navigate={~p"/signup"} class="btn btn-primary btn-lg">Create your site</.link>
+    </div>
+  </section>
+
+  <section class="home-band" aria-labelledby="audience-title">
+    <div class="home-wrap">
+      <h2 id="audience-title">Build it once. Hand it over.</h2>
+
+      <ol class="home-columns home-audience">
+        <li>
+          <h3>Agencies and independent developers</h3>
+          <p>
+            Build the website, decide exactly what your client can change, connect their
+            domain and invite them in. The templates stay with you. The client gets an
+            admin that contains their website and nothing else.
+          </p>
+        </li>
+        <li>
+          <h3>Theme developers</h3>
+          <p>
+            Build a theme once and define its structure and editing experience in its manifest.
+            Keep it for your own sites or publish it to the marketplace. Ship updates by
+            uploading a newer version.
+          </p>
+        </li>
+        <li>
+          <h3>Site owners</h3>
+          <p>
+            Get a website whose admin already fits it. Write, upload and adjust what the theme
+            exposes. There are no plugins to update and you never have to look at a template.
+          </p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="home-band" aria-labelledby="not-title">
+    <div class="home-wrap">
+      <h2 id="not-title">What Masthead deliberately doesn't do.</h2>
+
+      <ul class="home-nots">
+        <li>
+          <h3>It isn't a page builder.</h3>
+          <p>
+            Owners fill in the fields a theme defines. They don't drag blocks around,
+            because layout belongs to the theme.
+          </p>
+        </li>
+        <li>
+          <h3>It isn't an everything-CMS.</h3>
+          <p>
+            There is no plugin directory and no admin that grows with every install.
+            Each site has one admin, shaped by its theme.
+          </p>
+        </li>
+        <li>
+          <h3>It isn't an application framework.</h3>
+          <p>
+            Themes render content in a sandbox. They can't query the database, run server
+            code or touch the filesystem.
+          </p>
+        </li>
+        <li>
+          <h3>It isn't WordPress with a different interface.</h3>
+          <p>
+            New capability doesn't arrive as another checkbox. A website gets the controls
+            its theme asks for.
+          </p>
+        </li>
+      </ul>
+
+      <blockquote class="home-quote">
+        We don't give site owners a thousand controls. The theme decides which ones they need.
+      </blockquote>
+    </div>
+  </section>
+
+  <section class="home-band home-band-ink" aria-labelledby="oss-title">
+    <div class="home-wrap home-oss">
+      <div>
+        <h2 id="oss-title">Run it yourself, or read how it works.</h2>
+        <p>
+          Masthead is open source. You can inspect the code, build themes against it, change
+          the platform, or run it on your own infrastructure: a Phoenix application with
+          PostgreSQL, uploads on S3-compatible storage or local disk, and a Dockerfile included.
+        </p>
+      </div>
+      <ul class="home-oss-links">
+        <li>
+          <a href="https://github.com/dijkstrasoftware/masthead" target="_blank" rel="noopener">
+            Source on GitHub
+          </a>
+        </li>
+        <li>
           <a
-            href="https://docs.masthead.site"
+            href="https://github.com/dijkstrasoftware/masthead-template"
             target="_blank"
             rel="noopener"
-            class="btn btn-ghost btn-lg"
           >
-            Read the docs
+            Theme starter template
+          </a>
+        </li>
+        <li>
+          <a href="https://docs.masthead.site/posts/self-hosting" target="_blank" rel="noopener">
+            Self-hosting docs
+          </a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="home-band" aria-labelledby="faq-title">
+    <div class="home-wrap home-faq">
+      <h2 id="faq-title">Questions</h2>
+      <div>
+        <details :for={{question, answer} <- @faqs}>
+          <summary>{question}</summary>
+          <p>{answer}</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="home-cta">
+    <div class="home-wrap">
+      <h2>See it from both sides.</h2>
+      <p>Create a free site and pick a theme. Or write a theme and see the admin it produces.</p>
+      <div class="home-actions">
+        <%= if assigns[:current_user] do %>
+          <.link navigate={~p"/sites"} class="btn btn-lg home-cta-primary">Open dashboard</.link>
+        <% else %>
+          <.link navigate={~p"/signup"} class="btn btn-lg home-cta-primary">
+            Create a free site
+          </.link>
+          <a
+            href="https://docs.masthead.site/posts/creating-a-custom-theme"
+            target="_blank"
+            rel="noopener"
+            class="btn btn-lg home-cta-secondary"
+          >
+            Read the theme docs
           </a>
         <% end %>
       </div>

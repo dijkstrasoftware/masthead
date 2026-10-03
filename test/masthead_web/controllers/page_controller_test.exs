@@ -1,18 +1,27 @@
 defmodule MastheadWeb.PageControllerTest do
   use MastheadWeb.ConnCase
 
-  test "GET /", %{conn: conn} do
-    conn = get(conn, ~p"/")
+  setup do
+    System.put_env("FEATURES", "stats, homepage")
+    on_exit(fn -> System.delete_env("FEATURES") end)
+  end
 
-    assert html_response(conn, 200) =~
-             "A publishing engine for content-driven websites."
+  test "GET / sends a logged-out visitor to login when the homepage feature is off", %{
+    conn: conn
+  } do
+    System.delete_env("FEATURES")
+
+    assert redirected_to(get(conn, ~p"/")) == ~p"/login"
+  end
+
+  test "GET / offers a logged-out visitor a way to sign up", %{conn: conn} do
+    assert conn |> get(~p"/") |> html_response(200) =~ ~s(href="/signup")
   end
 
   test "GET / renders SEO metadata", %{conn: conn} do
     html = conn |> get(~p"/") |> html_response(200)
 
     assert html =~ ~s(<meta name="description")
-    assert html =~ "open-source, multi-tenant publishing platform"
     assert html =~ ~s(rel="canonical")
     assert html =~ ~s(property="og:title")
     assert html =~ ~s(name="twitter:card")

@@ -255,22 +255,25 @@ defmodule MastheadWeb.AdminLive.Components do
 
   defp public_shell(assigns) do
     ~H"""
-    <div class="public-shell">
-      <.marketing_nav active={:marketplace} />
+    <div class="public-shell landing-home">
+      <div class="home-top">
+        <.marketing_nav active={:marketplace} />
+
+        <header :if={@title || @actions != [] || @title_meta != []} class="public-hero">
+          <div class="home-wrap public-hero-inner">
+            <div class="page-head-title">
+              <h1 :if={@title}>{@title}</h1>
+              {render_slot(@title_meta)}
+            </div>
+            <div class="actions">
+              {render_slot(@actions)}
+            </div>
+          </div>
+        </header>
+      </div>
 
       <main class="public-content">
         <.flash_toasts flash={@flash} />
-
-        <div :if={@title || @actions != [] || @title_meta != []} class="page-head">
-          <div class="page-head-title">
-            <h1 :if={@title}>{@title}</h1>
-            {render_slot(@title_meta)}
-          </div>
-          <div class="actions">
-            {render_slot(@actions)}
-          </div>
-        </div>
-
         {render_slot(@inner_block)}
       </main>
 
