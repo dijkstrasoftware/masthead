@@ -1,5 +1,5 @@
 defmodule MastheadWeb.LayoutsTest do
-  use ExUnit.Case, async: false
+  use MastheadWeb.ConnCase, async: false
 
   alias MastheadWeb.Layouts
 
@@ -17,5 +17,22 @@ defmodule MastheadWeb.LayoutsTest do
 
     assert Jason.decode!(json)["identifier_hash"] ==
              Base.encode16(:crypto.mac(:hmac, :sha256, "key", "a@b.co"), case: :lower)
+  end
+
+  test "the support chat widget only loads when CHATWOOT_WEBSITE_TOKEN is set", %{conn: conn} do
+    System.delete_env("CHATWOOT_WEBSITE_TOKEN")
+    assert chatwoot_loader(get(conn, ~p"/login")) == ""
+
+    System.put_env("CHATWOOT_WEBSITE_TOKEN", "inbox-token")
+    on_exit(fn -> System.delete_env("CHATWOOT_WEBSITE_TOKEN") end)
+    assert chatwoot_loader(get(build_conn(), ~p"/login")) =~ ~s(websiteToken: "inbox-token")
+  end
+
+  defp chatwoot_loader(conn) do
+    conn
+    |> html_response(200)
+    |> LazyHTML.from_document()
+    |> LazyHTML.query("#chatwoot-loader")
+    |> LazyHTML.text()
   end
 end

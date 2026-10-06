@@ -12,6 +12,17 @@ defmodule MastheadWeb.Layouts do
   embed_templates "layouts/*"
 
   @doc """
+  The Chatwoot website token, or `nil` when unset. The support widget only
+  loads when it is set, so self-hosted installs don't load ours.
+  """
+  def chatwoot_token do
+    case System.get_env("CHATWOOT_WEBSITE_TOKEN") do
+      "" -> nil
+      token -> token
+    end
+  end
+
+  @doc """
   The Chatwoot user for a signed-in user, or `null` when signed out.
   """
   def chatwoot_user(nil), do: "null"
