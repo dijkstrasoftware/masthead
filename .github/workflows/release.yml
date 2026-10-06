@@ -1,0 +1,27 @@
+name: Release
+on:
+  push:
+    branches:
+      - main
+permissions:
+  contents: write
+jobs:
+  release:
+    name: Tag and release the mix version
+    runs-on: ubuntu-latest
+    concurrency: release
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read version from mix.exs
+        id: version
+        run: echo "version=$(grep -oP 'version: "\K[^"]+' mix.exs)" >> "$GITHUB_OUTPUT"
+      - name: Create release unless it already exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if gh release view "$VERSION" > /dev/null 2>&1; then
+            echo "Release $VERSION already exists; bump the version in mix.exs to cut a new one."
+          else
+            gh release create "$VERSION" --target "$GITHUB_SHA" --title "$VERSION" --generate-notes
+          fi
