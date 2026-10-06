@@ -9,6 +9,7 @@ defmodule MastheadWeb.MarketingComponents do
   """
   use Phoenix.Component
   use MastheadWeb, :verified_routes
+  import MastheadWeb.CoreComponents, only: [icon: 1]
 
   attr :current_user, :map, default: nil
   attr :active, :atom, default: nil, doc: ":marketplace | :pricing | nil"
@@ -95,15 +96,26 @@ defmodule MastheadWeb.MarketingComponents do
         <.link :if={is_nil(@current_user)} navigate={~p"/login"}>Log in</.link>
         <.link :if={is_nil(@current_user)} navigate={~p"/signup"}>Sign up</.link>
       </div>
-      <a
-        href="https://github.com/dijkstrasoftware/masthead"
-        target="_blank"
-        rel="noopener"
-        class="github-btn"
-      >
-        <.github_mark />
-        <span>GitHub</span>
-      </a>
+      <div class="landing-footer-badges">
+        <a
+          href="https://github.com/dijkstrasoftware/masthead"
+          target="_blank"
+          rel="noopener"
+          class="github-btn"
+        >
+          <.github_mark />
+          <span>GitHub</span>
+        </a>
+        <a
+          href="https://toolradar.com/tools/masthead"
+          target="_blank"
+          rel="noopener"
+          class="github-btn"
+        >
+          <.icon name="hero-star-solid" class="size-4.5 text-amber-500" />
+          <span>Toolradar</span>
+        </a>
+      </div>
     </footer>
     """
   end

@@ -4098,6 +4098,11 @@ li:nth-child(2) > .home-flow-line::after { animation-delay: 3.2s; }
   font-size: 0.82rem;
   padding: 0.3rem 0.65rem;
 }
+.landing-footer-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
 .landing-version {
   font-family: ui-monospace, Menlo, monospace;
   letter-spacing: 0.02em;
