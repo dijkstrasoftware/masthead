@@ -75,7 +75,7 @@
   </head>
   <body>
     {@inner_content}
-    <script>
+    <script :if={chatwoot_token()} id="chatwoot-loader">
       window.chatwootSettings = { position: "right", type: "standard", launcherTitle: "" };
       window.addEventListener("chatwoot:ready", () => {
         const user = <%= raw(chatwoot_user(assigns[:current_user])) %>;
@@ -87,7 +87,7 @@
         s.src = "https://app.chatwoot.com/packs/js/sdk.js";
         s.onload = () =>
           window.chatwootSDK.run({
-            websiteToken: "tpHGEvTBiRiSH3pLyGFdWnCk",
+            websiteToken: <%= raw(Jason.encode!(chatwoot_token(), escape: :html_safe)) %>,
             baseUrl: "https://app.chatwoot.com",
           });
         document.body.appendChild(s);

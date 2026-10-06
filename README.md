@@ -168,7 +168,8 @@ record.
 | Var | Purpose |
 |---|---|
 | `GOOGLE_ANALYTICS_ID` | Google Analytics measurement ID for the app's own pages |
-| `CHATWOOT_HMAC_TOKEN` | Chatwoot identity-validation token, used to sign the logged-in user passed to the support chat widget |
+| `CHATWOOT_WEBSITE_TOKEN` | Website token of a [Chatwoot](https://www.chatwoot.com) inbox. The support chat widget is only loaded when this is set. |
+| `CHATWOOT_HMAC_TOKEN` | The inbox's identity-validation token, used to sign the logged-in user passed to the widget |
 
 ## Deploy
 
