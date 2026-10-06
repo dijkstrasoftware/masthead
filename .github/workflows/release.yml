@@ -14,7 +14,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Read version from mix.exs
         id: version
-        run: echo "version=$(grep -oP 'version: "\K[^"]+' mix.exs)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(grep -oP 'version: "\K[^"]+' mix.exs)" >> "$GITHUB_OUTPUT"
       - name: Create release unless it already exists
         env:
           GH_TOKEN: ${{ github.token }}
