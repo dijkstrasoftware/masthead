@@ -16,8 +16,8 @@ defmodule Masthead.Mailer do
         api_key: "...",
         contacts: Masthead.Mailer.ResendContacts
 
-  No `:contacts` key (dev, test, self-hosters on another provider) makes
-  `create_contact/1` a no-op. Switching provider means swapping both modules.
+  No `:contacts` key (dev, test, self-hosters on another provider) makes the
+  contact functions no-ops. Switching provider means swapping both modules.
   """
   use Swoosh.Mailer, otp_app: :masthead
 
@@ -35,12 +35,19 @@ defmodule Masthead.Mailer do
   @callback create_contact(contact(), config :: keyword()) ::
               :ok | {:error, term()} | {:cancel, term()}
 
-  def create_contact(contact) do
+  @doc "Updates the existing contact with `contact.email`. Same return contract."
+  @callback update_contact(contact(), config :: keyword()) ::
+              :ok | {:error, term()} | {:cancel, term()}
+
+  def create_contact(contact), do: contacts(:create_contact, contact)
+  def update_contact(contact), do: contacts(:update_contact, contact)
+
+  defp contacts(fun, contact) do
     config = Application.get_env(:masthead, __MODULE__, [])
 
     case config[:contacts] do
       nil -> :ok
-      adapter -> adapter.create_contact(contact, config)
+      adapter -> apply(adapter, fun, [contact, config])
     end
   end
 

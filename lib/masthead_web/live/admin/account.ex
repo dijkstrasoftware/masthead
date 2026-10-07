@@ -1,7 +1,8 @@
 defmodule MastheadWeb.AdminLive.Account do
   @moduledoc """
   The signed-in user's own account page: their public profile (avatar +
-  display name, both edited in place) and their security settings.
+  display name, both edited in place), their product-email opt-out, and
+  their security settings.
 
   Changing the password opens a dialog rather than sitting on the page —
   it's a rare, deliberate act, not a field you scroll past. Disabling the
@@ -65,6 +66,23 @@ defmodule MastheadWeb.AdminLive.Account do
 
   def handle_event("validate_avatar", _params, socket) do
     {:noreply, assign(socket, upload_error: nil)}
+  end
+
+  # ---- email preferences ----
+
+  def handle_event("toggle_product_emails", %{"product_emails" => value}, socket) do
+    case Accounts.set_product_emails(socket.assigns.current_user, value == "true") do
+      {:ok, user} ->
+        message =
+          if user.wants_onboarding_emails,
+            do: "Product emails turned on.",
+            else: "You're unsubscribed from product emails."
+
+        {:noreply, socket |> assign(current_user: user) |> put_flash(:info, message)}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Your email preference couldn't be saved.")}
+    end
   end
 
   # ---- password (dialog) ----
@@ -229,6 +247,40 @@ defmodule MastheadWeb.AdminLive.Account do
                 <button type="submit" class="btn">Resend confirmation email</button>
               </form>
             </div>
+          </section>
+
+          <section class="settings-section">
+            <header class="settings-section-head">
+              <h2>Email</h2>
+              <p>Account emails like confirmations and password resets are always sent.</p>
+            </header>
+
+            <form
+              id="product-emails-form"
+              class="settings-fields account-fields"
+              phx-change="toggle_product_emails"
+            >
+              <div class="account-row">
+                <div>
+                  <div id="product-emails-label" class="account-row-label">Product emails</div>
+                  <p id="product-emails-hint" class="muted account-hint">
+                    Tips, onboarding reminders and news about Masthead.
+                  </p>
+                </div>
+                <input type="hidden" name="product_emails" value="false" />
+                <input
+                  type="checkbox"
+                  role="switch"
+                  class="switch"
+                  id="product-emails"
+                  name="product_emails"
+                  value="true"
+                  checked={@current_user.wants_onboarding_emails}
+                  aria-labelledby="product-emails-label"
+                  aria-describedby="product-emails-hint"
+                />
+              </div>
+            </form>
           </section>
 
           <section class="settings-section">

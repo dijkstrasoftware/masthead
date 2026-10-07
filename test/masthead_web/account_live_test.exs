@@ -1,5 +1,6 @@
 defmodule MastheadWeb.AccountLiveTest do
   use MastheadWeb.ConnCase
+  use Oban.Testing, repo: Masthead.Repo
 
   import Phoenix.LiveViewTest
 
@@ -157,6 +158,19 @@ defmodule MastheadWeb.AccountLiveTest do
 
       assert html =~ "Current password is incorrect"
       refute Accounts.get_user_by_email_and_password(user.email, "freshpass987")
+    end
+  end
+
+  describe "product emails" do
+    test "toggling off opts out and queues the contact update", %{conn: conn, user: user} do
+      {:ok, lv, _html} = live(conn, ~p"/account")
+      assert has_element?(lv, "#product-emails[checked]")
+
+      lv |> form("#product-emails-form", %{product_emails: "false"}) |> render_change()
+
+      refute Repo.get!(Masthead.Accounts.User, user.id).wants_onboarding_emails
+      refute has_element?(lv, "#product-emails[checked]")
+      assert_enqueued(worker: Masthead.Workers.UpdateContact, args: %{user_id: user.id})
     end
   end
 end
