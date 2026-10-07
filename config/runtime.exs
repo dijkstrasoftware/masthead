@@ -146,8 +146,11 @@ if config_env() == :prod do
   # Transactional email via Resend. Account confirmation and password
   # reset depend on this, so a missing key is a hard boot failure (same
   # posture as DATABASE_URL above) rather than silently dropping mail.
+  # `contacts` adds site creators to Resend contacts (needs a full-access key;
+  # see Masthead.Mailer).
   config :masthead, Masthead.Mailer,
     adapter: Swoosh.Adapters.Resend,
+    contacts: Masthead.Mailer.ResendContacts,
     api_key:
       System.get_env("RESEND_API_KEY") ||
         raise("""
@@ -162,7 +165,7 @@ if config_env() == :prod do
             raise("""
             environment variable MAIL_FROM is missing.
             Set it to an address on your Resend-verified sending domain,
-            e.g. noreply@masthead.site
+            e.g. hello@masthead.site
             """)}
 
   # ## SSL Support

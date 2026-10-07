@@ -23,7 +23,7 @@ kill_signal = 'SIGTERM'
   # Transactional email sender (account confirmation / password reset).
   # Must be on the Resend-verified sending domain. RESEND_API_KEY is set
   # via `fly secrets`.
-  MAIL_FROM = 'noreply@masthead.site'
+  MAIL_FROM = 'hello@masthead.site'
   AWS_PUBLIC_URL_S3 = 'https://uploads.masthead.site'
   GOOGLE_ANALYTICS_ID = 'G-935CMGXN4E'
   # Public Chatwoot inbox token; the support chat widget only loads when set.

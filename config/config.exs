@@ -86,7 +86,7 @@ config :swoosh, :api_client, Swoosh.ApiClient.Hackney
 
 # Default "from" for account email. Prod overrides this from MAIL_FROM in
 # runtime.exs once a verified sending domain exists.
-config :masthead, :mail_from, {"Masthead", "noreply@masthead.site"}
+config :masthead, :mail_from, {"Masthead", "hello@masthead.site"}
 
 # Background jobs (Oban). The maintenance queue runs the unconfirmed-account
 # sweep; mailers runs transactional email with retries. The Cron schedule
