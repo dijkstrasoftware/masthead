@@ -284,13 +284,32 @@ defmodule Masthead.Accounts do
   end
 
   @doc """
-  Opts the user out of onboarding/nudge emails (one-click unsubscribe).
+  Sets whether the user gets product email (onboarding nudges, lifecycle
+  email, provider broadcasts) and queues the matching contact update at the
+  mail provider. Account email (confirm, reset) is always sent.
+  """
+  def set_product_emails(%User{} = user, enabled?) when is_boolean(enabled?) do
+    Ecto.Multi.new()
+    |> Ecto.Multi.update(:user, User.onboarding_emails_changeset(user, enabled?))
+    |> Oban.insert(:contact, Masthead.Workers.UpdateContact.new(%{user_id: user.id}))
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{user: user}} -> {:ok, user}
+      {:error, _, reason, _} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Opts the user out of product email (one-click unsubscribe).
   Idempotent; returns `:ok` whether or not the user exists.
   """
   def unsubscribe_onboarding_emails(user_id) do
     case Repo.get(User, user_id) do
       nil -> :ok
-      user -> user |> User.onboarding_emails_changeset(false) |> Repo.update() && :ok
+      user ->
+        # Crash rather than tell someone they're unsubscribed when they aren't.
+        {:ok, _user} = set_product_emails(user, false)
+        :ok
     end
   end
 

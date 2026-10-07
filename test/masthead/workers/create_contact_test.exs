@@ -10,7 +10,13 @@ defmodule Masthead.Workers.CreateContactTest do
 
     @impl true
     def create_contact(contact, config) do
-      send(config[:test_pid], {:contact, contact})
+      send(config[:test_pid], {:create, contact})
+      :ok
+    end
+
+    @impl true
+    def update_contact(contact, config) do
+      send(config[:test_pid], {:update, contact})
       :ok
     end
   end
@@ -58,9 +64,27 @@ defmodule Masthead.Workers.CreateContactTest do
 
     assert :ok = perform_job(CreateContact, %{user_id: user.id})
 
-    assert_received {:contact, %{email: email, first_name: first_name, unsubscribed: true}}
+    assert_received {:create, %{email: email, first_name: first_name, unsubscribed: true}}
 
     assert email == user.email
     assert first_name == user.display_name
+  end
+
+  test "opting back in updates the contact as subscribed", %{user: user} do
+    config = Application.get_env(:masthead, Masthead.Mailer)
+    on_exit(fn -> Application.put_env(:masthead, Masthead.Mailer, config) end)
+
+    Application.put_env(
+      :masthead,
+      Masthead.Mailer,
+      config ++ [contacts: CapturingContacts, test_pid: self()]
+    )
+
+    {:ok, user} = Accounts.set_product_emails(user, false)
+    {:ok, user} = Accounts.set_product_emails(user, true)
+
+    assert :ok = perform_job(Masthead.Workers.UpdateContact, %{user_id: user.id})
+    assert_received {:update, %{email: email, unsubscribed: false}}
+    assert email == user.email
   end
 end
