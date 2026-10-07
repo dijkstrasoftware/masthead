@@ -281,7 +281,8 @@ defmodule Masthead.Sites do
 
   @doc """
   Creates a site and its first membership (the creating `user`) in one
-  transaction, then seeds the onboarding checklist.
+  transaction, then seeds the onboarding checklist. Also enqueues adding the
+  creator to the mail provider's contacts (`Masthead.Workers.CreateContact`).
   """
   def create_site(attrs, %User{id: user_id}), do: do_create_site(attrs, user_id)
 
@@ -304,6 +305,7 @@ defmodule Masthead.Sites do
       |> Ecto.Multi.insert(:membership, fn %{site: site} ->
         SiteMembership.changeset(%SiteMembership{}, %{site_id: site.id, user_id: user_id})
       end)
+      |> Oban.insert(:contact, Masthead.Workers.CreateContact.new(%{user_id: user_id}))
       |> Repo.transaction()
 
     case result do

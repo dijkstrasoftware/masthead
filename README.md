@@ -89,8 +89,8 @@ The release refuses to boot without these.
 | `DATABASE_URL` | Postgres connection string, e.g. `ecto://USER:PASS@HOST/DATABASE` |
 | `SECRET_KEY_BASE` | Cookie / LiveView token signing key (`mix phx.gen.secret`) |
 | `PHX_HOST` | The canonical hostname, e.g. `masthead.example.com`. Falls back to `example.com`, so set it. |
-| `RESEND_API_KEY` | [Resend](https://resend.com) API key. Account confirmation and password reset email go through Resend. |
-| `MAIL_FROM` | Sender address on your Resend-verified domain, e.g. `noreply@masthead.example.com` |
+| `RESEND_API_KEY` | [Resend](https://resend.com) API key. Account confirmation and password reset email go through Resend. Site creators are also added to your Resend contacts, which needs a full-access key; with a sending-only key that step is skipped. Backfill existing site creators with `bin/masthead rpc "Masthead.Workers.CreateContact.backfill()"`. |
+| `MAIL_FROM` | Sender address on your Resend-verified domain, e.g. `hello@masthead.example.com` |
 
 ### Optional — server
 
