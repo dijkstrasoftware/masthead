@@ -1,4 +1,4 @@
-# Plan: A standalone "Logic" subsystem (agnostic sibling to Themes)
+# 2026-06-07 — Plan: A standalone "Logic" subsystem (agnostic sibling to Themes)
 
 ## Context
 

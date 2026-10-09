@@ -361,6 +361,10 @@ defmodule Masthead.Content do
 
     with {:ok, page} <- Repo.insert(changeset) do
       Masthead.Actions.complete_action(site_id, "create_first_page")
+
+      if page.format == "theme" and is_binary(page.template),
+        do: Masthead.Actions.complete_action(site_id, "theme_page:" <> page.template)
+
       Masthead.Actions.reached_first_content(site_id)
       broadcast_content({:ok, page}, :page, :created)
     end

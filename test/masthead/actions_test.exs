@@ -16,8 +16,9 @@ defmodule Masthead.ActionsTest do
     %{user: user}
   end
 
-  # A new site is seeded with onboarding actions: create_first_post,
-  # create_first_page, and import_site. (set_description is staggered in
+  # A new site is seeded with onboarding actions: customize_theme,
+  # create_first_post, and import_site (+ create_first_page when its theme has
+  # no page templates). (set_description is staggered in
   # later, once the site has its first post or page.)
   defp new_site(user, attrs \\ %{}) do
     {:ok, site} =
@@ -166,12 +167,12 @@ defmodule Masthead.ActionsTest do
       site = new_site(user)
 
       assert Enum.sort(pending_keys(site)) ==
-               ["create_first_page", "create_first_post", "import_site"]
+               ["create_first_post", "customize_theme", "import_site"]
     end
 
-    test "top_action for a new site is to import an existing site", %{user: user} do
+    test "top_action for a new site is to customize the theme", %{user: user} do
       site = new_site(user)
-      assert %Action{key: "import_site"} = Actions.top_action(site)
+      assert %Action{key: "customize_theme"} = Actions.top_action(site)
     end
 
     test "set_description is staggered in once the site gets its first post", %{user: user} do
@@ -216,10 +217,112 @@ defmodule Masthead.ActionsTest do
 
     test "creating the first page completes create_first_page", %{user: user} do
       site = new_site(user)
+      {:ok, _} = Actions.create_action(site, "create_first_page")
       assert pending?(site, "create_first_page")
 
       {:ok, _page} = Content.create_page(site.id, %{"title" => "About", "slug" => "about"})
       refute pending?(site, "create_first_page")
+    end
+  end
+
+  defp theme_with_pages(user, pages) do
+    {:ok, theme} =
+      Masthead.Themes.create_upload(%{
+        slug: "tp#{System.unique_integer([:positive])}",
+        name: "Aurora",
+        version: "1.0.0",
+        storage_path: "themes/uploaded/1.0.0",
+        owner_id: user.id,
+        manifest: %{
+          "name" => "Aurora",
+          "page_templates" => pages,
+          "page_configs" => %{
+            "gallery" => %{"label" => "Gallery", "description" => "Show photos."}
+          },
+          "tokens" => [
+            %{"key" => "accent", "label" => "Accent color", "type" => "color"},
+            %{"key" => "font", "label" => "Font", "type" => "string"}
+          ]
+        }
+      })
+
+    theme
+  end
+
+  defp keys_like(site, prefix),
+    do: site |> pending_keys() |> Enum.filter(&String.starts_with?(&1, prefix)) |> Enum.sort()
+
+  describe "theme onboarding" do
+    test "a theme with page templates seeds no page todos up front", %{user: user} do
+      site = new_site(user, %{"theme_id" => theme_with_pages(user, ["gallery"]).id})
+
+      assert Enum.sort(pending_keys(site)) ==
+               ["create_first_post", "customize_theme", "import_site"]
+
+      action = Repo.get_by!(Action, site_id: site.id, key: "customize_theme")
+      assert action.message =~ "Aurora has 2 settings"
+      assert action.path == "/#{site.slug}/theme"
+    end
+
+    test "a theme without page templates gets create_first_page", %{user: user} do
+      site = new_site(user, %{"theme_id" => theme_with_pages(user, []).id})
+      assert pending?(site, "create_first_page")
+    end
+
+    test "saving tokens completes customize_theme and adds page todos (max 3)", %{user: user} do
+      theme = theme_with_pages(user, ["gallery", "a", "b", "c"])
+      site = new_site(user, %{"theme_id" => theme.id})
+
+      {:ok, site} = Sites.update_settings(site, %{"theme_tokens" => %{"accent" => "#000000"}})
+
+      refute pending?(site, "customize_theme")
+
+      assert keys_like(site, "theme_page:") == [
+               "theme_page:a",
+               "theme_page:b",
+               "theme_page:gallery"
+             ]
+
+      action = Repo.get_by!(Action, site_id: site.id, key: "theme_page:gallery")
+      assert action.title == "Your theme can build a Gallery page"
+      assert action.message == "Show photos."
+      assert action.path == "/#{site.slug}/pages/new?template=gallery"
+    end
+
+    test "dismissing customize_theme unlocks the page todos", %{user: user} do
+      site = new_site(user, %{"theme_id" => theme_with_pages(user, ["gallery"]).id})
+      :ok = Actions.dismiss_action(site, "customize_theme")
+      assert keys_like(site, "theme_page:") == ["theme_page:gallery"]
+    end
+
+    test "switching theme swaps pending page todos and keeps completed ones", %{user: user} do
+      site = new_site(user, %{"theme_id" => theme_with_pages(user, ["gallery", "old"]).id})
+      :ok = Actions.dismiss_action(site, "customize_theme")
+      :ok = Actions.complete_action(site, "theme_page:gallery")
+
+      {:ok, site} =
+        Sites.update_settings(site, %{"theme_id" => theme_with_pages(user, ["new"]).id})
+
+      assert keys_like(site, "theme_page:") == ["theme_page:new"]
+      assert Repo.get_by!(Action, site_id: site.id, key: "theme_page:old").status == "dismissed"
+
+      assert Repo.get_by!(Action, site_id: site.id, key: "theme_page:gallery").status ==
+               "completed"
+    end
+
+    test "creating a theme page completes its todo", %{user: user} do
+      site = new_site(user, %{"theme_id" => theme_with_pages(user, ["gallery"]).id})
+      :ok = Actions.dismiss_action(site, "customize_theme")
+
+      {:ok, _page} =
+        Content.create_page(site.id, %{
+          "title" => "Photos",
+          "slug" => "photos",
+          "format" => "theme",
+          "template" => "gallery"
+        })
+
+      refute pending?(site, "theme_page:gallery")
     end
   end
 end

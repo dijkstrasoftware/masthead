@@ -14,6 +14,13 @@ defmodule Masthead.Actions.Definitions do
   alias Masthead.Sites.Site
 
   @definitions %{
+    "customize_theme" => %{
+      title: "Make it yours",
+      message: &__MODULE__.customize_theme_message/1,
+      priority: 120,
+      cta: "Open theme settings",
+      path: &__MODULE__.theme_path/1
+    },
     "create_first_post" => %{
       title: "Create your first post",
       message: "Publish your first post to start sharing updates with your readers.",
@@ -33,7 +40,7 @@ defmodule Masthead.Actions.Definitions do
     "import_site" => %{
       title: "Import your old site",
       message: "Coming from another platform? Import your posts, pages, and images.",
-      priority: 110,
+      priority: 10,
       cta: "Import a site",
       path: &__MODULE__.import_path/1
     },
@@ -87,13 +94,42 @@ defmodule Masthead.Actions.Definitions do
           "key" => key,
           "site_id" => site.id,
           "status" => "pending",
-          "message" => message,
+          "message" => if(is_function(message, 1), do: message.(site), else: message),
           "priority" => priority,
           "path" => path_fun.(site)
         }
     end
   end
 
+  @doc false
+  def customize_theme_message(%Site{} = site) do
+    manifest = Masthead.Themes.manifest_for_site(site) || %{}
+    tokens = Map.get(manifest, "tokens", Map.get(manifest, :tokens))
+
+    labels =
+      if is_list(tokens),
+        do: Enum.map(tokens, &(&1["label"] || &1[:label] || &1["key"] || &1[:key])),
+        else: []
+
+    name = Map.get(manifest, "name", Map.get(manifest, :name)) || "Your theme"
+
+    case labels do
+      [] ->
+        "Tune your theme's look so the site feels like yours."
+
+      _ ->
+        examples =
+          labels
+          |> Enum.reject(&is_nil/1)
+          |> Enum.take(3)
+          |> Enum.map_join(", ", &String.downcase/1)
+
+        "#{name} has #{length(labels)} settings — #{examples} and more."
+    end
+  end
+
+  @doc false
+  def theme_path(%Site{slug: slug}), do: "/#{slug}/theme"
   @doc false
   def settings_path(%Site{slug: slug}), do: "/#{slug}/settings"
   @doc false

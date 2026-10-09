@@ -71,6 +71,44 @@ defmodule Masthead.Themes do
     Repo.all(from t in Theme, where: t.source == "built_in", order_by: ^theme_order())
   end
 
+  # ponytail: hard-coded purpose list; add a theme_tags.kind column if admins need to manage it
+  @purpose_tag_slugs ~w(blog portfolio business magazine personal newsletter
+    documentation landing-page photography restaurant agency nonprofit podcast
+    events shop resume wedding education)
+
+  @doc """
+  Purpose tags (the "what do you want to build?" answers) that have at least
+  one starter theme, as `{tag, count}` in `@purpose_tag_slugs` order.
+  """
+  def list_purpose_tags do
+    from(tag in ThemeTag,
+      join: tt in "theme_taggings",
+      on: tt.theme_tag_id == tag.id,
+      join: t in subquery(starter_query()),
+      on: t.id == tt.theme_id,
+      where: tag.slug in @purpose_tag_slugs,
+      group_by: tag.id,
+      select: {tag, count(t.id)}
+    )
+    |> Repo.all()
+    |> Enum.sort_by(fn {tag, _} -> Enum.find_index(@purpose_tag_slugs, &(&1 == tag.slug)) end)
+  end
+
+  @doc "Up to 12 starter themes tagged `tag_id`, by name, with gallery images."
+  def list_starter_themes(tag_id) do
+    from(t in starter_query(), order_by: t.name, limit: 12, preload: :images)
+    |> by_tag(tag_id)
+    |> Repo.all()
+  end
+
+  @doc "Whether a theme can be picked as a new site's starter template."
+  def starter_theme?(%Theme{source: "uploaded", public: true, verified: true}), do: true
+  def starter_theme?(_theme), do: false
+
+  defp starter_query do
+    from t in Theme, where: t.source == "uploaded" and t.public == true and t.verified == true
+  end
+
   # Built-ins first, then uploads. Within built-ins the canonical Default
   # always leads (it's what every site starts on), then the rest of the
   # built-ins alphabetically. Uploads come after, by name.

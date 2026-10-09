@@ -2701,6 +2701,204 @@ button.danger:hover { filter: brightness(0.92); }
   from { opacity: 0; transform: translateY(8px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* ---- Site creation: entry motion + wizard ---- */
+.empty-state-animated .empty-illustration { animation: empty-float 6s ease-in-out infinite; }
+.empty-state-animated h2,
+.empty-state-animated p,
+.empty-state-animated .empty-state-cta { animation: fade-rise 0.5s ease-out both; }
+.empty-state-animated h2 { animation-delay: 0.1s; }
+.empty-state-animated p { animation-delay: 0.2s; }
+.empty-state-animated .empty-state-cta {
+  animation: fade-rise 0.5s ease-out 0.3s both, cta-glow 2.4s ease-out 1s infinite;
+}
+@keyframes empty-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes fade-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* Same shape as flow-ping, tinted with the admin accent. */
+@keyframes cta-glow {
+  0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.45); }
+  40%, 100% { box-shadow: 0 0 0 12px rgba(37, 99, 235, 0); }
+}
+
+.btn-shimmer { position: relative; overflow: hidden; }
+.btn-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  left: -60%;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: skewX(-20deg);
+  pointer-events: none;
+  opacity: 0;
+}
+.btn-shimmer:hover::after { opacity: 1; animation: btn-shimmer 0.7s ease-out; }
+.btn-shimmer .btn-add-icon { display: inline-block; transition: transform 0.25s ease; }
+.btn-shimmer:hover .btn-add-icon { transform: rotate(90deg); }
+@keyframes btn-shimmer {
+  from { left: -60%; }
+  to { left: 120%; }
+}
+
+.site-card-list li { animation: fade-rise 0.35s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+
+.dialog-wizard { max-width: 640px; }
+/* Template step: near-fullscreen so previews are big enough to judge. */
+.dialog-wizard.dialog-wide { max-width: min(1200px, calc(100vw - 3rem)); height: calc(100vh - 3rem); }
+.dialog-wide #new-site-templates,
+.dialog-wide #new-site-templates .dialog-scroll { flex: 1; }
+.dialog-wizard .dialog-header { gap: 1rem; }
+.dialog-wizard .dialog-header h2 { margin-right: auto; }
+.wizard-dots { display: flex; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+.wizard-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--rule-strong);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.wizard-dot.is-done { background: var(--accent); }
+.wizard-dot[aria-current="step"] { transform: scale(1.3); }
+
+.wizard-step { display: flex; flex-direction: column; min-height: 0; animation: step-in-forward 0.25s ease-out; }
+.wizard-step[data-dir="back"] { animation-name: step-in-back; }
+@keyframes step-in-forward {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes step-in-back {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.wizard-question { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--fg); }
+.wizard-skip {
+  margin-right: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.wizard-skip:hover { color: var(--fg-soft); text-decoration: underline; }
+
+.purpose-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.6rem; }
+.purpose-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: var(--card);
+  text-align: left;
+  cursor: pointer;
+  animation: fade-rise 0.3s ease-out both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.purpose-chip:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: var(--shadow-md); }
+.purpose-chip .muted { font-size: 0.78rem; }
+
+.starter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.starter-card {
+  position: relative;
+  animation: fade-rise 0.3s ease-out both;
+  /* Starts once the dialog has finished growing (MorphSize hook, 300ms). */
+  animation-delay: calc(300ms + var(--i, 0) * 50ms);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.starter-card:hover { transform: translateY(-2px); }
+.starter-card.is-selected {
+  box-shadow: 0 0 0 2px var(--accent), var(--shadow-md);
+  animation: installed-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.starter-card { height: auto; }
+.starter-card .marketplace-thumb { display: block; }
+.starter-card-pick {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.starter-card-body { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.85rem 1rem; }
+.starter-card-name { font-size: 1rem; font-weight: 600; }
+.starter-card-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.starter-card-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+  padding: 0.55rem 1rem;
+  border-top: 1px solid var(--rule);
+}
+.starter-card-view { font-size: 0.8rem; color: var(--muted); }
+.starter-card-view:hover { color: var(--accent); }
+
+.wizard-summary {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 1rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 0.85rem;
+}
+.wizard-summary-change {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.phx-submit-loading .btn-create { opacity: 0.7; cursor: progress; }
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-state-animated .empty-illustration,
+  .empty-state-animated h2,
+  .empty-state-animated p,
+  .empty-state-animated .empty-state-cta,
+  .btn-shimmer:hover::after,
+  .site-card-list li,
+  .wizard-step,
+  .purpose-chip,
+  .starter-card,
+  .starter-card.is-selected { animation: none; }
+  .btn-shimmer .btn-add-icon,
+  .wizard-dot,
+  .purpose-chip,
+  .starter-card { transition: none; }
+  .btn-shimmer:hover .btn-add-icon,
+  .purpose-chip:hover,
+  .starter-card:hover { transform: none; }
+}
 .dialog-header {
   display: flex;
   align-items: center;
@@ -2781,6 +2979,8 @@ button.danger:hover { filter: brightness(0.92); }
    go in .dialog-scroll (the only scroller); the footer sits flush beneath
    it, so no negative-margin bleed is needed. */
 #new-site-form,
+#new-site-purpose,
+#new-site-templates,
 #invite-user-form {
   padding: 0;
   gap: 0;
@@ -2788,6 +2988,8 @@ button.danger:hover { filter: brightness(0.92); }
   min-height: 0;
 }
 #new-site-form .dialog-scroll,
+#new-site-purpose .dialog-scroll,
+#new-site-templates .dialog-scroll,
 #invite-user-form .dialog-scroll {
   display: flex;
   flex-direction: column;
@@ -2797,6 +2999,8 @@ button.danger:hover { filter: brightness(0.92); }
   min-height: 0;
 }
 #new-site-form .dialog-footer,
+#new-site-purpose .dialog-footer,
+#new-site-templates .dialog-footer,
 #invite-user-form .dialog-footer { margin: 0; }
 /* The negative margins above exist to bleed out of .dialog-form's padding.
    A footer placed straight under .dialog has no padding to escape. */
