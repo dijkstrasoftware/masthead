@@ -370,6 +370,18 @@ defmodule Masthead.Content do
     end
   end
 
+  @doc """
+  Creates a page and makes it the site's homepage, both or neither.
+  """
+  def create_homepage_page(%Masthead.Sites.Site{} = site, attrs) do
+    Repo.transact(fn ->
+      with {:ok, page} <- create_page(site.id, attrs),
+           {:ok, _site} <- Masthead.Sites.update_settings(site, %{"homepage_page_id" => page.id}) do
+        {:ok, page}
+      end
+    end)
+  end
+
   def update_page(%Page{} = page, attrs) do
     page = Repo.preload(page, :filter_tags)
 

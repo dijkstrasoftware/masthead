@@ -74,6 +74,8 @@ defmodule MastheadWeb.AdminLive.PageForm do
        page_templates: page_template_options(theme_manifest, page_template_names),
        allow_theme?: page_template_names != [],
        tags: Content.list_tags(socket.assigns.site.id),
+       # Named in the "Set as homepage" hint; only the create wizard offers it.
+       current_homepage: if(page, do: nil, else: Content.get_homepage_page(socket.assigns.site)),
        site_uploads: Uploads.list_uploads(socket.assigns.site.id),
        containers: SettingsFields.containers()
      )
@@ -397,8 +399,13 @@ defmodule MastheadWeb.AdminLive.PageForm do
       |> Map.put("page_options", canonical)
       |> Map.put("published", to_string(publish?))
 
+    # Like the Site settings select (published pages only), the homepage
+    # opt-in only applies to a page saved as published.
+    homepage? = publish? and draft["set_homepage"] == "true"
+
     result =
       case socket.assigns.page do
+        nil when homepage? -> Content.create_homepage_page(socket.assigns.site, full_params)
         nil -> Content.create_page(socket.assigns.site.id, full_params)
         page -> Content.update_page(page, full_params)
       end
@@ -695,6 +702,8 @@ defmodule MastheadWeb.AdminLive.PageForm do
               changeset={@changeset}
               format={@draft["format"]}
               editing={@page != nil}
+              current_homepage={@current_homepage}
+              set_homepage={@draft["set_homepage"] == "true"}
               site_slug={@site.slug}
               show_errors={@show_errors}
               has_page_options={@has_page_options?}
@@ -953,6 +962,8 @@ defmodule MastheadWeb.AdminLive.PageForm do
   attr :has_page_options, :boolean, default: false
   attr :tags, :list, default: []
   attr :selected_filter_tag_ids, :list, default: []
+  attr :current_homepage, :any, default: nil
+  attr :set_homepage, :boolean, default: false
 
   defp meta_step(assigns) do
     ~H"""
@@ -985,6 +996,26 @@ defmodule MastheadWeb.AdminLive.PageForm do
           name="page[show_in_nav]"
           value="true"
           checked={@form[:show_in_nav].value not in [false, "false"]}
+        />
+      </div>
+
+      <div :if={not @editing} class="settings-checkbox">
+        <label for="page-set-homepage" class="settings-checkbox-text">
+          <span>Set as homepage</span>
+          <small>
+            Show this page at your site's root URL once published.
+            <span :if={@current_homepage} id="page-set-homepage-replaces">
+              Replaces <strong>{@current_homepage.title}</strong> as your homepage.
+            </span>
+          </small>
+        </label>
+        <input type="hidden" name="page[set_homepage]" value="false" />
+        <input
+          type="checkbox"
+          id="page-set-homepage"
+          name="page[set_homepage]"
+          value="true"
+          checked={@set_homepage}
         />
       </div>
 

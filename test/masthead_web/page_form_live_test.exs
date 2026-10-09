@@ -263,6 +263,75 @@ defmodule MastheadWeb.PageFormLiveTest do
     end
   end
 
+  describe "set as homepage" do
+    test "checked + published makes the new page the homepage", %{conn: conn, site: site} do
+      {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/pages/new")
+      create_theme_page(lv, "Links", "true", "publish")
+
+      page = Masthead.Content.list_pages(site.id) |> Enum.find(&(&1.title == "Links"))
+      assert Masthead.Content.get_homepage_page(Sites.get_site!(site.id)).id == page.id
+    end
+
+    test "unchecked, or saved as a draft, leaves the homepage unchanged", %{
+      conn: conn,
+      site: site
+    } do
+      {:ok, home} =
+        Masthead.Content.create_page(site.id, %{"title" => "Old home", "published" => true})
+
+      {:ok, _} = Sites.update_settings(site, %{"homepage_page_id" => home.id})
+
+      {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/pages/new")
+      create_theme_page(lv, "Unchecked", "false", "publish")
+
+      {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/pages/new")
+      create_theme_page(lv, "Draft", "true", "draft")
+
+      assert Sites.get_site!(site.id).homepage_page_id == home.id
+    end
+
+    test "the hint names the current homepage", %{conn: conn, site: site} do
+      {:ok, home} =
+        Masthead.Content.create_page(site.id, %{"title" => "Old home", "published" => true})
+
+      {:ok, _} = Sites.update_settings(site, %{"homepage_page_id" => home.id})
+
+      {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/pages/new")
+
+      lv
+      |> element(~s(form[phx-change="choose_template"]))
+      |> render_change(%{"template" => "blog"})
+
+      lv |> element(~s(button[phx-click="advance"])) |> render_click()
+
+      assert has_element?(lv, "#page-set-homepage-replaces", "Old home")
+    end
+
+    test "the checkbox is absent when editing", %{conn: conn, site: site} do
+      {:ok, page} = Masthead.Content.create_page(site.id, %{"title" => "Existing"})
+      {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/pages/#{page.id}/edit")
+
+      render_hook(lv, "goto_step", %{"step" => "2"})
+
+      assert has_element?(lv, "#meta-form")
+      refute has_element?(lv, "#page-set-homepage")
+    end
+  end
+
+  defp create_theme_page(lv, title, set_homepage, action) do
+    lv
+    |> element(~s(form[phx-change="choose_template"]))
+    |> render_change(%{"template" => "blog"})
+
+    lv |> element(~s(button[phx-click="advance"])) |> render_click()
+
+    lv
+    |> form("#meta-form", page: %{"title" => title, "set_homepage" => set_homepage})
+    |> render_submit()
+
+    lv |> form("#content-form") |> render_submit(%{"action" => action})
+  end
+
   # Install an uploaded fixture theme whose "widgets" page exercises a file
   # field, an object, and a list (each with files), all grouped by category;
   # point the site at it. Returns the reloaded site.
