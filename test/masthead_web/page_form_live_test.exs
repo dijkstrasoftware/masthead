@@ -33,6 +33,17 @@ defmodule MastheadWeb.PageFormLiveTest do
   end
 
   describe "theme pages" do
+    test "?template= preselects a known template; an unknown one is ignored", %{
+      conn: conn,
+      site: site
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/pages/new?template=blog")
+      assert has_element?(lv, ~s(option[value="blog"][selected]))
+
+      {:ok, lv, _html} = live(conn, ~p"/#{site.slug}/pages/new?template=nope")
+      refute has_element?(lv, ~s(option[value="blog"][selected]))
+    end
+
     test "the Theme page card offers a template dropdown", %{conn: conn, site: site} do
       {:ok, _lv, html} = live(conn, ~p"/#{site.slug}/pages/new")
 

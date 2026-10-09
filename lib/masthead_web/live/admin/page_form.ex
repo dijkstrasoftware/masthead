@@ -46,6 +46,12 @@ defmodule MastheadWeb.AdminLive.PageForm do
     has_page_options? = page_option_fields != []
     page_template_names = Themes.Loader.manifest_page_template_names(theme_manifest)
 
+    # `?template=<name>` (from a theme-page todo) preselects that template.
+    draft =
+      if socket.assigns.live_action == :new and params["template"] in page_template_names,
+        do: put_template(draft, theme_manifest, params["template"]),
+        else: draft
+
     # Give any existing list-item option fresh `_id`s so the editor can track
     # them across add/remove/reorder.
     fields = settings_fields_for(draft, theme_manifest, page_option_fields)
@@ -127,6 +133,17 @@ defmodule MastheadWeb.AdminLive.PageForm do
     end
   end
 
+  # Seed the draft with the chosen template's settings (incl. any default list
+  # items) so the editor opens pre-filled with the theme's defaults.
+  defp put_template(draft, manifest, name) do
+    meta = SettingsFields.hydrate(%{}, page_settings_fields(manifest, name))
+
+    draft
+    |> Map.put("format", "theme")
+    |> Map.put("template", name)
+    |> Map.put("page_options", meta)
+  end
+
   # The picker list: one `%{name, label}` per page template (label from the
   # sidecar config, else the humanized file name).
   defp page_template_options(manifest, names) do
@@ -173,16 +190,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
       true ->
         # Seed the draft with the chosen template's settings (incl. any default
         # list items) so the editor opens pre-filled with the theme's defaults.
-        meta =
-          SettingsFields.hydrate(%{}, page_settings_fields(socket.assigns.theme_manifest, name))
-
-        {:noreply,
-         update(socket, :draft, fn d ->
-           d
-           |> Map.put("format", "theme")
-           |> Map.put("template", name)
-           |> Map.put("page_options", meta)
-         end)}
+        {:noreply, update(socket, :draft, &put_template(&1, socket.assigns.theme_manifest, name))}
     end
   end
 

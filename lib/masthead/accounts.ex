@@ -305,7 +305,9 @@ defmodule Masthead.Accounts do
   """
   def unsubscribe_onboarding_emails(user_id) do
     case Repo.get(User, user_id) do
-      nil -> :ok
+      nil ->
+        :ok
+
       user ->
         # Crash rather than tell someone they're unsubscribed when they aren't.
         {:ok, _user} = set_product_emails(user, false)

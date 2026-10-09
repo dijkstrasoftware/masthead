@@ -126,7 +126,77 @@ defmodule Masthead.Actions do
       |> Repo.update_all(set: [status: "dismissed", updated_at: now()])
 
     if count > 0, do: Realtime.actions_changed(site_id)
+    # Skipping "Make it yours" still unlocks the theme-page todos.
+    if count > 0 and key == "customize_theme",
+      do: site_id |> Masthead.Sites.get_site!() |> sync_theme_page_actions()
+
     :ok
+  end
+
+  @doc """
+  Keeps one `theme_page:<name>` todo per page template of the site's current
+  theme: creates missing ones and dismisses pending ones whose template the
+  theme no longer ships (completed ones stay). A no-op while
+  `customize_theme` is still pending, so page todos only appear after it.
+  """
+  def sync_theme_page_actions(%Site{id: site_id} = site) do
+    if Repo.exists?(
+         from a in Action,
+           where: a.site_id == ^site_id and a.key == "customize_theme" and a.status == "pending"
+       ) do
+      :ok
+    else
+      manifest = Masthead.Themes.manifest_for_site(site) || %{}
+      # ponytail: capped at 3 theme-page todos; lift if themes ship many pages
+      names = manifest |> Masthead.Themes.Loader.manifest_page_template_names() |> Enum.take(3)
+      keys = Enum.map(names, &("theme_page:" <> &1))
+
+      {dismissed, _} =
+        from(a in Action,
+          where:
+            a.site_id == ^site_id and a.status == "pending" and
+              like(a.key, "theme_page:%") and a.key not in ^keys
+        )
+        |> Repo.update_all(set: [status: "dismissed", updated_at: now()])
+
+      created =
+        Enum.count(names, fn name ->
+          match?(
+            {:ok, %Action{id: id}} when not is_nil(id),
+            insert_theme_page(site, manifest, name)
+          )
+        end)
+
+      if dismissed + created > 0, do: Realtime.actions_changed(site_id)
+      :ok
+    end
+  end
+
+  defp insert_theme_page(site, manifest, name) do
+    config =
+      case Map.get(manifest, "page_configs", Map.get(manifest, :page_configs)) do
+        %{} = configs -> configs[name] || %{}
+        _ -> %{}
+      end
+
+    label =
+      config["label"] || config[:label] ||
+        name |> String.replace(["-", "_"], " ") |> String.capitalize()
+
+    theme = Map.get(manifest, "name", Map.get(manifest, :name)) || "your theme"
+
+    %Action{}
+    |> Action.changeset(%{
+      "key" => "theme_page:" <> name,
+      "site_id" => site.id,
+      "status" => "pending",
+      "title" => "Your theme can build a #{label} page",
+      "message" =>
+        config["description"] || config[:description] || "A dedicated page laid out by #{theme}.",
+      "path" => "/#{site.slug}/pages/new?template=#{URI.encode_www_form(name)}",
+      "priority" => 90
+    })
+    |> Repo.insert(on_conflict: :nothing, conflict_target: [:site_id, :key])
   end
 
   @doc "Pending actions for `site`, highest priority first."
@@ -183,6 +253,7 @@ defmodule Masthead.Actions do
   def title(%Action{key: key}), do: Definitions.title(key)
 
   @doc "Render-time button label for an action, or `nil`."
+  def cta(%Action{key: "theme_page:" <> _}), do: "Create page"
   def cta(%Action{key: key}), do: Definitions.cta(key)
 
   defp pending_query(site_id) do

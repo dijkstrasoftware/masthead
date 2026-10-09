@@ -143,7 +143,9 @@ defmodule Masthead.Workers.OnboardingReminderTest do
   test "groups a single site's multiple due actions into one email" do
     user = confirmed_user()
     site = site_for(user)
-    # both content actions are remindable; make both due
+    # both content actions are remindable; make both due (default-theme sites
+    # don't seed create_first_page, so add it here)
+    {:ok, _} = Actions.create_action(site, "create_first_page")
     backdate(site, "create_first_post", 8)
     backdate(site, "create_first_page", 8)
 

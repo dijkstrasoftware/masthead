@@ -305,6 +305,7 @@ defmodule Masthead.Sites do
       |> Ecto.Multi.insert(:membership, fn %{site: site} ->
         SiteMembership.changeset(%SiteMembership{}, %{site_id: site.id, user_id: user_id})
       end)
+      |> Ecto.Multi.run(:install, fn repo, %{site: site} -> install_uploaded_theme(repo, site) end)
       |> Oban.insert(:contact, Masthead.Workers.CreateContact.new(%{user_id: user_id}))
       |> Repo.transaction()
 
@@ -318,8 +319,27 @@ defmodule Masthead.Sites do
 
       {:error, :membership, changeset, _} ->
         {:error, changeset}
+
+      {:error, :install, changeset, _} ->
+        {:error, changeset}
     end
   end
+
+  # A site on an uploaded theme needs an install row, or its active theme
+  # would be missing from the site's theme picker. Built-ins need none.
+  defp install_uploaded_theme(repo, %Site{theme_id: theme_id} = site) when is_integer(theme_id) do
+    case repo.get(Masthead.Themes.Theme, theme_id) do
+      %{source: "uploaded"} ->
+        %Masthead.Themes.ThemeInstall{}
+        |> Masthead.Themes.ThemeInstall.changeset(%{site_id: site.id, theme_id: theme_id})
+        |> repo.insert()
+
+      _ ->
+        {:ok, nil}
+    end
+  end
+
+  defp install_uploaded_theme(_repo, _site), do: {:ok, nil}
 
   # ---- memberships & invitations ----
 
@@ -497,9 +517,15 @@ defmodule Masthead.Sites do
   # actions only. The "set description" nudge is staggered — it's added later,
   # once the site has its first post or page (see `Masthead.Actions`).
   defp maybe_create_onboarding_actions(%Site{} = site) do
+    Masthead.Actions.create_action(site, "customize_theme")
     Masthead.Actions.create_action(site, "create_first_post")
-    Masthead.Actions.create_action(site, "create_first_page")
     Masthead.Actions.create_action(site, "import_site")
+
+    # Theme-page todos replace the generic one, unlocked after "Make it yours".
+    if Masthead.Themes.Loader.manifest_page_template_names(
+         Masthead.Themes.manifest_for_site(site)
+       ) == [],
+       do: Masthead.Actions.create_action(site, "create_first_page")
   end
 
   defp blank?(nil), do: true
@@ -523,13 +549,18 @@ defmodule Masthead.Sites do
   end
 
   def update_settings(%Site{} = site, attrs) do
-    with {:ok, site} <-
-           site
-           |> Site.settings_changeset(attrs)
-           |> Repo.update() do
+    changeset = Site.settings_changeset(site, attrs)
+    theme_changed? = Enum.any?([:theme_tokens, :theme_id], &Map.has_key?(changeset.changes, &1))
+
+    with {:ok, site} <- Repo.update(changeset) do
       # Completing is idempotent, so it's safe to call on every save.
       unless blank?(site.description),
         do: Masthead.Actions.complete_action(site, "set_description")
+
+      if theme_changed? do
+        Masthead.Actions.complete_action(site, "customize_theme")
+        Masthead.Actions.sync_theme_page_actions(site)
+      end
 
       Realtime.settings_changed(site.id)
       {:ok, site}
