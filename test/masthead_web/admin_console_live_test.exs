@@ -85,7 +85,6 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     conn: conn,
     member: member
   } do
-    # Verified, then disabled: shows as disabled only.
     {:ok, _} = Accounts.verify_user(member)
     {:ok, _} = member.id |> Accounts.get_user!() |> Accounts.disable_user()
 

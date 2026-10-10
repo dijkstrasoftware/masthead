@@ -896,9 +896,6 @@ defmodule MastheadWeb.AdminLive.Console do
 
   attr :user, :map, required: true
 
-  # One status per user, most severe first. The underlying flags overlap
-  # (a disabled user may also be suspended or verified); the admin sees only
-  # the one that decides what the user can do.
   defp user_status(assigns) do
     {label, class} =
       cond do

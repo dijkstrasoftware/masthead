@@ -536,8 +536,6 @@ defmodule Masthead.Accounts do
 
   defp apply_filter(query, filter) do
     case filter do
-      # Mutually exclusive, mirroring the console's single status pill:
-      # disabled > suspended > verified > unverified.
       :verified ->
         from u in query,
           where: not is_nil(u.confirmed_at) and is_nil(u.disabled_at) and is_nil(u.suspended_at)
