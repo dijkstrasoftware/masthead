@@ -159,7 +159,7 @@ defmodule Masthead.Accounts.User do
   Registers a user who signed up by accepting a site invitation. Same as
   `registration_changeset/2` (the user chooses a real password) but the
   account starts confirmed — the invitation email already proved control of
-  the address, so no confirmation step (and no 7-day auto-disable) applies.
+  the address, so no confirmation step (and no 30-day suspension) applies.
   """
   def invited_registration_changeset(user, attrs) do
     user

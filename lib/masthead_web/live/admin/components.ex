@@ -323,7 +323,7 @@ defmodule MastheadWeb.AdminLive.Components do
     ~H"""
     <div :if={not User.confirmed?(@user)} class="account-banner" role="status">
       <p>
-        Please confirm your email address. We sent a link to <strong>{@user.email}</strong>. Unconfirmed accounts are disabled after 7 days.
+        Please confirm your email address. We sent a link to <strong>{@user.email}</strong>. Unconfirmed accounts are suspended after 30 days.
       </p>
       <.link href={~p"/confirm"} method="post" class="account-banner-btn">
         Resend confirmation
