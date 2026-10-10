@@ -452,7 +452,7 @@ defmodule MastheadWeb.AdminLive.Marketplace do
     <.marketplace_shell title={@page_title} current_user={@current_user} flash={@flash}>
       <:actions>
         <a
-          href="https://github.com/JoeriDijkstra/masthead-template"
+          href="https://github.com/dijkstrasoftware/masthead-template"
           target="_blank"
           rel="noopener"
           class="github-btn"
