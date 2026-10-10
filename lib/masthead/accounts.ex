@@ -28,9 +28,11 @@ defmodule Masthead.Accounts do
     if User.valid_password?(user, password), do: user
   end
 
-  def register_user(attrs) do
+  @doc "Email signup. `attribution` is the first-touch map from `MastheadWeb.Attribution`."
+  def register_user(attrs, attribution \\ %{}) do
     %User{}
     |> User.registration_changeset(attrs)
+    |> User.signup_changeset("email", attribution)
     |> Repo.insert()
   end
 
@@ -42,9 +44,10 @@ defmodule Masthead.Accounts do
   Registers a user who accepted a site invitation. The account starts
   confirmed (the invite email proved control of the address).
   """
-  def register_invited_user(attrs) do
+  def register_invited_user(attrs, attribution \\ %{}) do
     %User{}
     |> User.invited_registration_changeset(attrs)
+    |> User.signup_changeset("invite", attribution)
     |> Repo.insert()
   end
 
@@ -424,7 +427,8 @@ defmodule Masthead.Accounts do
     * else → create a fresh, already-confirmed account + identity
 
   Returns `{:ok, user}` or `{:error, :disabled | :no_email |
-  :email_unverified}`.
+  :email_unverified}`. Options: `:on_create` (called with a newly created
+  user) and `:attribution` (first-touch map stored on a newly created user).
   """
   def get_or_create_user_from_oauth(%{provider: provider, uid: uid} = info, opts \\ []) do
     provider = to_string(provider)
@@ -466,7 +470,12 @@ defmodule Masthead.Accounts do
 
   defp create_user_with_identity(email, provider, uid, opts) do
     Ecto.Multi.new()
-    |> Ecto.Multi.insert(:user, User.oauth_registration_changeset(%User{}, %{email: email}))
+    |> Ecto.Multi.insert(
+      :user,
+      %User{}
+      |> User.oauth_registration_changeset(%{email: email})
+      |> User.signup_changeset(provider, opts[:attribution] || %{})
+    )
     |> Ecto.Multi.insert(:identity, fn %{user: user} ->
       UserIdentity.changeset(%UserIdentity{}, %{
         user_id: user.id,

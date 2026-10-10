@@ -69,6 +69,7 @@ defmodule MastheadWeb.AdminLive.SiteTheme do
 
     case Sites.update_settings(socket.assigns.site, full_params) do
       {:ok, site} ->
+        Masthead.Growth.touch(socket.assigns.current_user.id)
         Masthead.Themes.Loader.invalidate(site.theme_id)
         changeset = Sites.change_settings(site)
 

@@ -120,8 +120,18 @@ defmodule MastheadWeb.AdminLive.SiteIndex do
       |> Map.put("title", params["name"])
       |> put_starter_theme(socket.assigns.selected_theme)
 
-    case Sites.create_site(params, socket.assigns.current_user) do
+    user = socket.assigns.current_user
+
+    theme_choice =
+      cond do
+        Map.has_key?(params, "theme_id") -> "chosen"
+        is_nil(socket.assigns.selected_theme) and socket.assigns.purpose_tags != [] -> "skipped"
+        true -> "default"
+      end
+
+    case Sites.create_site(params, user, theme_choice) do
       {:ok, site} ->
+        Masthead.Growth.touch(user.id)
         {:noreply, push_navigate(socket, to: ~p"/#{site.slug}")}
 
       {:error, changeset} ->

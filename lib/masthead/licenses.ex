@@ -13,6 +13,7 @@ defmodule Masthead.Licenses do
   import Ecto.Query
 
   alias Masthead.{Payments, Realtime, Repo}
+  alias Masthead.Licenses.Event
   alias Masthead.Sites.Site
 
   @plans %{
@@ -146,7 +147,74 @@ defmodule Masthead.Licenses do
       payment_subscription_id: event.subscription_id
     ]
 
-    site |> Ecto.Changeset.change(changes) |> Repo.update() |> announce()
+    save(site, changes, fn old, new ->
+      if kind = webhook_kind(old, new) do
+        amount = if is_map_key(@plans, new.license_plan), do: amount(new.license_plan)
+        %{kind: kind, source: "stripe", amount_cents: amount}
+      end
+    end)
+  end
+
+  # Updates the site and, when its license state actually moved, appends the
+  # `license_events` row `event_fun` describes — in one transaction so state
+  # and history can't diverge. Unchanged state (a redelivery) writes nothing.
+  defp save(site, changes, event_fun) do
+    Repo.transact(fn ->
+      with {:ok, new} <- site |> Ecto.Changeset.change(changes) |> Repo.update() do
+        if attrs = license_changed?(site, new) && event_fun.(site, new) do
+          Repo.insert!(%Event{
+            site_id: new.id,
+            kind: attrs.kind,
+            source: attrs.source,
+            amount_cents: attrs.amount_cents,
+            plan: new.license_plan,
+            status: new.license_status,
+            expires_at: new.license_expires_at,
+            currency: currency(),
+            occurred_at: DateTime.utc_now(:second)
+          })
+        end
+
+        {:ok, new}
+      end
+    end)
+    |> announce()
+  end
+
+  defp license_changed?(old, new) do
+    old.license_status != new.license_status or old.license_plan != new.license_plan or
+      old.license_expires_at != new.license_expires_at or paid?(old) != paid?(new)
+  end
+
+  defp webhook_kind(old, new) do
+    status_changed? = old.license_status != new.license_status
+
+    cond do
+      status_changed? and new.license_status in ~w(canceling canceled past_due) ->
+        new.license_status
+
+      old.license_status in ~w(canceling past_due) and new.license_status == "active" and
+          paid?(new) ->
+        "reactivated"
+
+      not paid?(old) and paid?(new) ->
+        "started"
+
+      paid?(old) and not paid?(new) ->
+        "canceled"
+
+      not paid?(new) ->
+        nil
+
+      old.license_plan != new.license_plan ->
+        "plan_changed"
+
+      DateTime.after?(new.license_expires_at, old.license_expires_at) ->
+        "renewed"
+
+      true ->
+        nil
+    end
   end
 
   defp announce({:ok, site} = result) do
@@ -171,14 +239,15 @@ defmodule Masthead.Licenses do
   def gift(%Site{} = site, months) when is_integer(months) and months > 0 do
     base = if paid?(site), do: site.license_expires_at, else: DateTime.utc_now()
 
-    site
-    |> Ecto.Changeset.change(
-      license_status: "active",
-      license_plan: site.license_plan || "gift",
-      license_expires_at: base |> DateTime.shift(month: months) |> DateTime.truncate(:second)
+    save(
+      site,
+      [
+        license_status: "active",
+        license_plan: site.license_plan || "gift",
+        license_expires_at: base |> DateTime.shift(month: months) |> DateTime.truncate(:second)
+      ],
+      fn _, _ -> %{kind: "gifted", source: "gift", amount_cents: 0} end
     )
-    |> Repo.update()
-    |> announce()
   end
 
   @doc "True when the site has a provider customer, so the billing portal can open."
@@ -189,14 +258,11 @@ defmodule Masthead.Licenses do
     expires_at =
       expires_at || DateTime.utc_now() |> DateTime.add(365, :day) |> DateTime.truncate(:second)
 
-    site
-    |> Ecto.Changeset.change(
-      license_status: "active",
-      license_plan: plan,
-      license_expires_at: expires_at
+    save(
+      site,
+      [license_status: "active", license_plan: plan, license_expires_at: expires_at],
+      fn _, _ -> %{kind: "granted", source: "grant", amount_cents: 0} end
     )
-    |> Repo.update()
-    |> announce()
   end
 
   @doc "Sites whose license lapsed before `at`. Not used in-app yet; handy from IEx."

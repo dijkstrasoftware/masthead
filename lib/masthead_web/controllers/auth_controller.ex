@@ -9,7 +9,7 @@ defmodule MastheadWeb.AuthController do
   plug Ueberauth
 
   alias Masthead.Accounts
-  alias MastheadWeb.UserAuth
+  alias MastheadWeb.{Attribution, UserAuth}
 
   # Reached only if the Ueberauth plug didn't recognise the provider
   # (it otherwise redirects to the provider during the request phase).
@@ -30,9 +30,13 @@ defmodule MastheadWeb.AuthController do
     # welcome trigger; returning users never fire it.
     on_create = fn user -> Accounts.deliver_welcome(user, url(~p"/sites")) end
 
-    case Accounts.get_or_create_user_from_oauth(oauth_info(auth), on_create: on_create) do
+    opts = [on_create: on_create, attribution: Attribution.user_attrs(conn)]
+
+    case Accounts.get_or_create_user_from_oauth(oauth_info(auth), opts) do
       {:ok, user} ->
-        UserAuth.log_in_user(conn, user, %{"flash" => "Signed in."})
+        conn
+        |> Attribution.delete()
+        |> UserAuth.log_in_user(user, %{"flash" => "Signed in."})
 
       {:error, :disabled} ->
         fail(conn, "This account has been disabled. Contact support if this is unexpected.")

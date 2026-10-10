@@ -3,7 +3,7 @@ defmodule MastheadWeb.AdminLive.SiteImport do
   on_mount {MastheadWeb.AdminLive.Hooks, :load_site}
 
   import MastheadWeb.AdminLive.Components
-  alias Masthead.Actions
+  alias Masthead.{Actions, Growth}
   alias Masthead.Content.SiteArchive
 
   @impl true
@@ -37,6 +37,10 @@ defmodule MastheadWeb.AdminLive.SiteImport do
     case result do
       {:ok, summary} ->
         Actions.complete_action(site, "import_site")
+        Growth.touch(author_id)
+
+        if Enum.any?(summary.posts ++ summary.pages, & &1.published),
+          do: Growth.mark_activated(author_id, "import")
 
         {:noreply,
          socket

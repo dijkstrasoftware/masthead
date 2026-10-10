@@ -57,7 +57,7 @@ defmodule MastheadWeb.AdminLive.SiteStats do
     assign(socket,
       totals: Stats.totals(site.id, range),
       previous: Stats.totals(site.id, previous),
-      chart: chart(Stats.daily(site.id, range, path)),
+      chart: bar_chart_data(Stats.daily(site.id, range, path), :views, :visitors),
       paths: Stats.top_paths(site.id, table_range)
     )
   end
@@ -93,30 +93,20 @@ defmodule MastheadWeb.AdminLive.SiteStats do
     end
   end
 
-  defp chart(daily) do
-    top = daily |> Enum.map(& &1.views) |> Enum.max() |> max(1)
-    %{top: top, days: Enum.map(daily, &with_heights(&1, top))}
-  end
-
   defp preview_chart(range) do
-    %{top: nil, days: range |> Enum.with_index() |> Enum.map(&preview_day/1)}
+    %{top: nil, bars: range |> Enum.with_index() |> Enum.map(&preview_day/1)}
   end
 
   defp preview_day({date, i}) do
     height = Float.round(45 + 30 * :math.sin(i / 2.2) + 10 * :math.sin(i / 0.9), 1)
 
-    Map.merge(@blank, %{
+    %{
       date: date,
-      views_height: height,
-      visitors_height: Float.round(height * 0.4, 1)
-    })
-  end
-
-  defp with_heights(day, top) do
-    Map.merge(day, %{
-      views_height: Float.round(day.views / top * 100, 1),
-      visitors_height: Float.round(day.visitors / top * 100, 1)
-    })
+      primary: nil,
+      secondary: nil,
+      primary_height: height,
+      secondary_height: Float.round(height * 0.4, 1)
+    }
   end
 
   defp stats_path(site, days, path, day) do
@@ -138,9 +128,6 @@ defmodule MastheadWeb.AdminLive.SiteStats do
     percent = round((current - previous) / previous * 100)
     if percent >= 0, do: "+#{percent}%", else: "#{percent}%"
   end
-
-  defp plural(1, word), do: "1 #{word}"
-  defp plural(count, word), do: "#{count} #{word}s"
 
   defp day_label(date), do: Calendar.strftime(date, "%-d %b")
 
@@ -224,44 +211,12 @@ defmodule MastheadWeb.AdminLive.SiteStats do
             />
           </section>
 
-          <figure class="stats-chart">
-            <div class="stats-plot">
-              <div class="stats-scale" aria-hidden="true">
-                <span>{@chart.top || "—"}</span>
-                <span>0</span>
-              </div>
-              <div class="stats-days">
-                <.link
-                  :for={day <- @chart.days}
-                  patch={stats_path(@site, @days, @path, toggle(@day, day.date))}
-                  class={["stats-day", day.date == @day && "selected"]}
-                  aria-label={"#{day_label(day.date)}: #{plural(day.views, "view")}, #{plural(day.visitors, "visitor")}"}
-                >
-                  <span class="stats-bar stats-bar-views" style={"height: #{day.views_height}%"}>
-                  </span>
-                  <span
-                    class="stats-bar stats-bar-visitors"
-                    style={"height: #{day.visitors_height}%"}
-                  >
-                  </span>
-                  <span class="stats-tip">
-                    <strong>{day_label(day.date)}</strong>
-                    <span>{plural(day.views, "view")}</span>
-                    <span>{plural(day.visitors, "visitor")}</span>
-                  </span>
-                </.link>
-              </div>
-            </div>
-            <figcaption>
-              <span>{day_label(hd(@chart.days).date)}</span>
-              <span class="stats-legend">
-                <span class="stats-key stats-key-views"></span>
-                Views <span class="stats-key stats-key-visitors"></span>
-                Visitors
-              </span>
-              <span>{day_label(List.last(@chart.days).date)}</span>
-            </figcaption>
-          </figure>
+          <.bar_chart
+            chart={@chart}
+            nouns={["view", "visitor"]}
+            patch={&stats_path(@site, @days, @path, toggle(@day, &1))}
+            selected={@day}
+          />
 
           <h2 class="section-heading">{if @day, do: "Pages on #{day_label(@day)}", else: "Pages"}</h2>
 

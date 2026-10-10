@@ -283,8 +283,13 @@ defmodule Masthead.Sites do
   Creates a site and its first membership (the creating `user`) in one
   transaction, then seeds the onboarding checklist. Also enqueues adding the
   creator to the mail provider's contacts (`Masthead.Workers.CreateContact`).
+
+  `theme_choice` records how the theme was picked for growth reporting:
+  `"chosen"`/`"skipped"` from the new-site wizard, `"default"` otherwise.
   """
-  def create_site(attrs, %User{id: user_id}), do: do_create_site(attrs, user_id)
+  def create_site(attrs, %User{id: user_id}, theme_choice \\ "default")
+      when theme_choice in ~w(chosen skipped default),
+      do: do_create_site(attrs, user_id, theme_choice)
 
   @doc """
   Convenience form used by seeds/tests: the creating user is taken from an
@@ -295,13 +300,23 @@ defmodule Masthead.Sites do
       Map.get(attrs, "owner_id") || Map.get(attrs, :owner_id) ||
         raise ArgumentError, "create_site/1 needs an owner_id in attrs; prefer create_site/2"
 
-    do_create_site(Map.drop(attrs, ["owner_id", :owner_id]), user_id)
+    do_create_site(Map.drop(attrs, ["owner_id", :owner_id]), user_id, "default")
   end
 
-  defp do_create_site(attrs, user_id) do
+  defp do_create_site(attrs, user_id, theme_choice) do
+    changeset = Site.create_changeset(%Site{}, attrs_with_default_theme(attrs))
+
+    # Set from trusted code, never cast: clients must not forge growth fields.
+    changeset =
+      Ecto.Changeset.change(changeset,
+        created_by_id: user_id,
+        initial_theme_id: Ecto.Changeset.get_field(changeset, :theme_id),
+        theme_choice: theme_choice
+      )
+
     result =
       Ecto.Multi.new()
-      |> Ecto.Multi.insert(:site, Site.create_changeset(%Site{}, attrs_with_default_theme(attrs)))
+      |> Ecto.Multi.insert(:site, changeset)
       |> Ecto.Multi.insert(:membership, fn %{site: site} ->
         SiteMembership.changeset(%SiteMembership{}, %{site_id: site.id, user_id: user_id})
       end)

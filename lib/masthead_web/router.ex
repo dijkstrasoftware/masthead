@@ -25,6 +25,7 @@ defmodule MastheadWeb.Router do
 
   pipeline :analytics do
     plug :put_analytics_id
+    plug MastheadWeb.Attribution
   end
 
   # Served here, not by Plug.Static, which would also answer on every tenant host.
@@ -120,6 +121,8 @@ defmodule MastheadWeb.Router do
         {MastheadWeb.UserAuth, :require_verified}
       ] do
       live "/admin", AdminLive.Console, :index
+      live "/admin/growth", AdminLive.Growth, :index
+      live "/admin/growth/:tab", AdminLive.Growth, :index
       live "/admin/:tab", AdminLive.Console, :index
       live "/admin/:tab/:filter", AdminLive.Console, :index
     end
