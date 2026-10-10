@@ -81,6 +81,7 @@ defmodule MastheadWeb.AdminLive.SiteSettings do
   def handle_event("save", %{"site" => params}, socket) do
     case Sites.update_settings(socket.assigns.site, params) do
       {:ok, site} ->
+        Masthead.Growth.touch(socket.assigns.current_user.id)
         changeset = Sites.change_settings(site)
 
         {:noreply,

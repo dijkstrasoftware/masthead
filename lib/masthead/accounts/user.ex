@@ -14,6 +14,17 @@ defmodule Masthead.Accounts.User do
     field :last_login_at, :utc_datetime
     field :wants_onboarding_emails, :boolean, default: true
     field :admin, :boolean, default: false
+    field :signup_method, :string, default: "email"
+    field :signup_method_inferred, :boolean, default: false
+    field :activated_at, :utc_datetime
+    field :activated_via, :string
+    field :utm_source, :string
+    field :utm_medium, :string
+    field :utm_campaign, :string
+    field :gclid_present, :boolean, default: false
+    field :landing_path, :string
+    field :referrer_domain, :string
+    field :first_seen_at, :utc_datetime
     # Populated only by `Sites.list_members/1` (the member's site-join time).
     field :joined_at, :utc_datetime, virtual: true
 
@@ -165,6 +176,17 @@ defmodule Masthead.Accounts.User do
     user
     |> registration_changeset(attrs)
     |> put_change(:confirmed_at, now())
+  end
+
+  @attribution_fields ~w(utm_source utm_medium utm_campaign gclid_present landing_path referrer_domain first_seen_at)a
+
+  @doc """
+  Stamps how the account was created plus the first-touch attribution from the
+  signup cookie. Internal only: these fields are never cast from user input.
+  """
+  def signup_changeset(changeset, method, attribution)
+      when method in ~w(email google github invite) do
+    change(changeset, Map.put(Map.take(attribution, @attribution_fields), :signup_method, method))
   end
 
   defp hash_password(changeset) do

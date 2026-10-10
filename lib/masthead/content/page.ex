@@ -14,6 +14,7 @@ defmodule Masthead.Content.Page do
     # templates/pages/ folder. nil for markdown/html pages.
     field :template, :string
     field :published, :boolean, default: false
+    field :published_at, :utc_datetime
     field :show_in_nav, :boolean, default: true
     field :page_options, :map, default: %{}
     belongs_to :site, Masthead.Sites.Site
@@ -48,6 +49,7 @@ defmodule Masthead.Content.Page do
       message: "lowercase letters, numbers, hyphens"
     )
     |> normalize_options(:page_options)
+    |> set_published_at()
     |> unique_constraint([:site_id, :slug], name: :pages_site_id_slug_index)
     |> assoc_constraint(:site)
   end
@@ -58,6 +60,15 @@ defmodule Masthead.Content.Page do
     case get_field(changeset, :format) do
       "theme" -> validate_required(changeset, [:template])
       _ -> put_change(changeset, :template, nil)
+    end
+  end
+
+  # Same rule as posts: stamped on first publish, never cleared.
+  defp set_published_at(changeset) do
+    if get_field(changeset, :published) && is_nil(get_field(changeset, :published_at)) do
+      put_change(changeset, :published_at, DateTime.utc_now() |> DateTime.truncate(:second))
+    else
+      changeset
     end
   end
 end

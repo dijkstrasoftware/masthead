@@ -5,7 +5,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
   import MastheadWeb.AdminLive.Components
   import MastheadWeb.AdminLive.SettingsFields, only: [settings_fields: 1, settings_form: 1]
 
-  alias Masthead.{Content, Realtime, Themes, Uploads}
+  alias Masthead.{Content, Growth, Realtime, Themes, Uploads}
   alias Masthead.Content.Page
   alias Masthead.Themes.Manifest
   alias MastheadWeb.AdminLive.SettingsFields
@@ -316,6 +316,8 @@ defmodule MastheadWeb.AdminLive.PageForm do
             end
           end)
 
+        if ok > 0, do: record_write(socket, false)
+
         {:noreply,
          socket
          |> put_flash(:info, import_flash("page", ok, failed))
@@ -412,6 +414,8 @@ defmodule MastheadWeb.AdminLive.PageForm do
 
     case result do
       {:ok, saved} ->
+        record_write(socket, saved.published)
+
         flash =
           case {socket.assigns.page, publish?} do
             {nil, true} -> "Page published."
@@ -456,6 +460,7 @@ defmodule MastheadWeb.AdminLive.PageForm do
 
         case Content.update_page(page, %{"published" => to_string(new_published)}) do
           {:ok, updated} ->
+            record_write(socket, updated.published)
             msg = if new_published, do: "Page published.", else: "Page unpublished."
 
             {:noreply,
@@ -638,6 +643,12 @@ defmodule MastheadWeb.AdminLive.PageForm do
 
   defp import_flash(entity, ok, failed),
     do: "Imported #{ok} #{entity}s. #{failed} couldn't be imported."
+
+  defp record_write(socket, published?) do
+    user_id = socket.assigns.current_user.id
+    Growth.touch(user_id)
+    if published?, do: Growth.mark_activated(user_id, "written")
+  end
 
   defp import_error(:too_large), do: "That file is too large (5MB max)."
   defp import_error(:not_accepted), do: "Only Markdown and HTML files are allowed."

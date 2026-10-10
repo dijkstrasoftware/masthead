@@ -5,7 +5,7 @@ defmodule MastheadWeb.InvitationController do
   alias Masthead.Accounts.User
   alias Masthead.Sites
   alias Masthead.Sites.SiteInvitation
-  alias MastheadWeb.UserAuth
+  alias MastheadWeb.{Attribution, UserAuth}
 
   # GET /invite/:token — the link from the invitation email.
   def new(conn, %{"token" => token}) do
@@ -34,12 +34,13 @@ defmodule MastheadWeb.InvitationController do
         # The invited email is authoritative; the form field is display-only.
         attrs = Map.put(user_params, "email", invitation.email)
 
-        case Accounts.register_invited_user(attrs) do
+        case Accounts.register_invited_user(attrs, Attribution.user_attrs(conn)) do
           {:ok, user} ->
             {:ok, _} = Sites.accept_invitation(invitation, user)
             Accounts.deliver_welcome(user, url(~p"/sites"))
 
             conn
+            |> Attribution.delete()
             |> put_session(:user_return_to, ~p"/#{invitation.site.slug}")
             |> UserAuth.log_in_user(user, %{
               "flash" => "Welcome! You've joined #{invitation.site.name}."

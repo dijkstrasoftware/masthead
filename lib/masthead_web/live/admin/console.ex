@@ -36,8 +36,10 @@ defmodule MastheadWeb.AdminLive.Console do
      )}
   end
 
-  # Tab and filter live in the URL (`/admin/:tab/:filter` or `?filter=`),
-  # so views are shareable. Unknown values fall back to the defaults.
+  # Tab, filter and search live in the URL (`/admin/:tab/:filter`,
+  # `?filter=`, `?search=`), so views are shareable — the Growth drill-down
+  # links accounts as `/admin/users/all?search=<email>`. Unknown values fall
+  # back to the defaults.
   @impl true
   def handle_params(params, _uri, socket) do
     tab = parse_tab(params)
@@ -47,6 +49,12 @@ defmodule MastheadWeb.AdminLive.Console do
       case parse_filter(tab, params) do
         nil -> socket
         filter -> assign(socket, :"#{tab}_filter", filter)
+      end
+
+    socket =
+      case params do
+        %{"search" => search} when tab != :tags -> assign(socket, :"#{tab}_search", search)
+        _ -> socket
       end
 
     {:noreply, load_data(socket)}

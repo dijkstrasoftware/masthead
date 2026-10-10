@@ -18,7 +18,7 @@ defmodule MastheadWeb.AdminLive.Components do
   attr :active, :atom,
     default: nil,
     doc:
-      ":overview | :stats | :posts | :pages | :uploads | :theme | :users | :settings | :checklist | :sites | :marketplace | :themes | :account"
+      ":overview | :stats | :posts | :pages | :uploads | :theme | :users | :settings | :checklist | :sites | :marketplace | :themes | :account | :admin | :growth"
 
   attr :action_count, :integer,
     default: nil,
@@ -160,6 +160,15 @@ defmodule MastheadWeb.AdminLive.Components do
               active={@active == :admin}
             >
               <.icon_shield />
+            </.nav_link>
+
+            <.nav_link
+              :if={@current_user && @current_user.admin}
+              href={~p"/admin/growth"}
+              label="Growth"
+              active={@active == :growth}
+            >
+              <.icon_chart />
             </.nav_link>
 
             <div class="sidebar-external">
@@ -732,6 +741,110 @@ defmodule MastheadWeb.AdminLive.Components do
       locked && selected != key && "format-card-disabled"
     ]
   end
+
+  @doc """
+  Normalises `rows` (maps with `:date` plus the `primary` and `secondary`
+  series keys) to percentage bar heights for `bar_chart/1`. The scale tops
+  out at the larger series' maximum.
+  """
+  def bar_chart_data(rows, primary, secondary) do
+    top = rows |> Enum.flat_map(&[&1[primary], &1[secondary]]) |> Enum.max(fn -> 0 end) |> max(1)
+
+    bars =
+      Enum.map(rows, fn row ->
+        %{
+          date: row.date,
+          primary: row[primary],
+          secondary: row[secondary],
+          primary_height: Float.round(row[primary] / top * 100, 1),
+          secondary_height: Float.round(row[secondary] / top * 100, 1)
+        }
+      end)
+
+    %{top: top, bars: bars}
+  end
+
+  attr :chart, :map,
+    required: true,
+    doc: "`bar_chart_data/3` output; `top: nil` blanks the scale (locked preview)"
+
+  attr :nouns, :list, required: true, doc: ~s(singular series nouns, e.g. `["view", "visitor"]`)
+  attr :patch, :any, default: nil, doc: "`date -> path`; makes each bar a patch link"
+  attr :selected, :any, default: nil, doc: "the highlighted bar's date"
+  attr :weekly, :boolean, default: false, doc: "bars are weeks starting on `date`"
+
+  @doc """
+  Daily (or weekly) bar chart of two overlaid series: `primary` as a wide pale
+  bar, `secondary` as a narrow solid one in front of it. Pure CSS; each bar
+  shows a tooltip on hover/focus.
+  """
+  def bar_chart(assigns) do
+    ~H"""
+    <figure class="stats-chart">
+      <div class="stats-plot">
+        <div class="stats-scale" aria-hidden="true">
+          <span>{@chart.top || "—"}</span>
+          <span>0</span>
+        </div>
+        <div class="stats-days">
+          <.link
+            :for={bar <- @chart.bars}
+            :if={@patch}
+            patch={@patch.(bar.date)}
+            class={["stats-day", bar.date == @selected && "selected"]}
+            aria-label={bar_text(bar, @nouns, @weekly)}
+          >
+            <.bar_body bar={bar} nouns={@nouns} weekly={@weekly} />
+          </.link>
+          <div
+            :for={bar <- @chart.bars}
+            :if={!@patch}
+            class="stats-day"
+            tabindex="0"
+            aria-label={bar_text(bar, @nouns, @weekly)}
+          >
+            <.bar_body bar={bar} nouns={@nouns} weekly={@weekly} />
+          </div>
+        </div>
+      </div>
+      <figcaption>
+        <span>{bar_label(hd(@chart.bars).date, @weekly)}</span>
+        <span class="stats-legend">
+          <span class="stats-key stats-key-primary"></span>
+          {series_name(Enum.at(@nouns, 0))}
+          <span class="stats-key stats-key-secondary"></span>
+          {series_name(Enum.at(@nouns, 1))}
+        </span>
+        <span>{bar_label(List.last(@chart.bars).date, @weekly)}</span>
+      </figcaption>
+    </figure>
+    """
+  end
+
+  defp bar_body(assigns) do
+    ~H"""
+    <span class="stats-bar stats-bar-primary" style={"height: #{@bar.primary_height}%"}></span>
+    <span class="stats-bar stats-bar-secondary" style={"height: #{@bar.secondary_height}%"}></span>
+    <span class="stats-tip">
+      <strong>{bar_label(@bar.date, @weekly)}</strong>
+      <span>{count_noun(@bar.primary, Enum.at(@nouns, 0))}</span>
+      <span>{count_noun(@bar.secondary, Enum.at(@nouns, 1))}</span>
+    </span>
+    """
+  end
+
+  defp bar_text(bar, [primary, secondary], weekly) do
+    "#{bar_label(bar.date, weekly)}: #{count_noun(bar.primary, primary)}, " <>
+      count_noun(bar.secondary, secondary)
+  end
+
+  defp bar_label(date, true), do: Calendar.strftime(date, "Week of %-d %b %Y")
+  defp bar_label(date, false), do: Calendar.strftime(date, "%-d %b")
+
+  defp series_name(noun), do: String.capitalize(noun) <> "s"
+
+  defp count_noun(1, noun), do: "1 #{noun}"
+  defp count_noun(count, noun), do: "#{count} #{noun}s"
 
   @doc "Human-readable byte count: `512 B`, `3.4 KB`, `12.5 MB`, `1.0 GB`."
   def format_bytes(b) when b < 1024, do: "#{b} B"
