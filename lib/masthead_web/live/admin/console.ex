@@ -80,6 +80,7 @@ defmodule MastheadWeb.AdminLive.Console do
       {:verified, "Verified"},
       {:unverified, "Unverified"},
       {:disabled, "Disabled"},
+      {:suspended, "Suspended"},
       {:admins, "Admins"}
     ]
 
@@ -392,12 +393,7 @@ defmodule MastheadWeb.AdminLive.Console do
             <tr :for={u <- @users}>
               <td>{u.email}</td>
               <td data-label="Status">
-                <span>
-                  <span class={"pill " <> if(Accounts.User.confirmed?(u), do: "pill-ok", else: "pill-warn")}>
-                    {if Accounts.User.confirmed?(u), do: "verified", else: "unverified"}
-                  </span>
-                  <span :if={Accounts.User.disabled?(u)} class="pill pill-danger">disabled</span>
-                </span>
+                <.user_status user={u} />
               </td>
               <td data-label="Role">{if u.admin, do: "admin", else: "—"}</td>
               <td data-label="Joined" class="muted"><.relative_time at={u.inserted_at} /></td>
@@ -897,6 +893,27 @@ defmodule MastheadWeb.AdminLive.Console do
 
   defp gift_date(%{license_expires_at: nil}), do: "—"
   defp gift_date(%{license_expires_at: at}), do: Calendar.strftime(at, "%-d %B %Y")
+
+  attr :user, :map, required: true
+
+  # One status per user, most severe first. The underlying flags overlap
+  # (a disabled user may also be suspended or verified); the admin sees only
+  # the one that decides what the user can do.
+  defp user_status(assigns) do
+    {label, class} =
+      cond do
+        Accounts.User.disabled?(assigns.user) -> {"disabled", "pill-danger"}
+        Accounts.User.suspended?(assigns.user) -> {"suspended", "pill-danger"}
+        Accounts.User.confirmed?(assigns.user) -> {"verified", "pill-ok"}
+        true -> {"unverified", "pill-warn"}
+      end
+
+    assigns = assign(assigns, label: label, class: class)
+
+    ~H"""
+    <span class={["pill", @class]}>{@label}</span>
+    """
+  end
 
   attr :id, :any, required: true
   attr :open?, :boolean, required: true

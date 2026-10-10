@@ -81,6 +81,38 @@ defmodule MastheadWeb.AdminConsoleLiveTest do
     assert html =~ member.email
   end
 
+  test "each user has one status and appears under only that filter", %{
+    conn: conn,
+    member: member
+  } do
+    # Verified, then disabled: shows as disabled only.
+    {:ok, _} = Accounts.verify_user(member)
+    {:ok, _} = member.id |> Accounts.get_user!() |> Accounts.disable_user()
+
+    {:ok, suspended} =
+      Accounts.register_user(%{
+        "email" => "susp-#{System.unique_integer([:positive])}@example.com",
+        "password" => "password1234"
+      })
+
+    Masthead.Repo.update!(Accounts.User.suspend_changeset(suspended))
+
+    for {user, status} <- [{member, "disabled"}, {suspended, "suspended"}],
+        filter <- ~w(verified unverified suspended disabled) do
+      {:ok, _lv, html} = live(conn, ~p"/admin/users/#{filter}")
+
+      pills =
+        html
+        |> LazyHTML.from_document()
+        |> LazyHTML.query("tbody tr")
+        |> Enum.filter(&(LazyHTML.text(&1) =~ user.email))
+        |> Enum.map(&(&1 |> LazyHTML.query(".pill") |> Enum.map(fn p -> LazyHTML.text(p) end)))
+
+      expected = if filter == status, do: [[status]], else: []
+      assert pills == expected, "#{user.email} under #{filter}: #{inspect(pills)}"
+    end
+  end
+
   test "switching tab and filter patches the URL", %{conn: conn} do
     {:ok, lv, _} = live(conn, ~p"/admin")
 
