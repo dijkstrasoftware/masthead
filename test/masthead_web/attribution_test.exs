@@ -134,7 +134,7 @@ defmodule MastheadWeb.AttributionTest do
       info = %{provider: :github, uid: "gh-#{email}", email: email, email_verified: true}
       first_seen = ~U[2026-10-01 08:00:00Z]
 
-      assert {:ok, user} =
+      assert {:ok, user, :created} =
                Accounts.get_or_create_user_from_oauth(info,
                  attribution: %{utm_source: "hn", first_seen_at: first_seen}
                )
@@ -143,7 +143,7 @@ defmodule MastheadWeb.AttributionTest do
       assert user.utm_source == "hn"
       assert user.first_seen_at == first_seen
 
-      assert {:ok, again} =
+      assert {:ok, again, :existing} =
                Accounts.get_or_create_user_from_oauth(info, attribution: %{utm_source: "other"})
 
       again = Masthead.Repo.reload!(again)
@@ -155,7 +155,7 @@ defmodule MastheadWeb.AttributionTest do
     test "OAuth linking to an existing email account keeps its signup method" do
       existing = register("attr-link")
 
-      assert {:ok, user} =
+      assert {:ok, user, :existing} =
                Accounts.get_or_create_user_from_oauth(
                  %{provider: :google, uid: "g-link", email: existing.email, email_verified: true},
                  attribution: %{utm_source: "x"}
@@ -164,6 +164,42 @@ defmodule MastheadWeb.AttributionTest do
       user = Masthead.Repo.reload!(user)
       assert user.signup_method == "email"
       assert user.utm_source == nil
+    end
+
+    test "an email signup flags only the next page for the Ads conversion", %{conn: conn} do
+      email = "attr-conv-#{System.unique_integer([:positive])}@example.com"
+
+      conn =
+        post(conn, ~p"/signup", %{"user" => %{"email" => email, "password" => "password1234"}})
+
+      assert redirected_to(conn) == ~p"/sites"
+
+      conn = get(recycle(conn), ~p"/sites")
+      assert html_response(conn, 200) =~ ~s(data-signup-conversion="email")
+
+      conn = get(recycle(conn), ~p"/sites")
+      refute html_response(conn, 200) =~ "data-signup-conversion"
+    end
+
+    test "an OAuth login flags the conversion only when it creates the account", %{conn: conn} do
+      email = "attr-conv-oauth-#{System.unique_integer([:positive])}@example.com"
+
+      auth = %Ueberauth.Auth{
+        provider: :github,
+        uid: "gh-#{email}",
+        info: %Ueberauth.Auth.Info{email: email}
+      }
+
+      callback = fn ->
+        conn
+        |> bypass_through(MastheadWeb.Router, [:browser])
+        |> get(~p"/")
+        |> assign(:ueberauth_auth, auth)
+        |> MastheadWeb.AuthController.callback(%{})
+      end
+
+      assert get_session(callback.(), :signup_conversion) == "github"
+      assert get_session(callback.(), :signup_conversion) == nil
     end
   end
 end

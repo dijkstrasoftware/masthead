@@ -4,6 +4,11 @@ defmodule MastheadWeb.Attribution do
   params, whether a `gclid` was present, the landing path, an external referrer
   host and the first-seen time — never the IP, user agent, full URL or `gclid`
   value. Signup copies it onto the user (`user_attrs/1`) and deletes it.
+
+  Also carries the Google Ads signup conversion: `mark_signup/2` flags the
+  session when an account is created, and `take_signup/1` (the `:analytics`
+  pipeline) moves it onto the next page once, where app.js sends the gtag
+  event. A failed form, a returning login or a reload never fires it.
   """
   import Plug.Conn
 
@@ -38,6 +43,17 @@ defmodule MastheadWeb.Attribution do
   end
 
   def delete(conn), do: delete_resp_cookie(conn, @cookie)
+
+  @doc "Flags a just-created account; `method` is `email`, `google` or `github`."
+  def mark_signup(conn, method), do: put_session(conn, :signup_conversion, to_string(method))
+
+  @doc "Pops the signup flag into `@signup_conversion` for this page only."
+  def take_signup(conn) do
+    case get_session(conn, :signup_conversion) do
+      nil -> conn
+      method -> conn |> delete_session(:signup_conversion) |> assign(:signup_conversion, method)
+    end
+  end
 
   defp capture(conn) do
     params = conn.query_params

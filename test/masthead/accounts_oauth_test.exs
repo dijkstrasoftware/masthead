@@ -19,7 +19,7 @@ defmodule Masthead.AccountsOAuthTest do
   test "creates a fresh, already-confirmed account + identity" do
     email = "new-#{System.unique_integer([:positive])}@example.com"
 
-    assert {:ok, user} =
+    assert {:ok, user, :created} =
              Accounts.get_or_create_user_from_oauth(info(%{email: email, uid: "g1#{email}"}))
 
     assert user.email == email
@@ -30,8 +30,8 @@ defmodule Masthead.AccountsOAuthTest do
     email = "ret-#{System.unique_integer([:positive])}@example.com"
     i = info(%{email: email, uid: "g-ret-#{email}"})
 
-    assert {:ok, u1} = Accounts.get_or_create_user_from_oauth(i)
-    assert {:ok, u2} = Accounts.get_or_create_user_from_oauth(i)
+    assert {:ok, u1, :created} = Accounts.get_or_create_user_from_oauth(i)
+    assert {:ok, u2, :existing} = Accounts.get_or_create_user_from_oauth(i)
     assert u1.id == u2.id
   end
 
@@ -42,7 +42,7 @@ defmodule Masthead.AccountsOAuthTest do
         "password" => "password1234"
       })
 
-    assert {:ok, user} =
+    assert {:ok, user, :existing} =
              Accounts.get_or_create_user_from_oauth(
                info(%{email: existing.email, uid: "gh-link", provider: :github})
              )

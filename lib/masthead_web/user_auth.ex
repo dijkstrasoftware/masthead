@@ -20,6 +20,7 @@ defmodule MastheadWeb.UserAuth do
     |> put_session(@session_key, user.id)
     |> put_session(:live_socket_id, "users_sessions:#{user.id}")
     |> maybe_put_flash(params)
+    |> maybe_mark_signup(params)
     |> redirect(to: return_to || "/sites")
   end
 
@@ -162,4 +163,9 @@ defmodule MastheadWeb.UserAuth do
     do: Phoenix.Controller.put_flash(conn, :info, msg)
 
   defp maybe_put_flash(conn, _), do: conn
+
+  defp maybe_mark_signup(conn, %{"signup" => method}),
+    do: MastheadWeb.Attribution.mark_signup(conn, method)
+
+  defp maybe_mark_signup(conn, _), do: conn
 end
