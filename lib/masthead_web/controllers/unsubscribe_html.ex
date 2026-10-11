@@ -3,24 +3,25 @@ defmodule MastheadWeb.UnsubscribeHTML do
 
   def onboarding(assigns) do
     ~H"""
-    <div class="auth-page">
-      <div class="auth-card">
-        <%= if @unsubscribed do %>
-          <h1>You're unsubscribed</h1>
-          <p>
-            You won't receive product emails from Masthead anymore. You can turn them
-            back on in your account settings.
-          </p>
-        <% else %>
-          <h1>Link expired</h1>
-          <p>This unsubscribe link is invalid or has expired.</p>
-        <% end %>
-
-        <p class="meta">
-          <a href={~p"/"}>Back to Masthead</a>
+    <.auth_layout
+      eyebrow="Email preferences"
+      title={if @unsubscribed, do: "You're unsubscribed.", else: "Link expired."}
+    >
+      <%= if @unsubscribed do %>
+        <h1>No more product emails</h1>
+        <p class="auth-sub">
+          You won't receive product emails from Masthead anymore. You can turn them
+          back on in your account settings.
         </p>
-      </div>
-    </div>
+      <% else %>
+        <h1>This link no longer works</h1>
+        <p class="auth-sub">This unsubscribe link is invalid or has expired.</p>
+      <% end %>
+
+      <p class="meta">
+        <a href={~p"/"}>Back to Masthead</a>
+      </p>
+    </.auth_layout>
     """
   end
 end

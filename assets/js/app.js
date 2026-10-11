@@ -165,6 +165,18 @@ function wirePasswordConfirm(form) {
 }
 document.querySelectorAll("form[data-confirm-password]").forEach(wirePasswordConfirm)
 
+// Show/hide on password fields (`password_input/1`). Delegated, so it works
+// on dead views and survives LiveView patches.
+document.addEventListener("click", e => {
+  const btn = e.target.closest && e.target.closest("[data-password-toggle]")
+  if (!btn) return
+  const input = btn.parentElement.querySelector("input")
+  const show = input.type === "password"
+  input.type = show ? "text" : "password"
+  btn.setAttribute("aria-pressed", String(show))
+  btn.setAttribute("aria-label", show ? "Hide password" : "Show password")
+})
+
 // Keyboard shortcuts. Pages opt in by adding data-shortcut="save",
 // "publish", "new", or "search" to the relevant element.
 //   - Cmd/Ctrl+S        → save
