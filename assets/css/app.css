@@ -6055,6 +6055,13 @@ button.growth-num:hover { color: var(--accent); text-decoration: underline dotte
 .growth .table .num-cell { text-align: right; font-variant-numeric: tabular-nums; }
 .growth details summary { cursor: pointer; }
 .growth-campaigns { margin: 0.4rem 0 0; padding-left: 1.1rem; font-size: 0.85rem; color: var(--muted); }
+.growth-cohorts th.growth-group { text-align: center; border-left: 1px solid var(--rule); }
+.growth-cohorts thead tr:last-child th:nth-child(1),
+.growth-cohorts thead tr:last-child th:nth-child(4),
+.growth-cohorts tbody td:nth-child(4),
+.growth-cohorts tbody td:nth-child(7) { border-left: 1px solid var(--rule); }
+.growth-cohorts td:first-child { white-space: nowrap; }
+.growth-scroll { overflow-x: auto; }
 
 .growth-panel {
   padding: 1.25rem 1.4rem;

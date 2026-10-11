@@ -40,6 +40,17 @@ defmodule Masthead.Licenses do
 
   def paid?(%Site{}), do: false
 
+  @doc "Query twin of `paid?/1` for reporting: narrows a `Site` query to paid sites."
+  def where_paid(query) do
+    now = DateTime.utc_now()
+
+    where(
+      query,
+      [s],
+      s.license_status in ~w(active canceling) and s.license_expires_at > ^now
+    )
+  end
+
   @doc """
   Cancelling leaves the site licensed until the period it already paid for
   runs out, so `paid?/1` stays true and this is what flags the wind-down.

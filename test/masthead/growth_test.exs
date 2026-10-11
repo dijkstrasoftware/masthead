@@ -3,6 +3,8 @@ defmodule Masthead.GrowthTest do
 
   alias Masthead.Accounts.User
   alias Masthead.Growth
+  alias Masthead.Licenses
+  alias Masthead.Licenses.Event
   alias Masthead.Sites.Site
 
   @all %{range: :all}
@@ -56,6 +58,92 @@ defmodule Masthead.GrowthTest do
     do: Repo.insert_all("user_activity_days", [%{user_id: user.id, date: date}])
 
   defp stage(funnel, name), do: Enum.find(funnel.stages, &(&1.stage == name))
+
+  # Pretend capture started long ago, so tracked signups can be weeks old.
+  # Rolled back with the test's sandbox transaction.
+  defp track_since(days_ago) do
+    Repo.update_all(
+      from(m in "schema_migrations", where: m.version == 20_261_010_120_000),
+      set: [inserted_at: days_ago |> ago() |> DateTime.to_naive()]
+    )
+  end
+
+  defp stripe(site, plan) do
+    {:ok, site} =
+      Licenses.apply_event(%{
+        type: :active,
+        site_id: site.id,
+        plan: plan,
+        status: "active",
+        customer_id: "cus_#{site.id}",
+        subscription_id: "sub_#{site.id}",
+        cancels_at_period_end: false,
+        expires_at: DateTime.add(ago(0), 30, :day)
+      })
+
+    site
+  end
+
+  defp started(site, at) do
+    Repo.insert!(%Event{site_id: site.id, kind: "started", source: "stripe", occurred_at: at})
+  end
+
+  test "paying customers come from Stripe, not gifts; MRR is per month", %{theme: theme} do
+    monthly = user()
+    yearly = user()
+    gifted = user()
+    stripe(site(monthly, theme), "monthly")
+    stripe(site(yearly, theme), "yearly")
+    {:ok, _} = Licenses.gift(site(gifted, theme), 3)
+
+    summary = Growth.summary(@all)
+
+    assert {summary.paying, summary.paid_sites} == {2, 2}
+
+    assert summary.mrr_cents ==
+             Licenses.amount("monthly") + round(Licenses.amount("yearly") / 12)
+
+    ids = Growth.drilldown(:paying, @all).users |> Enum.map(& &1.id) |> Enum.sort()
+    assert ids == Enum.sort([monthly.id, yearly.id])
+  end
+
+  test "became paying needs a Stripe start within the window after every earlier stage",
+       %{theme: theme} do
+    track_since(60)
+
+    for paid_after <- [5, 20] do
+      u = user(inserted_at: ago(25))
+      s = site(u, theme, inserted_at: after_signup(u, 1))
+      Repo.update_all(where(User, id: ^u.id), set: [activated_at: after_signup(u, 2)])
+      activity(u, Date.add(DateTime.to_date(u.inserted_at), 3))
+      started(s, after_signup(u, paid_after))
+    end
+
+    funnel = Growth.funnel(@all, 14)
+
+    assert stage(funnel, :returned).users == 2
+    assert %{users: 1, previous: 2} = stage(funnel, :paying)
+  end
+
+  test "weekly cohorts hide figures until the week is old enough" do
+    track_since(60)
+    signed_up = ago(20)
+
+    active = user(inserted_at: signed_up, activated_at: DateTime.add(signed_up, 3, :day))
+    activity(active, Date.add(DateTime.to_date(signed_up), 8))
+    user(inserted_at: signed_up)
+    user(inserted_at: ago(0))
+
+    weeks = Map.new(Growth.cohorts(), &{&1.week, &1})
+    old = weeks[Date.beginning_of_week(DateTime.to_date(signed_up))]
+    this_week = weeks[Date.beginning_of_week(Date.utc_today())]
+
+    assert %{signups: 2, tracked: 2, activated: [0, 1, nil], retained: [1, 1, nil]} = old
+    assert %{activated: [nil, nil, nil], retained: [nil, nil, nil]} = this_week
+
+    assert [%{channel: "Unknown", d7_cohort: 2, d7_retained: 1}] =
+             Growth.acquisition(@all, 14)
+  end
 
   test "totals count eligible users once and every site", %{theme: theme} do
     prolific = user()
