@@ -73,7 +73,7 @@
       })();
     </script>
   </head>
-  <body>
+  <body data-signup-conversion={assigns[:signup_conversion]}>
     {@inner_content}
     <script :if={chatwoot_token()} id="chatwoot-loader">
       window.chatwootSettings = { position: "right", type: "standard", launcherTitle: "" };

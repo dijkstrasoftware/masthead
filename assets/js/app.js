@@ -68,6 +68,10 @@ window.addEventListener("phx:navigate", ({detail}) => {
   window.gtag && gtag("event", "page_view", {page_location: detail.href})
 })
 
+if (document.body.dataset.signupConversion && window.gtag) {
+  gtag("event", "conversion_event_signup", {method: document.body.dataset.signupConversion})
+}
+
 // Global clipboard handler — buttons can do
 // phx-click={JS.dispatch("masthead:copy", detail: %{text: "..."})}
 // and the button label briefly flips to "Copied!".

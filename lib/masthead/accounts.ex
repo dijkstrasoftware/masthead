@@ -426,9 +426,9 @@ defmodule Masthead.Accounts do
       provider to vouch the email is verified)
     * else → create a fresh, already-confirmed account + identity
 
-  Returns `{:ok, user}` or `{:error, :disabled | :no_email |
-  :email_unverified}`. Options: `:on_create` (called with a newly created
-  user) and `:attribution` (first-touch map stored on a newly created user).
+  Returns `{:ok, user, :created | :existing}` or `{:error, :disabled |
+  :no_email | :email_unverified}`. Option `:attribution`: the first-touch map
+  stored on a newly created user.
   """
   def get_or_create_user_from_oauth(%{provider: provider, uid: uid} = info, opts \\ []) do
     provider = to_string(provider)
@@ -465,7 +465,7 @@ defmodule Masthead.Accounts do
     |> UserIdentity.changeset(%{user_id: user.id, provider: provider, provider_uid: uid})
     |> Repo.insert(on_conflict: :nothing)
 
-    {:ok, user}
+    {:ok, user, :existing}
   end
 
   defp create_user_with_identity(email, provider, uid, opts) do
@@ -486,10 +486,7 @@ defmodule Masthead.Accounts do
     |> Repo.transaction()
     |> case do
       {:ok, %{user: user}} ->
-        # OAuth accounts are confirmed on creation, so this is their only
-        # welcome trigger. `on_create` lets the caller pass a route-built URL.
-        if on_create = opts[:on_create], do: on_create.(user)
-        {:ok, user}
+        {:ok, user, :created}
 
       {:error, _, changeset, _} ->
         {:error, changeset}
@@ -497,7 +494,7 @@ defmodule Masthead.Accounts do
   end
 
   defp return_if_active(%User{} = user) do
-    if User.disabled?(user), do: {:error, :disabled}, else: {:ok, user}
+    if User.disabled?(user), do: {:error, :disabled}, else: {:ok, user, :existing}
   end
 
   @doc """

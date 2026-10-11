@@ -20,7 +20,8 @@ defmodule MastheadWeb.RegistrationController do
         conn
         |> Attribution.delete()
         |> UserAuth.log_in_user(user, %{
-          "flash" => "Account created. Check your email to confirm it."
+          "flash" => "Account created. Check your email to confirm it.",
+          "signup" => "email"
         })
 
       {:error, changeset} ->

@@ -173,6 +173,8 @@ defmodule MastheadWeb.Router do
   # Unset outside production, which keeps dev, test and any self-hosted install
   # out of the property.
   defp put_analytics_id(conn, _opts) do
-    assign(conn, :analytics_id, System.get_env("GOOGLE_ANALYTICS_ID"))
+    conn
+    |> assign(:analytics_id, System.get_env("GOOGLE_ANALYTICS_ID"))
+    |> MastheadWeb.Attribution.take_signup()
   end
 end
