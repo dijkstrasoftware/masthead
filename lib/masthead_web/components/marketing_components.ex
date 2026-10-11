@@ -2,7 +2,9 @@ defmodule MastheadWeb.MarketingComponents do
   @moduledoc """
   The marketing chrome — the nav and footer of the homepage. They also dress
   the signed-out marketplace, which is a public page wearing an admin body,
-  so both surfaces share one header and one footer instead of drifting.
+  so both surfaces share one header and one footer instead of drifting. The
+  auth screens (login, signup, invitations, password reset, verify,
+  unsubscribe) wear the same nav through `auth_layout/1`.
 
   `current_user` is optional: signed in, the calls to action become links
   into the dashboard.
@@ -13,6 +15,7 @@ defmodule MastheadWeb.MarketingComponents do
 
   attr :current_user, :map, default: nil
   attr :active, :atom, default: nil, doc: ":marketplace | :pricing | nil"
+  attr :cta, :boolean, default: true, doc: "false on auth screens, which are the login already"
 
   def marketing_nav(assigns) do
     ~H"""
@@ -64,7 +67,7 @@ defmodule MastheadWeb.MarketingComponents do
           </a>
         </div>
 
-        <div class="nav-cta">
+        <div :if={@cta} class="nav-cta">
           <.link :if={@current_user} navigate={~p"/sites"} class="btn btn-primary btn-sm">
             Open dashboard &rarr;
           </.link>
@@ -74,6 +77,81 @@ defmodule MastheadWeb.MarketingComponents do
         </div>
       </div>
     </nav>
+    """
+  end
+
+  @doc "The Theme → Masthead → Owner flow from the homepage hero."
+  def home_flow(assigns) do
+    ~H"""
+    <ol class="home-flow" aria-label="How Masthead sits between a website and its owner">
+      <li>
+        <strong>Theme</strong>
+        <span>Declares what its owner can change, in its manifest.</span>
+        <i class="home-flow-line" aria-hidden="true"></i>
+      </li>
+      <li class="home-flow-accent">
+        <strong>Masthead</strong>
+        <span>Builds the admin from that declaration, and runs the site.</span>
+        <i class="home-flow-line" aria-hidden="true"></i>
+      </li>
+      <li>
+        <strong>Owner</strong>
+        <span>Manages the content and the settings that matter. Nothing else.</span>
+      </li>
+    </ol>
+    """
+  end
+
+  attr :current_user, :map, default: nil
+  attr :eyebrow, :string, required: true
+  attr :title, :string, required: true
+  slot :story, doc: "Extra content under the title in the side column"
+  slot :inner_block, required: true, doc: "The form column; starts with the page's h1"
+
+  @doc """
+  Auth screen: the homepage nav over a light page, with one card holding the
+  form and a slim side column (eyebrow, title, story). Plain HTML, so it
+  works on dead controller views.
+  """
+  def auth_layout(assigns) do
+    ~H"""
+    <div class="landing landing-home auth-shell">
+      <div class="home-top">
+        <.marketing_nav current_user={@current_user} cta={false} />
+      </div>
+      <main class="auth-page">
+        <div class="auth-card">
+          <section class="auth-form">{render_slot(@inner_block)}</section>
+          <aside class="auth-aside">
+            <p class="home-eyebrow">{@eyebrow}</p>
+            <p class="auth-title">{@title}</p>
+            {render_slot(@story)}
+          </aside>
+        </div>
+      </main>
+    </div>
+    """
+  end
+
+  attr :name, :string, required: true
+  attr :rest, :global, include: ~w(required minlength autofocus autocomplete)
+
+  @doc "Password input with a show/hide button (wired in app.js)."
+  def password_input(assigns) do
+    ~H"""
+    <span class="auth-password">
+      <input type="password" name={@name} {@rest} />
+      <button
+        type="button"
+        class="auth-password-toggle"
+        data-password-toggle
+        aria-label="Show password"
+        aria-pressed="false"
+      >
+        <.icon name="hero-eye" class="auth-eye" />
+        <.icon name="hero-eye-slash" class="auth-eye-off" />
+      </button>
+    </span>
     """
   end
 
