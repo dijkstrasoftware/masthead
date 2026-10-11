@@ -7,6 +7,8 @@ defmodule Masthead.Growth do
   import Ecto.Query
 
   alias Masthead.Accounts.User
+  alias Masthead.Licenses
+  alias Masthead.Licenses.Event
   alias Masthead.Repo
   alias Masthead.Sites.Site
   alias Masthead.Themes.Theme
@@ -80,7 +82,7 @@ defmodule Masthead.Growth do
   # today. Every user number counts eligible users only; site counts are all
   # sites, soft-deleted included.
 
-  @stages [:signed_up, :created_site, :activated, :returned]
+  @stages [:signed_up, :created_site, :activated, :returned, :paying]
 
   @doc """
   When growth capture started: the moment the tracking migration ran.
@@ -104,7 +106,8 @@ defmodule Masthead.Growth do
   @doc """
   Card figures for the eligible users who signed up in range (sites: every
   site created in range). `*_all` are the all-time equivalents; returns only
-  count signups since `tracking_since/0`.
+  count signups since `tracking_since/0`. `paid_sites`/`mrr_cents` are the
+  current state, whatever the range.
   """
   def summary(filters) do
     users = rows(filters)
@@ -141,8 +144,11 @@ defmodule Masthead.Growth do
         count_where(
           d7_cohort,
           dynamic([x], x.last_active_on >= date_add(x.signup_date, 7, "day"))
-        )
+        ),
+      paying: count_where(users, reached(:paying, nil)),
+      paying_all: count_where(all, reached(:paying, nil))
     }
+    |> Map.merge(revenue())
   end
 
   @doc """
@@ -180,9 +186,116 @@ defmodule Masthead.Growth do
           users: counts.returned,
           previous: tracked_activated,
           signups: tracked_signups
+        },
+        %{
+          stage: :paying,
+          users: counts.paying,
+          previous: counts.returned,
+          signups: tracked_signups
         }
       ]
     }
+  end
+
+  @doc """
+  Paid sites right now (Stripe-sourced, not deleted) and their MRR in cents:
+  each site's latest priced event, monthly as-is, yearly ÷ 12. Sites known only
+  from the backfill have no price on record and use today's plan price.
+  """
+  def revenue do
+    priced =
+      from(e in Event,
+        where: e.kind in ~w(started renewed plan_changed) and not is_nil(e.amount_cents),
+        distinct: e.site_id,
+        order_by: [asc: e.site_id, desc: e.occurred_at, desc: e.id]
+      )
+
+    sites =
+      from(s in paid_sites(),
+        left_join: p in subquery(priced),
+        on: p.site_id == s.id,
+        select: {coalesce(p.plan, s.license_plan), p.amount_cents}
+      )
+      |> Repo.all()
+
+    mrr = sites |> Enum.map(fn {plan, cents} -> monthly(plan, cents) end) |> Enum.sum()
+    %{paid_sites: length(sites), mrr_cents: round(mrr)}
+  end
+
+  defp monthly("monthly", cents), do: cents || Licenses.amount("monthly")
+  defp monthly("yearly", cents), do: (cents || Licenses.amount("yearly")) / 12
+  defp monthly(_plan, cents), do: cents || 0
+
+  @doc """
+  Weekly signup cohorts (ISO weeks, newest first, up to `limit`), all time.
+  Activation by day n is over every signup in the week, retention (active on
+  or after day n) over its signups since `tracking_since/0`. A day-n figure
+  is nil until the week's last signup is n days old, and retention is nil for
+  weeks without tracked signups.
+  """
+  def cohorts(limit \\ 26) do
+    since = tracking_since()
+
+    weeks =
+      select_merge(rows(%{range: :all}), [x], %{
+        week: fragment("date_trunc('week', ?)::date", x.signed_up_at)
+      })
+
+    from(w in subquery(weeks),
+      group_by: w.week,
+      order_by: [desc: w.week],
+      limit: ^limit,
+      select: %{
+        week: w.week,
+        signups: count(w.id),
+        created_site: filter(count(w.id), not is_nil(w.first_site_at)),
+        tracked: filter(count(w.id), w.signed_up_at >= ^since),
+        activated_d1:
+          filter(count(w.id), w.activated_at <= datetime_add(w.signed_up_at, 1, "day")),
+        activated_d7:
+          filter(count(w.id), w.activated_at <= datetime_add(w.signed_up_at, 7, "day")),
+        activated_d30:
+          filter(count(w.id), w.activated_at <= datetime_add(w.signed_up_at, 30, "day")),
+        retained_d1:
+          filter(
+            count(w.id),
+            w.signed_up_at >= ^since and w.last_active_on >= date_add(w.signup_date, 1, "day")
+          ),
+        retained_d7:
+          filter(
+            count(w.id),
+            w.signed_up_at >= ^since and w.last_active_on >= date_add(w.signup_date, 7, "day")
+          ),
+        retained_d30:
+          filter(
+            count(w.id),
+            w.signed_up_at >= ^since and w.last_active_on >= date_add(w.signup_date, 30, "day")
+          )
+      }
+    )
+    |> Repo.all()
+    |> Enum.map(fn row ->
+      age = Date.diff(Date.utc_today(), Date.add(row.week, 6))
+      at = fn n, count -> if age >= n, do: count end
+      retained = fn n, count -> if age >= n and row.tracked > 0, do: count end
+
+      %{
+        week: row.week,
+        signups: row.signups,
+        created_site: row.created_site,
+        tracked: row.tracked,
+        activated: [
+          at.(1, row.activated_d1),
+          at.(7, row.activated_d7),
+          at.(30, row.activated_d30)
+        ],
+        retained: [
+          retained.(1, row.retained_d1),
+          retained.(7, row.retained_d7),
+          retained.(30, row.retained_d30)
+        ]
+      }
+    end)
   end
 
   @doc """
@@ -229,10 +342,14 @@ defmodule Masthead.Growth do
 
   @doc """
   Signups in range per channel, with how many activated within `window`
-  days; `campaigns` breaks a channel down by utm_medium/utm_campaign. The
-  `Unknown` row is always present and listed last.
+  days and rolling D7 retention (`d7_retained` of `d7_cohort`: tracked
+  signups at least 7 days old); `campaigns` breaks a channel down by
+  utm_medium/utm_campaign. The `Unknown` row is always present and listed last.
   """
   def acquisition(filters, window) when window in [7, 14, 30] do
+    since = tracking_since()
+    week_ago = Date.add(Date.utc_today(), -7)
+
     from(x in rows(filters),
       group_by: [x.channel, x.utm_medium, x.utm_campaign],
       select: %{
@@ -241,17 +358,28 @@ defmodule Masthead.Growth do
         campaign: x.utm_campaign,
         signups: count(x.id),
         activated:
-          filter(count(x.id), x.activated_at <= datetime_add(x.signed_up_at, ^window, "day"))
+          filter(count(x.id), x.activated_at <= datetime_add(x.signed_up_at, ^window, "day")),
+        d7_cohort: filter(count(x.id), x.signed_up_at >= ^since and x.signup_date <= ^week_ago),
+        d7_retained:
+          filter(
+            count(x.id),
+            x.signed_up_at >= ^since and x.signup_date <= ^week_ago and
+              x.last_active_on >= date_add(x.signup_date, 7, "day")
+          )
       }
     )
     |> Repo.all()
     |> Enum.group_by(& &1.channel)
     |> Map.put_new("Unknown", [])
     |> Enum.map(fn {channel, subs} ->
+      sum = fn key -> subs |> Enum.map(&Map.fetch!(&1, key)) |> Enum.sum() end
+
       %{
         channel: channel,
-        signups: subs |> Enum.map(& &1.signups) |> Enum.sum(),
-        activated: subs |> Enum.map(& &1.activated) |> Enum.sum(),
+        signups: sum.(:signups),
+        activated: sum.(:activated),
+        d7_cohort: sum.(:d7_cohort),
+        d7_retained: sum.(:d7_retained),
         campaigns: Enum.filter(subs, &(&1.medium || &1.campaign))
       }
     end)
@@ -306,11 +434,29 @@ defmodule Masthead.Growth do
         }
       )
 
+    # First Stripe start on any site the user created; history starts at
+    # `tracking_since/0`, the backfill only records who pays now.
+    first_paid =
+      from(e in Event,
+        join: s in Site,
+        on: s.id == e.site_id,
+        where: e.kind == "started" and not is_nil(s.created_by_id),
+        group_by: s.created_by_id,
+        select: %{user_id: s.created_by_id, at: min(e.occurred_at)}
+      )
+
+    paying =
+      from(s in paid_sites(), group_by: s.created_by_id, select: %{user_id: s.created_by_id})
+
     from(u in users,
       left_join: s in subquery(sites),
       on: s.user_id == u.id,
       left_join: a in subquery(activity),
       on: a.user_id == u.id,
+      left_join: fp in subquery(first_paid),
+      on: fp.user_id == u.id,
+      left_join: p in subquery(paying),
+      on: p.user_id == u.id,
       select: %{
         id: u.id,
         email: u.email,
@@ -322,11 +468,33 @@ defmodule Masthead.Growth do
         activated_via: u.activated_via,
         returned_on: a.returned_on,
         last_active_on: a.last_active_on,
+        first_paid_at: fp.at,
+        paying: not is_nil(p.user_id),
         channel: channel_expr(u),
         utm_medium: u.utm_medium,
         utm_campaign: u.utm_campaign
       }
     )
+  end
+
+  # Sites paid right now whose latest license event came from Stripe: gifts,
+  # grants and deleted sites don't count.
+  # ponytail: a gift top-up on a Stripe site hides it until its next renewal
+  # webhook; key on the subscription instead if that starts to matter.
+  defp paid_sites do
+    latest =
+      from(e in Event,
+        distinct: e.site_id,
+        order_by: [asc: e.site_id, desc: e.occurred_at, desc: e.id],
+        select: %{site_id: e.site_id, source: e.source}
+      )
+
+    from(s in Site,
+      join: l in subquery(latest),
+      on: l.site_id == s.id and l.source == "stripe",
+      where: is_nil(s.deleted_at)
+    )
+    |> Licenses.where_paid()
   end
 
   # Signups in range old enough to have had the full window.
@@ -341,6 +509,8 @@ defmodule Masthead.Growth do
   defp reached(:created_site, nil), do: dynamic([x], not is_nil(x.first_site_at))
   defp reached(:activated, nil), do: dynamic([x], not is_nil(x.activated_at))
   defp reached(:returned, nil), do: dynamic([x], not is_nil(x.returned_on) and ^tracked())
+  # Cards count who pays now; the funnel counts a first Stripe start in the window.
+  defp reached(:paying, nil), do: dynamic([x], x.paying)
 
   defp reached(:created_site, window),
     do: dynamic([x], x.first_site_at <= datetime_add(x.signed_up_at, ^window, "day"))
@@ -358,6 +528,14 @@ defmodule Masthead.Growth do
       [x],
       ^reached(:activated, window) and ^tracked() and
         x.returned_on <= date_add(x.signup_date, ^window, "day")
+    )
+  end
+
+  defp reached(:paying, window) do
+    dynamic(
+      [x],
+      ^reached(:returned, window) and
+        x.first_paid_at <= datetime_add(x.signed_up_at, ^window, "day")
     )
   end
 

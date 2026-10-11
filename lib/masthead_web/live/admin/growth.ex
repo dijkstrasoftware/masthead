@@ -12,12 +12,18 @@ defmodule MastheadWeb.AdminLive.Growth do
 
   alias Masthead.Growth
 
-  @tabs [overview: "Overview", funnel: "Funnel", acquisition: "Acquisition", themes: "Themes"]
+  @tabs [
+    overview: "Overview",
+    funnel: "Funnel",
+    retention: "Retention",
+    acquisition: "Acquisition",
+    themes: "Themes"
+  ]
   @tab_ids Enum.map(@tabs, fn {id, _} -> Atom.to_string(id) end)
   @ranges [7, 30, 90, :all]
   @windows [7, 14, 30]
-  @cards ~w(signed_up activated returned)
-  @stages ~w(signed_up created_site activated returned)
+  @cards ~w(signed_up activated returned paying)
+  @stages ~w(signed_up created_site activated returned paying)
 
   @impl true
   def mount(_params, _session, socket) do
@@ -57,6 +63,9 @@ defmodule MastheadWeb.AdminLive.Growth do
 
   defp load(%{assigns: %{tab: :themes, filters: filters, theme_scope: scope}} = socket),
     do: assign(socket, themes: Growth.themes(filters, scope))
+
+  defp load(%{assigns: %{tab: :retention}} = socket),
+    do: assign(socket, cohorts: Growth.cohorts())
 
   @impl true
   def handle_event("theme_scope", %{"scope" => scope}, socket) do
@@ -99,11 +108,13 @@ defmodule MastheadWeb.AdminLive.Growth do
   defp card_label(:signed_up), do: "Signups"
   defp card_label(:activated), do: "Activated signups"
   defp card_label(:returned), do: "Returning signups"
+  defp card_label(:paying), do: "Paying customers"
 
   defp stage_label(:signed_up), do: "Signed up"
   defp stage_label(:created_site), do: "Created first site"
   defp stage_label(:activated), do: "Activated"
   defp stage_label(:returned), do: "Returned"
+  defp stage_label(:paying), do: "Became paying"
 
   defp stage_info(:signed_up, _window),
     do: "Eligible users (not admins, not invited) who signed up in range and long enough ago."
@@ -121,6 +132,13 @@ defmodule MastheadWeb.AdminLive.Growth do
       "Active on a day after the signup day, within #{window} days, having reached every " <>
         "earlier stage. Only signups since growth tracking started."
 
+  defp stage_info(:paying, window),
+    do:
+      "Started a Stripe subscription on a site they created within #{window} days, having " <>
+        "reached every earlier stage. Gifts and grants don't count. Only signups since " <>
+        "growth tracking started."
+
+  defp pct(nil, _total), do: "—"
   defp pct(_count, total) when total in [nil, 0], do: "—"
   defp pct(count, total), do: "#{round(count * 100 / total)}%"
 
@@ -211,7 +229,7 @@ defmodule MastheadWeb.AdminLive.Growth do
                 {window}d
               </.link>
             </div>
-            <div id="growth-range" class="admin-filters">
+            <div :if={@tab != :retention} id="growth-range" class="admin-filters">
               <span class="growth-filter-label">Period</span>
               <.link
                 :for={range <- @ranges}
@@ -267,6 +285,20 @@ defmodule MastheadWeb.AdminLive.Growth do
               <span>of {@summary.tracked} tracked signups</span>
               <span>D7 retention {pct(@summary.d7_retained, @summary.d7_cohort)}</span>
             </.card>
+            <.card
+              id="card-paying"
+              metric="paying"
+              label="Paying customers"
+              value={@summary.paying}
+              info="Signups in range who created a site that is paid right now through Stripe. Gifts and grants don't count. Paid sites and MRR are today's totals, whatever the period."
+            >
+              <span :if={@range != :all}>{@summary.paying_all} all time</span>
+              <span>
+                {@summary.paid_sites} paid {if @summary.paid_sites == 1, do: "site", else: "sites"} · {Masthead.Licenses.format(
+                  @summary.mrr_cents
+                )} MRR
+              </span>
+            </.card>
           </div>
 
           <h2 class="growth-panel-title">
@@ -296,7 +328,7 @@ defmodule MastheadWeb.AdminLive.Growth do
                 <span :if={stage.stage == :activated} class="growth-sub">
                   {@funnel.activated.written} written · {@funnel.activated.import} imported
                 </span>
-                <span :if={stage.stage == :returned} class="growth-sub">
+                <span :if={stage.stage in [:returned, :paying]} class="growth-sub">
                   signups since {@since}
                 </span>
               </div>
@@ -332,6 +364,46 @@ defmodule MastheadWeb.AdminLive.Growth do
           </p>
         </section>
 
+        <section :if={@tab == :retention} id="growth-retention-tab">
+          <div class="growth-scroll">
+            <table id="growth-cohorts" class="table growth-table growth-cohorts">
+              <thead>
+                <tr>
+                  <th rowspan="2">Signup week</th>
+                  <th rowspan="2" class="num-cell">Signups</th>
+                  <th rowspan="2" class="num-cell">
+                    Created a site <.info text="Created at least one site, at any time." />
+                  </th>
+                  <th colspan="3" class="growth-group">
+                    Activated by
+                    <.info text="Published a page or post within 1, 7 or 30 days of signup." />
+                  </th>
+                  <th colspan="3" class="growth-group">
+                    Retained
+                    <.info text={"Active on or after day 1, 7 or 30 (rolling), among signups since #{@since}."} />
+                  </th>
+                </tr>
+                <tr>
+                  <th :for={day <- ~w(D1 D7 D30 D1 D7 D30)} class="num-cell">{day}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={week <- @cohorts} id={"cohort-#{week.week}"}>
+                  <td>{Calendar.strftime(week.week, "%-d %b %Y")}</td>
+                  <td class="num-cell">{week.signups}</td>
+                  <td class="num-cell">{pct(week.created_site, week.signups)}</td>
+                  <td :for={count <- week.activated} class="num-cell">{pct(count, week.signups)}</td>
+                  <td :for={count <- week.retained} class="num-cell">{pct(count, week.tracked)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p :if={@cohorts == []} class="growth-empty">No signups yet.</p>
+          <p class="growth-note">
+            Weeks start on Monday (UTC), newest first, at most 26. A figure shows — until the week's last signup is old enough, and retention only counts signups since {@since}.
+          </p>
+        </section>
+
         <section :if={@tab == :acquisition} id="growth-acquisition-tab">
           <table id="growth-acquisition" class="table growth-table">
             <thead>
@@ -343,6 +415,10 @@ defmodule MastheadWeb.AdminLive.Growth do
                 <th class="num-cell">Signups <.info text="Eligible signups in range." /></th>
                 <th class="num-cell">
                   Activated <.info text={"Share who published within #{@window} days of signup."} />
+                </th>
+                <th class="num-cell">
+                  D7 retained
+                  <.info text={"Active on or after day 7, among signups since #{@since} that are at least 7 days old."} />
                 </th>
               </tr>
             </thead>
@@ -356,7 +432,7 @@ defmodule MastheadWeb.AdminLive.Growth do
                         {c.medium || "—"} / {c.campaign || "—"}: {c.signups} signups, {pct(
                           c.activated,
                           c.signups
-                        )} activated
+                        )} activated, {pct(c.d7_retained, c.d7_cohort)} D7 retained
                       </li>
                     </ul>
                   </details>
@@ -374,6 +450,7 @@ defmodule MastheadWeb.AdminLive.Growth do
                   </button>
                 </td>
                 <td class="num-cell">{pct(row.activated, row.signups)}</td>
+                <td class="num-cell">{pct(row.d7_retained, row.d7_cohort)}</td>
               </tr>
             </tbody>
           </table>

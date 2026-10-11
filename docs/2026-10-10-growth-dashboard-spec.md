@@ -1,6 +1,6 @@
 # 2026-10-10 — Spec: Growth dashboard (admin)
 
-Status: Phase 1 built (2.31.0); Phases 2 and 3 not started. Source: founder brief
+Status: Phases 1 (2.31.0) and 2 (2.32.0) built; Phase 3 not started. Source: founder brief
 "Masthead Growth Dashboard" plus the answers to the open questions (see *Decisions*).
 
 ## Goal
@@ -70,9 +70,13 @@ All dates are **UTC calendar days**. "In range" means `>= start of first day` an
 - **Paying customer:** an eligible user who is `created_by_id` of a site that is
   currently `Licenses.paid?/1` **and** whose latest license event has
   `source = 'stripe'`. Gifts and grants are not paying.
-- **Paid site:** a site that is currently paid with a Stripe-sourced license.
+- **Paid site:** a site that is currently paid (`Licenses.where_paid/1`, the query twin
+  of `paid?/1`), not soft-deleted, whose latest license event has `source = 'stripe'`.
+  Known limit: gifting extra months to a Stripe site hides it until its next renewal
+  webhook.
 - **MRR:** the sum over paid sites of the monthly equivalent of the `amount_cents` on the
   site's latest `started`, `renewed` or `plan_changed` event: monthly as-is, yearly ÷ 12.
+  Sites known only from the backfill have no price on record and use today's plan price.
   Shown in `LICENSE_CURRENCY`.
 - **Channel** (derived from the attribution columns, in this order):
   1. `utm_source` (lowercased), e.g. `google`, `newsletter`
@@ -302,11 +306,11 @@ on tabs that use it.
 
 | Tab (`:tab`) | Content | Later |
 |---|---|---|
-| Overview (default) | Summary cards, activation rate first and highlighted; daily chart | P2: paying card |
-| Funnel | One row per stage: horizontal bar (share of signups), users, % of signups, % of previous + drop-off; one caption line under it. Window selector | P2: stage 5 |
-| Acquisition | Channel table, campaigns expand under the channel. Window selector | P2: D7 column · P3: theme by channel, campaign drill-downs |
+| Overview (default) | Summary cards, activation rate first and highlighted; paying customers card; daily chart | — |
+| Funnel | One row per stage (5): horizontal bar (share of signups), users, % of signups, % of previous + drop-off; one caption line under it. Window selector | — |
+| Retention | Weekly cohort table. Ignores the period filter, which is hidden on this tab | P3: channel filter |
+| Acquisition | Channel table with D7 retention column, campaigns expand under the channel. Window selector | P3: theme by channel, campaign drill-downs |
 | Themes | First/all sites toggle; stacked bar of the theme choice + legend; theme table | — |
-| Retention *(Phase 2)* | Cohort table; the tab is added with it, not shown empty before | — |
 
 Card numbers, funnel stages and channel signups open the drill-down: a slide-over on a
 dimmed backdrop, closed with the button, a click outside or Esc.
@@ -321,10 +325,11 @@ Tab and filters live in the URL (`/admin/growth/funnel?range=30&window=14`, Phas
 `&channel=google-ads&cohort=2026-W40`) and are applied with `push_patch`, the same
 pattern the console uses. Switching tabs keeps the filters.
 
-- **Range / "Period"** (default 30 days): applies to every figure: the cards (signups in
-  range, sites created in range), the chart, the funnel cohort, theme insights (sites
-  created in range) and acquisition (signups in range). Cards add the all-time
-  equivalent as a sub-line, hidden when the range is already "All time".
+- **Range / "Period"** (default 30 days): applies to every figure except the Retention
+  tab: the cards (signups in range, sites created in range), the chart, the funnel
+  cohort, theme insights (sites created in range) and acquisition (signups in range).
+  Cards add the all-time equivalent as a sub-line, hidden when the range is already
+  "All time". Paid sites and MRR are always today's totals.
 - **Channel** (Phase 3): restricts the eligible-user set everywhere.
 - **Cohort week** (Phase 3): restricts the eligible-user set to signups in that ISO week
   and overrides the range.
@@ -339,7 +344,7 @@ pattern the console uses. Switching tabs keeps the filters.
 | Signups | eligible signups | all time |
 | Sites created | sites created in range (every site) | sites per creator among signups in range; all time |
 | Returning | signups with ≥ 1 active day after signup day, among signups ≥ `tracking_since` | tracked signups; rolling D7 retention |
-| Paying customers *(Phase 2)* | paying customers | paid sites; MRR |
+| Paying customers | signups who created a site that is paid now | all time; paid sites and MRR (today) |
 
 **Funnel (MVP stages 1-4, Phase 2 adds 5)**
 
@@ -356,7 +361,9 @@ pattern the console uses. Switching tabs keeps the filters.
   many recent signups were left out.
 - Each stage shows: users, % of the previous stage, % of signups, and drop-off.
 - Stage 3 shows the written/import split.
-- Stage 4 is measured only for signups ≥ `tracking_since`, and the funnel says so.
+- Stages 4 and 5 are measured only for signups ≥ `tracking_since`, and the funnel says
+  so. Stage 5 needs a `started` event, which only exists from deploy on; the backfill
+  records who pays, not when they started.
 
 **Daily chart (MVP).** Signups and activations per UTC day over the range, as two series
 in the existing CSS bar chart. The `SiteStats` chart markup (227-264) and the `chart/1`
@@ -384,7 +391,9 @@ retention. Columns `utm_medium` / `utm_campaign` expand under the source row. Th
 - % activated by D1/D7/D30
 - % retained (rolling) D1/D7/D30
 
-A cell shows "—" when the cohort isn't old enough or predates `tracking_since`.
+A day-*n* cell shows "—" until the week's last signup is *n* days old; retention cells
+also show "—" for weeks without signups since `tracking_since` (retention divides by
+those tracked signups only). The table ignores the period filter.
 
 **Drill-down (MVP).** Clicking a card number, funnel stage or acquisition row opens a
 side panel listing up to 50 matching eligible accounts (newest first): email, signed

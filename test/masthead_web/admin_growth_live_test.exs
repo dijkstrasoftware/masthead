@@ -55,6 +55,14 @@ defmodule MastheadWeb.AdminGrowthLiveTest do
     refute has_element?(lv, "#card-users")
   end
 
+  test "the retention tab lists weekly cohorts without the period filter", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/admin/growth/retention")
+
+    week = Date.utc_today() |> Date.beginning_of_week() |> Date.to_iso8601()
+    assert has_element?(lv, "#cohort-#{week} td", "—")
+    refute has_element?(lv, "#growth-range")
+  end
+
   test "a figure opens the accounts behind it, linked to the users tab",
        %{conn: conn, recent: recent, old: old} do
     {:ok, lv, _html} = live(conn, ~p"/admin/growth?range=all")
