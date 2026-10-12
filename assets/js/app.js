@@ -62,8 +62,51 @@ topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
-// A live navigation never reloads the page, so gtag has to be told by hand.
-// No-op on every page where the analytics snippet wasn't rendered.
+const consentKey = "mh:consent"
+const consentBanner = document.getElementById("cookie-banner")
+const gaId = document.body.dataset.gaId
+
+const consentState = state => ({
+  ad_storage: state,
+  ad_user_data: state,
+  ad_personalization: state,
+  analytics_storage: state,
+})
+
+if (gaId) {
+  window.dataLayer = window.dataLayer || []
+  window.gtag = function () { window.dataLayer.push(arguments) }
+  gtag("consent", "default", consentState(localStorage.getItem(consentKey) === "granted" ? "granted" : "denied"))
+  gtag("js", new Date())
+  gtag("config", gaId)
+}
+
+if (consentBanner) {
+  document.documentElement.classList.add("has-consent")
+  if (!localStorage.getItem(consentKey)) consentBanner.hidden = false
+}
+
+const clearGoogleCookies = () => {
+  const domains = ["", `; domain=${location.hostname}`, `; domain=.${location.hostname.split(".").slice(-2).join(".")}`]
+  document.cookie.split(";").map(c => c.split("=")[0].trim()).filter(n => /^(_ga|_gcl|_gid)/.test(n)).forEach(name => {
+    domains.forEach(domain => { document.cookie = `${name}=; Max-Age=0; path=/${domain}` })
+  })
+}
+
+document.addEventListener("click", e => {
+  if (!consentBanner || !e.target.closest) return
+  const choice = e.target.closest("[data-consent]")
+  if (choice) {
+    const state = choice.dataset.consent
+    localStorage.setItem(consentKey, state)
+    gtag("consent", "update", consentState(state))
+    if (state === "denied") clearGoogleCookies()
+    consentBanner.hidden = true
+  } else if (e.target.closest("[data-consent-open]")) {
+    consentBanner.hidden = false
+  }
+})
+
 window.addEventListener("phx:navigate", ({detail}) => {
   window.gtag && gtag("event", "page_view", {page_location: detail.href})
 })

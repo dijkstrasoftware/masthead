@@ -173,6 +173,9 @@ defmodule MastheadWeb.MarketingComponents do
         <.link :if={@current_user} navigate={~p"/sites"}>Dashboard</.link>
         <.link :if={is_nil(@current_user)} navigate={~p"/login"}>Log in</.link>
         <.link :if={is_nil(@current_user)} navigate={~p"/signup"}>Sign up</.link>
+        <.link navigate={~p"/terms"}>Terms</.link>
+        <.link navigate={~p"/privacy"}>Privacy</.link>
+        <button type="button" class="landing-footer-button" data-consent-open>Cookie settings</button>
       </div>
       <div class="landing-footer-badges">
         <a

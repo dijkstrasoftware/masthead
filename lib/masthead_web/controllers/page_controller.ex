@@ -42,6 +42,18 @@ defmodule MastheadWeb.PageController do
     |> render(:pricing)
   end
 
+  def terms(conn, _params), do: legal(conn, :terms, "Terms of service", url(~p"/terms"))
+
+  def privacy(conn, _params), do: legal(conn, :privacy, "Privacy policy", url(~p"/privacy"))
+
+  defp legal(conn, template, title, canonical_url) do
+    conn
+    |> assign(:page_title, title)
+    |> assign(:meta_description, "#{title} for Masthead, provided by Dijkstra Software.")
+    |> assign(:canonical_url, canonical_url)
+    |> render(template)
+  end
+
   def home(conn, _params) do
     cond do
       conn.assigns[:current_user] ->
