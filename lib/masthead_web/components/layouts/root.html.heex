@@ -46,10 +46,6 @@
       src={"https://www.googletagmanager.com/gtag/js?id=#{@analytics_id}"}
     >
     </script>
-    <script :if={assigns[:analytics_id]} phx-no-format>window.dataLayer = window.dataLayer || [];
-                                    window.gtag = function(){dataLayer.push(arguments);}
-                                    gtag('js', new Date());
-                                    gtag('config', <%= raw(Jason.encode!(@analytics_id)) %>);</script>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
@@ -73,8 +69,30 @@
       })();
     </script>
   </head>
-  <body data-signup-conversion={assigns[:signup_conversion]}>
+  <body
+    data-signup-conversion={assigns[:signup_conversion]}
+    data-ga-id={assigns[:analytics_id]}
+  >
     {@inner_content}
+    <div
+      :if={assigns[:analytics_id]}
+      id="cookie-banner"
+      class="cookie-banner"
+      role="dialog"
+      aria-labelledby="cookie-banner-title"
+      hidden
+    >
+      <p id="cookie-banner-title" class="cookie-banner-title">Cookies</p>
+      <p>
+        With your permission, Google Analytics and Google Ads set cookies so we can see how
+        Masthead is used and which ads work. The cookies Masthead needs to run are always on.
+        <a href={~p"/privacy#cookies"}>Privacy policy</a>
+      </p>
+      <div class="cookie-banner-actions">
+        <button type="button" class="cookie-banner-btn" data-consent="denied">Reject all</button>
+        <button type="button" class="cookie-banner-btn" data-consent="granted">Accept all</button>
+      </div>
+    </div>
     <script :if={chatwoot_token()} id="chatwoot-loader">
       window.chatwootSettings = { position: "right", type: "standard", launcherTitle: "" };
       window.addEventListener("chatwoot:ready", () => {

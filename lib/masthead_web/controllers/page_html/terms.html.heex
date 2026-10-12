@@ -1,0 +1,166 @@
+<div class="landing landing-home">
+  <div class="home-top">
+    <.marketing_nav current_user={assigns[:current_user]} />
+
+    <section class="home-hero home-hero-compact">
+      <div class="home-wrap">
+        <p class="home-eyebrow">Legal</p>
+        <h1>Terms of service</h1>
+        <p class="home-lede">Last updated 12 October 2026.</p>
+      </div>
+    </section>
+  </div>
+
+  <section class="home-band">
+    <div class="home-wrap">
+      <div class="legal">
+        <p>
+          These terms apply to the hosted Masthead service at masthead.site, including the
+          dashboard, the marketplace and the sites it hosts. By creating an account you agree to
+          them. How we handle personal data is described in the <.link navigate={~p"/privacy"}>privacy policy</.link>.
+        </p>
+
+        <h2>1. Who provides Masthead</h2>
+        <p>
+          Masthead is provided by <strong>Dijkstra Software</strong>, a sole proprietorship
+          registered in the Netherlands with the Chamber of Commerce (KvK) under number
+          97259993. Contact: <a href="mailto:hello@masthead.site">hello@masthead.site</a>.
+        </p>
+        <p>
+          The Masthead software is open source under the MIT license. These terms cover the
+          service we run, not your use of the source code, which the MIT license governs.
+        </p>
+
+        <h2>2. Your account</h2>
+        <ul>
+          <li>You must be at least 16 years old to create an account.</li>
+          <li>
+            Give a working email address and confirm it. Accounts that aren't confirmed within
+            30 days are suspended until they are.
+          </li>
+          <li>
+            Keep your password and sign-in methods secure. You are responsible for what
+            happens under your account, including what collaborators you invite do on your
+            sites.
+          </li>
+        </ul>
+
+        <h2>3. Free sites and site licenses</h2>
+        <ul>
+          <li>Every site starts on the free plan, which has no time limit.</li>
+          <li>
+            A site license is per site and adds paid features such as a custom domain,
+            collaborators and visitor statistics. Current prices are on the <.link navigate={
+              ~p"/pricing"
+            }>pricing page</.link>.
+          </li>
+          <li>
+            Licenses are billed in advance, monthly or yearly, through Stripe, and renew
+            automatically until you cancel.
+          </li>
+          <li>
+            You can cancel at any time. The site stays licensed until the end of the period you
+            paid for and then returns to the free plan; your content is not affected.
+          </li>
+          <li>
+            Payments are not refunded, also not for a partly used period. This doesn't limit
+            any rights you have by law as a consumer.
+          </li>
+          <li>
+            We announce price changes at least 30 days before they apply to your next billing
+            period.
+          </li>
+        </ul>
+
+        <h2>4. Your content</h2>
+        <p>
+          You keep all rights to the content, uploads and themes you put on Masthead. You give
+          us permission to store, process and publish them only as far as needed to run your
+          sites and the service. You confirm that you have the rights to everything you upload.
+        </p>
+        <p>
+          You are responsible for your sites, including complying with the law that applies to
+          them, such as privacy rules for any personal data you publish or collect on them.
+        </p>
+
+        <h2>5. What isn't allowed</h2>
+        <p>Don't use Masthead to publish, host or send:</p>
+        <ul>
+          <li>anything illegal, including content that infringes someone else's rights;</li>
+          <li>malware, phishing, or sites that impersonate others;</li>
+          <li>spam or unsolicited bulk messages;</li>
+          <li>content that sexually exploits minors, or that threatens or harasses people;</li>
+          <li>attempts to break, overload or get around the security of the service or the
+            sandbox that themes run in.</li>
+        </ul>
+        <p>
+          To report content on a Masthead site that you believe is illegal, email
+          <a href="mailto:hello@masthead.site">hello@masthead.site</a>
+          with the address of the
+          page and why. We review every report and tell you what we decided.
+        </p>
+        <p>
+          If a site or account breaks these terms, we may take the content offline, suspend the
+          site or close the account. Where we can, we warn you first and explain why.
+        </p>
+
+        <h2>6. Themes and the marketplace</h2>
+        <ul>
+          <li>Only upload themes you have the right to distribute.</li>
+          <li>
+            By publishing a theme to the marketplace, you allow every Masthead user to install
+            and use it on their Masthead sites.
+          </li>
+          <li>
+            We may remove a theme from the marketplace if it breaks these terms or doesn't work.
+          </li>
+        </ul>
+
+        <h2>7. Custom domains</h2>
+        <p>
+          You may only connect domains you control. You remain responsible for the domain's
+          registration and DNS; we provision the TLS certificate once ownership is verified.
+        </p>
+
+        <h2>8. Availability and changes</h2>
+        <p>
+          We work to keep Masthead available and your data safe, but the service is provided as
+          is, without a guaranteed uptime. Keep your own copies of content you can't afford to
+          lose. We may change or remove features; if a change takes away something you pay
+          for, we tell you in advance.
+        </p>
+
+        <h2>9. Liability</h2>
+        <p>
+          Our total liability to you is limited to the amount you paid us in the 12 months
+          before the event that caused the damage. We are not liable for indirect damage such
+          as lost profit or lost data. These limits don't apply to damage caused by our intent
+          or gross negligence, or where the law doesn't allow them.
+        </p>
+
+        <h2>10. Ending your account</h2>
+        <p>
+          You can stop using Masthead at any time. To have your account and sites deleted,
+          email <a href="mailto:hello@masthead.site">hello@masthead.site</a> from the account's
+          address. Cancel any site licenses first; we don't refund the remaining period.
+        </p>
+
+        <h2>11. Changes to these terms</h2>
+        <p>
+          We may update these terms. For significant changes, we email account holders at least
+          30 days before they take effect. If you don't agree, you can close your account before
+          then.
+        </p>
+
+        <h2>12. Law and disputes</h2>
+        <p>
+          Dutch law applies to these terms. Disputes go to the competent court in the
+          Netherlands. If you are a consumer living elsewhere in the EU, you keep the protection
+          of the mandatory rules of your country and can also bring a claim there.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <.marketing_footer current_user={assigns[:current_user]} />
+</div>

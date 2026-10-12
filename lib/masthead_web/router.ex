@@ -44,6 +44,8 @@ defmodule MastheadWeb.Router do
 
     get "/", PageController, :home
     get "/pricing", PageController, :pricing
+    get "/terms", PageController, :terms
+    get "/privacy", PageController, :privacy
 
     get "/login", SessionController, :new
     post "/login", SessionController, :create
